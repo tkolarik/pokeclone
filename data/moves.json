@@ -79,7 +79,7 @@
     {"name": "Weaken", "type": "Normal", "power": 0, "effect": {"target": "opponent", "stat": "attack", "change": 1}},
     {"name": "Break Guard", "type": "Normal", "power": 0, "effect": {"target": "opponent", "stat": "defense", "change": 1}},
     {"name": "Battle Cry", "type": "Normal", "power": 0, "effect": {"target": "self", "stat": "attack", "change": 2}},
-    {"name": "Iron Defense", "type": "Normal", "power": 0, "effect": {"target": "self", "stat": "defense", "change": 2}},
+    {"name": "Steel Defense", "type": "Normal", "power": 0, "effect": {"target": "self", "stat": "defense", "change": 2}},
     {"name": "Intimidate", "type": "Normal", "power": 0, "effect": {"target": "opponent", "stat": "attack", "change": 2}},
     {"name": "Corrode", "type": "Normal", "power": 0, "effect": {"target": "opponent", "stat": "defense", "change": 2}}
 ]
