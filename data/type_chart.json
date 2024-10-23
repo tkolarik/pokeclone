@@ -1,0 +1,17 @@
+{
+    "Fire": {"Water": 0.5, "Earth": 2, "Wind": 1, "Ice": 2, "Nature": 2},
+    "Water": {"Fire": 2, "Earth": 1, "Electric": 0.5, "Ice": 0.5},
+    "Earth": {"Fire": 0.5, "Water": 2, "Electric": 2, "Wind": 0.5},
+    "Wind": {"Earth": 2, "Electric": 0.5},
+    "Electric": {"Water": 2, "Wind": 2, "Earth": 0.5},
+    "Ice": {"Fire": 0.5, "Water": 0.5, "Nature": 2},
+    "Nature": {"Fire": 0.5, "Water": 2, "Ice": 0.5},
+    "Mind": {"Shadow": 2, "Light": 0.5},
+    "Shadow": {"Mind": 0.5, "Light": 2},
+    "Light": {"Shadow": 0.5, "Mind": 2},
+    "Metal": {"Fire": 0.5, "Water": 0.5, "Electric": 0.5},
+    "Toxic": {"Nature": 2, "Metal": 0.5},
+    "Sound": {"Wind": 1.5, "Earth": 0.5},
+    "Crystal": {"Sound": 0.5, "Light": 1.5},
+    "Cosmic": {"Light": 0.5, "Shadow": 1.5}
+  }

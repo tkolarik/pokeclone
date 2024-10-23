@@ -1,0 +1,242 @@
+[
+    {
+      "name": "Embercub",
+      "type": "Fire",
+      "max_hp": 100,
+      "attack": 70,
+      "defense": 60,
+      "moves": ["Flame Burst", "Ember Strike", "Gale Force", "Power Up"]
+    },
+    {
+      "name": "Aquafin",
+      "type": "Water",
+      "max_hp": 110,
+      "attack": 65,
+      "defense": 65,
+      "moves": ["Tsunami Blast", "Water Rush", "Frost Spike", "Defend Up"]
+    },
+    {
+      "name": "Terrapod",
+      "type": "Earth",
+      "max_hp": 130,
+      "attack": 75,
+      "defense": 80,
+      "moves": ["Seismic Slam", "Stone Slide", "Steel Tail", "Break Guard"]
+    },
+    {
+      "name": "Zephyrix",
+      "type": "Wind",
+      "max_hp": 90,
+      "attack": 80,
+      "defense": 55,
+      "moves": ["Cyclone Slash", "Wind Ace", "Lightning Bolt", "Weaken"]
+    },
+    {
+      "name": "Sparkitty",
+      "type": "Electric",
+      "max_hp": 95,
+      "attack": 75,
+      "defense": 60,
+      "moves": ["Volt Charge", "Static Shock", "Chrome Claw", "Wind Cutter"]
+    },
+    {
+      "name": "Frostbite",
+      "type": "Ice",
+      "max_hp": 105,
+      "attack": 65,
+      "defense": 70,
+      "moves": ["Glacial Beam", "Frost Bite", "Water Rush", "Crystal Shard"]
+    },
+    {
+      "name": "Leafeonix",
+      "type": "Nature",
+      "max_hp": 110,
+      "attack": 70,
+      "defense": 65,
+      "moves": ["Solar Ray", "Nature Storm", "Venom Fang", "Quake Fist"]
+    },
+    {
+      "name": "Psycat",
+      "type": "Mind",
+      "max_hp": 100,
+      "attack": 75,
+      "defense": 65,
+      "moves": ["Psi Blast", "Mind Crush", "Spirit Claw", "Prism Strike"]
+    },
+    {
+      "name": "Shadowpaw",
+      "type": "Shadow",
+      "max_hp": 95,
+      "attack": 80,
+      "defense": 55,
+      "moves": ["Nightmare Strike", "Shadow Pulse", "Psychic Wave", "Venom Strike"]
+    },
+    {
+      "name": "Lumina",
+      "type": "Light",
+      "max_hp": 100,
+      "attack": 70,
+      "defense": 70,
+      "moves": ["Radiant Beam", "Aurora Blast", "Spark Blast", "Crystal Shard"]
+    },
+    {
+      "name": "Steelex",
+      "type": "Metal",
+      "max_hp": 120,
+      "attack": 65,
+      "defense": 85,
+      "moves": ["Chrome Crusher", "Metal Wing", "Stone Slide", "Lightning Bolt"]
+    },
+    {
+      "name": "Toxifrog",
+      "type": "Toxic",
+      "max_hp": 95,
+      "attack": 75,
+      "defense": 60,
+      "moves": ["Toxic Bomb", "Toxic Spray", "Water Rush", "Spirit Claw"]
+    },
+    {
+      "name": "Decibelle",
+      "type": "Sound",
+      "max_hp": 90,
+      "attack": 80,
+      "defense": 50,
+      "moves": ["Resonance Wave", "Echo Pulse", "Psychic Wave", "Wind Ace"]
+    },
+    {
+      "name": "Crystaline",
+      "type": "Crystal",
+      "max_hp": 110,
+      "attack": 65,
+      "defense": 75,
+      "moves": ["Diamond Storm", "Gem Blast", "Frost Spike", "Radiant Beam"]
+    },
+    {
+      "name": "Novastar",
+      "type": "Cosmic",
+      "max_hp": 100,
+      "attack": 75,
+      "defense": 65,
+      "moves": ["Meteor Strike", "Galactic Pulse", "Psi Blast", "Solar Flare"]
+    },
+    {
+      "name": "Infernog",
+      "type": "Fire",
+      "max_hp": 115,
+      "attack": 80,
+      "defense": 65,
+      "moves": ["Inferno Rush", "Magma Surge", "Terra Force", "Chrome Claw"]
+    },
+    {
+      "name": "Tsunamidon",
+      "type": "Water",
+      "max_hp": 125,
+      "attack": 70,
+      "defense": 75,
+      "moves": ["Tidal Crash", "Whirlpool Spin", "Frost Spike", "Resonance Wave"]
+    },
+    {
+      "name": "Boulderax",
+      "type": "Earth",
+      "max_hp": 140,
+      "attack": 75,
+      "defense": 85,
+      "moves": ["Terra Force", "Quake Fist", "Steel Tail", "Venom Strike"]
+    },
+    {
+      "name": "Tornadron",
+      "type": "Wind",
+      "max_hp": 95,
+      "attack": 85,
+      "defense": 55,
+      "moves": ["Tornado Spin", "Gale Force", "Lightning Bolt", "Sound Wave"]
+    },
+    {
+      "name": "Volteon",
+      "type": "Electric",
+      "max_hp": 100,
+      "attack": 80,
+      "defense": 60,
+      "moves": ["Lightning Strike", "Spark Blast", "Metal Wing", "Wind Cutter"]
+    },
+    {
+      "name": "Glacierox",
+      "type": "Ice",
+      "max_hp": 110,
+      "attack": 70,
+      "defense": 75,
+      "moves": ["Cryo Blast", "Hail Storm", "Water Rush", "Crystal Shard"]
+    },
+    {
+      "name": "Floravine",
+      "type": "Nature",
+      "max_hp": 105,
+      "attack": 75,
+      "defense": 70,
+      "moves": ["Thorn Barrage", "Nature Dance", "Venom Fang", "Stone Slide"]
+    },
+    {
+      "name": "Cerebron",
+      "type": "Mind",
+      "max_hp": 95,
+      "attack": 85,
+      "defense": 60,
+      "moves": ["Telekinetic Throw", "Brain Shock", "Spirit Claw", "Gem Blast"]
+    },
+    {
+      "name": "Umbragon",
+      "type": "Shadow",
+      "max_hp": 105,
+      "attack": 85,
+      "defense": 60,
+      "moves": ["Void Blast", "Umbra Slash", "Psychic Wave", "Toxic Surge"]
+    },
+    {
+      "name": "Solarix",
+      "type": "Light",
+      "max_hp": 100,
+      "attack": 75,
+      "defense": 75,
+      "moves": ["Solar Flare", "Luminous Burst", "Spark Blast", "Psychic Wave"]
+    },
+    {
+      "name": "Ironheart",
+      "type": "Metal",
+      "max_hp": 130,
+      "attack": 70,
+      "defense": 90,
+      "moves": ["Steel Burst", "Chrome Claw", "Rock Pierce", "Volt Charge"]
+    },
+    {
+      "name": "Venomusk",
+      "type": "Toxic",
+      "max_hp": 90,
+      "attack": 80,
+      "defense": 55,
+      "moves": ["Toxic Surge", "Venom Fang", "Wind Cutter", "Spirit Claw"]
+    },
+    {
+      "name": "Boombox",
+      "type": "Sound",
+      "max_hp": 95,
+      "attack": 85,
+      "defense": 55,
+      "moves": ["Howl Cannon", "Screech Blast", "Spark Blast", "Psychic Wave"]
+    },
+    {
+      "name": "Gemodite",
+      "type": "Crystal",
+      "max_hp": 115,
+      "attack": 70,
+      "defense": 80,
+      "moves": ["Prism Beam", "Quartz Rush", "Frost Spike", "Radiant Beam"]
+    },
+    {
+      "name": "Nebulox",
+      "type": "Cosmic",
+      "max_hp": 105,
+      "attack": 80,
+      "defense": 70,
+      "moves": ["Nebula Burst", "Star Shower", "Psi Blast", "Intimidate"]
+    }
+]
