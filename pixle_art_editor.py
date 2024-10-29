@@ -416,6 +416,12 @@ class Palette:
             )
             if rect.collidepoint(x, y):
                 editor.select_color(color)
+                # Disable paste mode and select mode when selecting a color
+                editor.paste_mode = False
+                if editor.mode == 'select':
+                    editor.mode = 'draw'
+                    editor.selection.selecting = False
+                    editor.selection.active = False
                 return
 
 # Selection Tool Class
@@ -462,15 +468,13 @@ class SelectionTool:
     def toggle(self):
         """
         Toggle the selection tool's activation state.
-
-        This method toggles the selection tool's activation state and deactivates
-        the selection if it was active.
         """
-        self.selecting = not self.selecting
-        if not self.selecting:
-            self.active = False
-            self.rect = pygame.Rect(0, 0, 0, 0)
-            print("Selection mode deactivated.")
+        self.selecting = True  # Always start fresh selection
+        self.active = False  # Reset active state
+        self.start_pos = None  # Reset start position
+        self.end_pos = None  # Reset end position
+        self.rect = pygame.Rect(0, 0, 0, 0)  # Reset rectangle
+        print("Selection mode activated.")
 
     def start(self, pos):
         """
@@ -533,11 +537,9 @@ class SelectionTool:
     def draw(self, surface):
         """
         Draw the selection rectangle on a given surface.
-
-        Args:
-            surface (pygame.Surface): The surface on which to draw the selection rectangle.
         """
-        if self.active and self.rect.width > 0 and self.rect.height > 0:
+        # Draw selection rectangle while selecting (mouse down) or when selection is active
+        if (self.selecting and self.start_pos and self.end_pos) or self.active:
             sprite = self.editor.sprites[self.editor.current_sprite]
             x0, y0 = sprite.position
             selection_surface = pygame.Surface((self.rect.width * PIXEL_SIZE, self.rect.height * PIXEL_SIZE), pygame.SRCALPHA)
@@ -652,17 +654,28 @@ class Editor:
 
     def choose_edit_mode(self):
         """
-        Choose the editing mode (monster or background).
-
-        This method allows the user to choose between editing monster sprites
-        or background images. It returns the chosen mode as a string.
-
+        Choose the editing mode (monster or background) and handle background actions.
+        This method ensures that after the edit mode is chosen, the Pygame window regains focus.
+    
         Returns:
             str: The chosen editing mode ('monster' or 'background').
         """
-        # For now, let's default to 'monster' mode
-        # You can implement a dialog to choose between 'monster' and 'background' later
-        return 'monster'
+        mode = self.show_edit_mode_dialog()
+        if mode == 'background':
+            self.choose_background_action()
+        else:
+            pass  # Additional logic if needed
+        self.refocus_pygame_window()
+        return mode
+
+    def refocus_pygame_window(self):
+        """
+        Refocus the Pygame window to ensure it is active after dialog interactions.
+        This is done by minimizing and then restoring the window, which brings it to the foreground.
+        """
+        pygame.display.iconify()
+        pygame.display.set_mode((WIDTH, HEIGHT))
+        print("Editor window refocused.")
 
     def create_buttons(self):
         """
@@ -727,6 +740,12 @@ class Editor:
         if color_code and color_code[0]:
             r, g, b = map(int, color_code[0])
             self.select_color((r, g, b, 255))
+            # Disable paste mode and select mode when using color picker
+            self.paste_mode = False
+            if self.mode == 'select':
+                self.mode = 'draw'
+                self.selection.selecting = False
+                self.selection.active = False
 
     def select_color(self, color):
         """
@@ -742,6 +761,12 @@ class Editor:
             self.current_color = color
             self.eraser_mode = False
             self.fill_mode = False
+            # Disable paste mode and select mode when selecting a color
+            self.paste_mode = False
+            if self.mode == 'select':
+                self.mode = 'draw'
+                self.selection.selecting = False
+                self.selection.active = False
             print(f"Selected color: {color}")
 
     def load_backgrounds(self):
@@ -834,24 +859,6 @@ class Editor:
         root.wait_window(dialog)
 
         return selected_action.get()
-
-    def choose_edit_mode(self):
-        """
-        Choose the editing mode (monster or background) and handle background actions.
-
-        This method displays a dialog to choose the editing mode (monster or background)
-        and handles background-specific actions (new or edit) if the background mode
-        is chosen. It returns the chosen editing mode as a string.
-
-        Returns:
-            str: The chosen editing mode ('monster' or 'background').
-        """
-        mode = self.show_edit_mode_dialog()
-        if mode == 'background':
-            self.choose_background_action()
-            return 'background'
-        else:
-            return 'monster'
 
     def choose_background_action(self):
         """
@@ -1051,6 +1058,12 @@ class Editor:
             self.current_color = color
             self.eraser_mode = False
             self.fill_mode = False
+            # Disable paste mode and select mode when selecting a color
+            self.paste_mode = False
+            if self.mode == 'select':
+                self.mode = 'draw'
+                self.selection.selecting = False
+                self.selection.active = False
             print(f"Selected color: {color}")
 
     def open_color_picker(self):
@@ -1064,8 +1077,14 @@ class Editor:
         if color_code and color_code[0]:
             r, g, b = map(int, color_code[0])
             self.select_color((r, g, b, 255))
+            # Disable paste mode and select mode when using color picker
+            self.paste_mode = False
+            if self.mode == 'select':
+                self.mode = 'draw'
+                self.selection.selecting = False
+                self.selection.active = False
 
-    def handle_drawing(self, grid_pos, sprite_name):
+    def handle_drawing(self, grid_pos, sprite_name, save_state=True):
         """
         Handle drawing on the sprite or background.
 
@@ -1076,10 +1095,12 @@ class Editor:
         Args:
             grid_pos (tuple): The grid position to draw at.
             sprite_name (str): The name of the sprite to draw on.
+            save_state (bool): Whether to save the state before drawing.
         """
         x, y = grid_pos
         color = self.get_current_color()
-        self.save_state()
+        if save_state:
+            self.save_state()
         if self.edit_mode == 'monster':
             self.sprites[sprite_name].frame.set_at((x, y), color)
             print(f"Drew at ({x}, {y}) with color {color} on sprite {sprite_name}")
@@ -1237,22 +1258,14 @@ class Editor:
     def handle_event(self, event):
         """
         Process and respond to a single Pygame event.
-
-        This method is the central event handler for the editor. It interprets
-        user inputs (mouse and keyboard events) and triggers appropriate actions
-        such as drawing, selecting colors, changing tools, or manipulating the canvas.
-
+        Updated to ensure select mode can be activated without prior drawing.
+    
         Args:
             event (pygame.event.Event): The Pygame event to process.
-
+    
         Returns:
             bool: True if the main loop should continue, False if the application
                   should exit.
-
-        Side effects:
-            - May modify various attributes of the Editor instance based on user input.
-            - May trigger drawing operations on sprite or background surfaces.
-            - May change the current tool or color selection.
         """
         if event.type == pygame.QUIT:
             return False  # Signal to exit main loop
@@ -1263,8 +1276,27 @@ class Editor:
                 # Check if any button is clicked
                 for button in self.buttons:
                     if button.is_clicked(event):
-                        button.action()
-                        return True  # Exit event handling to prevent further processing
+                        if button.text == "Select":
+                            # Always start fresh selection
+                            self.mode = 'select'
+                            self.selection.toggle()
+                        else:
+                            # Handle selection-related buttons
+                            if button.text in ["Copy", "Mirror", "Rotate"] and self.selection.active:
+                                button.action()
+                                # Don't exit selection mode for Mirror and Rotate
+                                if button.text not in ["Mirror", "Rotate"]:
+                                    self.mode = 'draw'
+                                    self.selection.selecting = False
+                                    self.selection.active = False
+                            # If in selection mode and not a selection-related button, exit selection mode
+                            elif self.mode == 'select':
+                                self.mode = 'draw'
+                                self.selection.selecting = False
+                                self.selection.active = False
+                            if button.text not in ["Copy", "Mirror", "Rotate"]:
+                                button.action()
+                        return True
                 # Check if palette is clicked
                 self.palette.handle_click((x, y))
 
@@ -1274,48 +1306,40 @@ class Editor:
                     self.update_brush_size(event.pos[0])
                     return True
 
-                # Check if in select mode
-                if self.mode == 'select':
-                    self.selection.start(event.pos)
-                else:
-                    # Check if drawing on sprites
-                    for sprite_name, sprite in self.sprites.items():
-                        grid_pos = sprite.get_grid_position((x, y))
-                        if grid_pos:
-                            self.current_sprite = sprite_name
-                            if self.fill_mode:
-                                self.fill(grid_pos, sprite_name)
-                            else:
-                                self.drawing = True
-                                self.handle_drawing(grid_pos, sprite_name)
-                            break
-
-                # Handle paste mode
+                # Handle paste mode first
                 if self.paste_mode:
                     for sprite_name, sprite in self.sprites.items():
                         grid_pos = sprite.get_grid_position((x, y))
                         if grid_pos:
                             self.current_sprite = sprite_name
                             self.paste_selection_at(grid_pos)
-                            self.paste_mode = False
-                            break
+                            return True  # Skip other mouse handling when pasting
 
-                if self.edit_mode == 'background':
-                    if self.fill_mode:
-                        self.fill_background_position(event.pos)
+                # Only handle drawing if not in paste mode
+                if not self.paste_mode:
+                    # Save state before starting to draw or select
+                    if not self.fill_mode and self.mode != 'select':  # Don't save state here for fill mode or select mode
+                        self.save_state()
+
+                    # Check if in select mode
+                    if self.mode == 'select':
+                        self.selection.start(event.pos)
                     else:
-                        self.drawing = True
-                        self.draw_on_background(event.pos)
-
-            elif event.button == 3:  # Right-click for eraser
-                self.eraser_mode = True
-                self.fill_mode = False
-                print("Eraser mode activated.")
+                        # Check if drawing on sprites
+                        for sprite_name, sprite in self.sprites.items():
+                            grid_pos = sprite.get_grid_position((x, y))
+                            if grid_pos:
+                                self.current_sprite = sprite_name
+                                if self.fill_mode:
+                                    self.fill(grid_pos, sprite_name)
+                                else:
+                                    self.drawing = True
+                                    self.handle_drawing(grid_pos, sprite_name, save_state=False)  # Don't save state during drag
+                                break
 
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:  # Left-click release
-                if self.drawing:
-                    self.drawing = False
+                self.drawing = False
                 if self.mode == 'select' and self.selection.selecting:
                     self.selection.end_selection(event.pos)
                 self.adjusting_brush = False
@@ -1330,7 +1354,7 @@ class Editor:
                     sprite = self.sprites[self.current_sprite]
                     grid_pos = sprite.get_grid_position((x, y))
                     if grid_pos:
-                        self.handle_drawing(grid_pos, self.current_sprite)
+                        self.handle_drawing(grid_pos, self.current_sprite, save_state=False)  # Don't save state during drag
                 else:
                     self.draw_on_background(event.pos)
             if self.mode == 'select' and self.selection.selecting:
@@ -1484,6 +1508,12 @@ class Editor:
         """
         self.eraser_mode = not self.eraser_mode
         self.fill_mode = False
+        # Disable paste mode and select mode when toggling eraser
+        self.paste_mode = False
+        if self.mode == 'select':
+            self.mode = 'draw'
+            self.selection.selecting = False
+            self.selection.active = False
         print("Eraser mode toggled.")
 
     def toggle_fill(self):
@@ -1527,22 +1557,16 @@ class Editor:
     def copy_selection(self):
         """
         Copy the currently selected pixels.
-
-        This method copies the pixels within the current selection to the copy buffer.
-        It provides user feedback.
-
-        Returns:
-            None
-
-        Side effects:
-            - Modifies the copy_buffer attribute.
-            - Prints a status message to the console.
         """
         if not self.selection.active:
             print("No selection to copy.")
             return
         self.copy_buffer = self.selection.get_selected_pixels()
         print("Selection copied.")
+        # Don't exit selection mode after copying
+        # self.mode = 'draw'
+        # self.selection.selecting = False
+        # self.selection.active = False
 
     def paste_selection(self):
         """
@@ -1567,19 +1591,7 @@ class Editor:
     def paste_selection_at(self, grid_pos):
         """
         Paste the copied pixels at the specified grid position.
-
-        This method pastes the copied pixels at the specified grid position. It provides
-        user feedback.
-
-        Args:
-            grid_pos (tuple): The grid position to paste the pixels at.
-
-        Returns:
-            None
-
-        Side effects:
-            - Modifies the current sprite or background data.
-            - Prints a status message to the console.
+        Only paste non-transparent pixels and stay in paste mode.
         """
         if self.copy_buffer is None:
             print("No copied selection to paste.")
@@ -1590,54 +1602,109 @@ class Editor:
             target_x = x0 + x
             target_y = y0 + y
             if 0 <= target_x < GRID_SIZE and 0 <= target_y < GRID_SIZE:
-                self.sprites[self.current_sprite].frame.set_at((target_x, target_y), color)
-        print("Selection pasted.")
+                # Only paste non-transparent pixels
+                if color[3] > 0:  # Check alpha value
+                    self.sprites[self.current_sprite].frame.set_at((target_x, target_y), color)
+        print("Selection stamped.")
+        # Don't exit paste mode or selection mode
+        # self.paste_mode = False
+        # self.mode = 'draw'
+        # self.selection.selecting = False
+        # self.selection.active = False
 
     def mirror_selection(self):
         """
-        Mirror the copied selection horizontally.
-
-        This method mirrors the copied selection horizontally. It provides user feedback.
-
-        Returns:
-            None
-
-        Side effects:
-            - Modifies the copy_buffer attribute.
-            - Prints a status message to the console.
+        Mirror the selected pixels horizontally in place.
         """
-        if self.copy_buffer is None:
-            print("No copied selection to mirror.")
+        if not self.selection.active:
+            print("No active selection to mirror.")
             return
-        width = max(x for x, y in self.copy_buffer.keys()) + 1
-        mirrored_buffer = { (width - 1 - x, y): color for (x, y), color in self.copy_buffer.items() }
-        self.copy_buffer = mirrored_buffer
-        print("Selection mirrored horizontally.")
+        
+        self.save_state()
+        sprite = self.sprites[self.current_sprite]
+        rect = self.selection.rect
+        
+        # Create a temporary surface for the selected area
+        temp_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        
+        # Copy the selected area to the temp surface
+        for x in range(rect.width):
+            for y in range(rect.height):
+                src_x = rect.x + x
+                src_y = rect.y + y
+                if 0 <= src_x < GRID_SIZE and 0 <= src_y < GRID_SIZE:
+                    color = sprite.frame.get_at((src_x, src_y))
+                    temp_surface.set_at((x, y), color)
+        
+        # Mirror the pixels back to the sprite
+        for x in range(rect.width):
+            for y in range(rect.height):
+                src_x = rect.x + x
+                src_y = rect.y + y
+                if 0 <= src_x < GRID_SIZE and 0 <= src_y < GRID_SIZE:
+                    mirrored_x = rect.width - 1 - x
+                    color = temp_surface.get_at((mirrored_x, y))
+                    sprite.frame.set_at((src_x, src_y), color)
+        
+        print("Selection mirrored horizontally in place.")
 
     def rotate_selection(self):
         """
-        Rotate the copied selection 90 degrees clockwise.
-
-        This method rotates the copied selection 90 degrees clockwise. It provides
-        user feedback.
-
-        Returns:
-            None
-
-        Side effects:
-            - Modifies the copy_buffer attribute.
-            - Prints a status message to the console.
+        Rotate the selected pixels 90 degrees clockwise in place.
         """
-        if self.copy_buffer is None:
-            print("No copied selection to rotate.")
+        if not self.selection.active:
+            print("No active selection to rotate.")
             return
-        width = max(x for x, y in self.copy_buffer.keys()) + 1
-        height = max(y for x, y in self.copy_buffer.keys()) + 1
-        rotated_buffer = { (y, width - 1 - x): color for (x, y), color in self.copy_buffer.items() }
-        if width != height:
-            print("Warning: Rotation may distort non-square selections.")
-        self.copy_buffer = rotated_buffer
-        print("Selection rotated 90 degrees clockwise.")
+        
+        self.save_state()
+        sprite = self.sprites[self.current_sprite]
+        rect = self.selection.rect
+        
+        # Create a temporary surface for the selected area
+        temp_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        
+        # Copy the selected area to the temp surface
+        for x in range(rect.width):
+            for y in range(rect.height):
+                src_x = rect.x + x
+                src_y = rect.y + y
+                if 0 <= src_x < GRID_SIZE and 0 <= src_y < GRID_SIZE:
+                    color = sprite.frame.get_at((src_x, src_y))
+                    temp_surface.set_at((x, y), color)
+        
+        # Create another surface for the rotated result
+        rotated_surface = pygame.Surface((rect.height, rect.width), pygame.SRCALPHA)
+        
+        # Perform the rotation by copying pixels to the new surface
+        for x in range(rect.width):
+            for y in range(rect.height):
+                # For 90-degree clockwise rotation: (x,y) -> (y,-x)
+                rotated_x = y
+                rotated_y = rect.width - 1 - x
+                color = temp_surface.get_at((x, y))
+                rotated_surface.set_at((rotated_x, rotated_y), color)
+        
+        # Clear the original selection area
+        for x in range(rect.width):
+            for y in range(rect.height):
+                src_x = rect.x + x
+                src_y = rect.y + y
+                if 0 <= src_x < GRID_SIZE and 0 <= src_y < GRID_SIZE:
+                    sprite.frame.set_at((src_x, src_y), (0, 0, 0, 0))
+        
+        # Copy the rotated pixels back to the sprite
+        for x in range(rect.height):  # Note: width and height are swapped after rotation
+            for y in range(rect.width):
+                src_x = rect.x + x
+                src_y = rect.y + y
+                if 0 <= src_x < GRID_SIZE and 0 <= src_y < GRID_SIZE:
+                    color = rotated_surface.get_at((x, y))
+                    sprite.frame.set_at((src_x, src_y), color)
+        
+        # Update the selection rectangle to match the new dimensions
+        self.selection.rect = pygame.Rect(rect.x, rect.y, rect.height, rect.width)
+        
+        print("Selection rotated 90 degrees clockwise in place.")
 
     def draw_on_background(self, pos):
         """
@@ -1856,77 +1923,6 @@ class Editor:
         self.brush_size = max(1, min(int((relative_x / self.brush_slider.width) * MAX_BRUSH_SIZE), MAX_BRUSH_SIZE))
         print(f"Brush size set to: {self.brush_size}")
 
-    def draw_ui(self):
-        """
-        Draw the editor UI on the screen.
-
-        This method draws the editor UI on the screen, including the sprites,
-        background, buttons, palette, and other elements.
-
-        Returns:
-            None
-        """
-        screen.fill((200, 200, 200))
-
-        if self.edit_mode == 'monster':
-            # Draw sprites
-            for sprite_name, sprite in self.sprites.items():
-                sprite.draw(screen)
-
-            # Draw monster info at the bottom
-            monster = monsters[self.current_monster_index]
-            info_text = [
-                f"Name: {monster['name']}",
-                f"Type: {monster['type']}",
-                f"Max HP: {monster['max_hp']}",
-                "Moves: " + ", ".join(monster['moves'])
-            ]
-            info_y = HEIGHT - 100
-            for i, line in enumerate(info_text):
-                text_surface = self.font.render(line, True, (0, 0, 0))
-                screen.blit(text_surface, (50, info_y + i * 20))
-
-        elif self.edit_mode == 'background':
-            # Draw background with current zoom
-            scaled_background = pygame.transform.scale(
-                self.current_background,
-                (self.canvas_rect.width, self.canvas_rect.height)
-            )
-            screen.blit(scaled_background, self.canvas_rect.topleft)
-            pygame.draw.rect(screen, (255, 0, 0), self.canvas_rect, 2)  # Red bounding box
-
-            # Draw brush preview
-            mouse_pos = pygame.mouse.get_pos()
-            if self.canvas_rect.collidepoint(mouse_pos):
-                preview_size = max(1, int(self.brush_size))
-                pygame.draw.circle(screen, (128, 128, 128, 128), mouse_pos, preview_size, 1)
-
-        # Draw editing mode info at the bottom
-        info_text = [
-            f"Edit Mode: {self.edit_mode.capitalize()}",
-            f"Current Sprite: {self.current_sprite}" if self.edit_mode == 'monster' else f"Background: {self.current_background_index}",
-            f"Brush Size: {self.brush_size}",
-            f"Eraser Mode: {'On' if self.eraser_mode else 'Off'}",
-            f"Fill Mode: {'On' if self.fill_mode else 'Off'}",
-            f"Selection Mode: {'On' if self.selection.selecting else 'Off'}",
-            f"Zoom: {self.editor_zoom:.1f}x",
-        ]
-        info_y = HEIGHT - 160
-        for i, line in enumerate(info_text):
-            text_surface = self.font.render(line, True, (0, 0, 0))
-            screen.blit(text_surface, (WIDTH - 250, info_y + i * 20))
-
-        # Draw buttons
-        for button in self.buttons:
-            button.draw(screen)
-
-        # Draw palette
-        self.palette.draw(screen)
-
-        self.selection.draw(screen)
-
-        pygame.display.flip()
-
     def save_state(self):
         """
         Save the current state for undo/redo functionality.
@@ -2070,124 +2066,6 @@ class Editor:
         """
         self.canvas_rect.centerx = WIDTH // 2
         self.canvas_rect.centery = HEIGHT // 2
-
-    def create_buttons(self):
-        """
-        Create the buttons for the editor UI.
-
-        This method creates the buttons for the editor UI based on the current
-        edit mode. It returns a list of Button instances.
-
-        Returns:
-            list: A list of Button instances.
-        """
-        buttons = []
-        button_width = 100
-        button_height = 30
-        padding = 5
-        start_x = WIDTH - button_width - padding
-        start_y = 50
-
-        all_buttons = [
-            ("Save", self.save_current),
-            ("Load", self.load_background),
-            ("Clear", self.clear_current),
-            ("Color Picker", self.open_color_picker),  # Re-added Color Picker button
-            ("Eraser", self.toggle_eraser),
-            ("Fill", self.toggle_fill),
-            ("Select", self.toggle_selection_mode),
-            ("Copy", self.copy_selection),
-            ("Paste", self.paste_selection),
-            ("Mirror", self.mirror_selection),
-            ("Rotate", self.rotate_selection),
-            ("Undo", self.undo),
-            ("Redo", self.redo),
-        ]
-
-        if self.edit_mode == 'monster':
-            all_buttons += [
-                ("Prev Monster", self.previous_monster),
-                ("Next Monster", self.next_monster),
-                ("Switch Sprite", self.switch_sprite),
-            ]
-        elif self.edit_mode == 'background':
-            all_buttons += [
-                ("Zoom In", self.zoom_in),
-                ("Zoom Out", self.zoom_out),
-                ("Brush +", self.increase_brush_size),
-                ("Brush -", self.decrease_brush_size),
-                ("Prev BG", self.previous_background),
-                ("Next BG", self.next_background),
-            ]
-
-        for i, (text, action) in enumerate(all_buttons):
-            rect = (start_x, start_y + i * (button_height + padding), button_width, button_height)
-            buttons.append(Button(rect, text, action))
-
-        return buttons
-
-    def open_color_picker(self):
-        """
-        Open the color picker dialog.
-        """
-        color_code = colorchooser.askcolor(title="Choose Color")
-        if color_code and color_code[0]:
-            r, g, b = map(int, color_code[0])
-            self.select_color((r, g, b, 255))
-
-    def select_color(self, color):
-        """
-        Select a color from the palette.
-
-        This method sets the currently selected color based on the provided color
-        tuple. It also deactivates the eraser and fill modes.
-
-        Args:
-            color (tuple): The RGBA color tuple to select.
-        """
-        if color is not None:
-            self.current_color = color
-            self.eraser_mode = False
-            self.fill_mode = False
-            print(f"Selected color: {color}")
-
-    def draw_on_background(self, pos):
-        """
-        Draw on the background at the specified position.
-
-        This method accurately translates screen coordinates to background coordinates,
-        taking into account zoom level and panning offsets.
-
-        Args:
-            pos (tuple): The screen position to draw at.
-
-        Returns:
-            None
-
-        Side effects:
-            - Modifies the current background data.
-            - Prints a status message to the console.
-        """
-        x, y = pos
-        if self.canvas_rect.collidepoint(x, y):
-            color = self.get_current_color()
-            # Adjust for zoom and panning
-            rel_x = int((x - self.canvas_rect.x) / self.editor_zoom)
-            rel_y = int((y - self.canvas_rect.y) / self.editor_zoom)
-            
-            # Ensure drawing within bounds
-            if 0 <= rel_x < BACKGROUND_WIDTH and 0 <= rel_y < BACKGROUND_HEIGHT:
-                self.save_state()
-                # Correct brush size scaling with zoom
-                scaled_brush_size = max(1, int(self.brush_size * self.editor_zoom))
-                
-                # Draw the brush centered on the cursor position
-                pygame.draw.circle(self.current_background, color, (rel_x, rel_y), scaled_brush_size)
-                
-                print(f"Drew on background at ({rel_x}, {rel_y}) with color {color}")
-
-        # Draw a cursor indicator on the screen
-        pygame.draw.circle(screen, (255, 0, 0), pos, 2)  # Small red dot at cursor position
 
 # Main execution
 editor = Editor()
