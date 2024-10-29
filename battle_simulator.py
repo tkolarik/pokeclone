@@ -178,7 +178,7 @@ def opponent_choose_move(creature):
     return random.choice(creature.moves)
 
 def play_random_song():
-    songs_dir = '/Users/thomaskolarik/scratchdir/pokeclone/songs'
+    songs_dir = 'songs'
     songs = [f for f in os.listdir(songs_dir) if f.endswith('.mp3') or f.endswith('.wav')]
     if songs:
         random_song = random.choice(songs)
