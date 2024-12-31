@@ -74,6 +74,7 @@
     {"name": "Nebula Burst", "type": "Cosmic", "power": 105},
     {"name": "Star Shower", "type": "Cosmic", "power": 100},
     {"name": "Cosmic Ray", "type": "Cosmic", "power": 95},
+    {"name": "Spirit Blast", "type": "Cosmic","power": 115},
     {"name": "Power Up", "type": "Normal", "power": 0, "effect": {"target": "self", "stat": "attack", "change": 1}},
     {"name": "Defend Up", "type": "Normal", "power": 0, "effect": {"target": "self", "stat": "defense", "change": 1}},
     {"name": "Weaken", "type": "Normal", "power": 0, "effect": {"target": "opponent", "stat": "attack", "change": 1}},

@@ -133,7 +133,7 @@
       "max_hp": 125,
       "attack": 70,
       "defense": 75,
-      "moves": ["Tidal Crash", "Whirlpool Spin", "Frost Spike", "Resonance Wave"]
+      "moves": ["Tidal Crash", "Tsunami Blast", "Frost Spike", "Spirit Blast"]
     },
     {
       "name": "Boulderax",
