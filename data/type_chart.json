@@ -1,17 +1,77 @@
 {
-    "Fire": {"Water": 0.5, "Earth": 2, "Wind": 1, "Ice": 2, "Nature": 2},
-    "Water": {"Fire": 2, "Earth": 1, "Electric": 0.5, "Ice": 0.5},
-    "Earth": {"Fire": 0.5, "Water": 2, "Electric": 2, "Wind": 0.5},
-    "Wind": {"Earth": 2, "Electric": 0.5},
-    "Electric": {"Water": 2, "Wind": 2, "Earth": 0.5},
-    "Ice": {"Fire": 0.5, "Water": 0.5, "Nature": 2},
-    "Nature": {"Fire": 0.5, "Water": 2, "Ice": 0.5},
-    "Mind": {"Shadow": 2, "Light": 0.5},
-    "Shadow": {"Mind": 0.5, "Light": 2},
-    "Light": {"Shadow": 0.5, "Mind": 2},
-    "Metal": {"Fire": 0.5, "Water": 0.5, "Electric": 0.5},
-    "Toxic": {"Nature": 2, "Metal": 0.5},
-    "Sound": {"Wind": 1.5, "Earth": 0.5},
-    "Crystal": {"Sound": 0.5, "Light": 1.5},
-    "Cosmic": {"Light": 0.5, "Shadow": 1.5}
-  }
+    "Fire": {
+        "Fire": 0.5, "Water": 0.5, "Earth": 2.0, "Wind": 1.0, "Electric": 1.0, 
+        "Ice": 2.0, "Nature": 2.0, "Mind": 1.0, "Shadow": 1.0, "Light": 1.0, 
+        "Metal": 0.5, "Toxic": 1.0, "Sound": 1.0, "Crystal": 1.0, "Cosmic": 1.0
+    },
+    "Water": {
+        "Fire": 2.0, "Water": 0.5, "Earth": 1.0, "Wind": 1.0, "Electric": 0.5, 
+        "Ice": 0.5, "Nature": 0.5, "Mind": 1.0, "Shadow": 1.0, "Light": 1.0, 
+        "Metal": 1.0, "Toxic": 1.0, "Sound": 1.0, "Crystal": 1.0, "Cosmic": 1.0
+    },
+    "Earth": {
+        "Fire": 0.5, "Water": 2.0, "Earth": 1.0, "Wind": 0.0, "Electric": 2.0, 
+        "Ice": 1.0, "Nature": 0.5, "Mind": 1.0, "Shadow": 1.0, "Light": 1.0, 
+        "Metal": 2.0, "Toxic": 2.0, "Sound": 1.0, "Crystal": 0.5, "Cosmic": 1.0
+    },
+    "Wind": {
+        "Fire": 1.0, "Water": 1.0, "Earth": 1.0, "Wind": 0.5, "Electric": 0.5, 
+        "Ice": 1.0, "Nature": 2.0, "Mind": 1.0, "Shadow": 1.0, "Light": 1.0, 
+        "Metal": 0.5, "Toxic": 1.0, "Sound": 0.5, "Crystal": 1.0, "Cosmic": 1.0
+    },
+    "Electric": {
+        "Fire": 1.0, "Water": 2.0, "Earth": 0.0, "Wind": 2.0, "Electric": 0.5, 
+        "Ice": 1.0, "Nature": 0.5, "Mind": 1.0, "Shadow": 1.0, "Light": 1.0, 
+        "Metal": 1.0, "Toxic": 1.0, "Sound": 1.0, "Crystal": 1.0, "Cosmic": 1.0
+    },
+    "Ice": {
+        "Fire": 0.5, "Water": 0.5, "Earth": 2.0, "Wind": 2.0, "Electric": 1.0, 
+        "Ice": 0.5, "Nature": 2.0, "Mind": 1.0, "Shadow": 1.0, "Light": 1.0, 
+        "Metal": 0.5, "Toxic": 1.0, "Sound": 1.0, "Crystal": 1.0, "Cosmic": 1.0
+    },
+    "Nature": {
+        "Fire": 0.5, "Water": 2.0, "Earth": 2.0, "Wind": 0.5, "Electric": 1.0, 
+        "Ice": 0.5, "Nature": 0.5, "Mind": 1.0, "Shadow": 1.0, "Light": 1.0, 
+        "Metal": 0.5, "Toxic": 0.5, "Sound": 1.0, "Crystal": 1.0, "Cosmic": 1.0
+    },
+    "Mind": {
+        "Fire": 1.0, "Water": 1.0, "Earth": 1.0, "Wind": 1.0, "Electric": 1.0, 
+        "Ice": 1.0, "Nature": 1.0, "Mind": 0.5, "Shadow": 0.0, "Light": 1.0, 
+        "Metal": 1.0, "Toxic": 2.0, "Sound": 1.0, "Crystal": 1.0, "Cosmic": 1.0
+    },
+    "Shadow": {
+        "Fire": 1.0, "Water": 1.0, "Earth": 1.0, "Wind": 1.0, "Electric": 1.0, 
+        "Ice": 1.0, "Nature": 1.0, "Mind": 2.0, "Shadow": 2.0, "Light": 0.5, 
+        "Metal": 1.0, "Toxic": 0.5, "Sound": 1.0, "Crystal": 1.0, "Cosmic": 1.0
+    },
+    "Light": {
+        "Fire": 1.0, "Water": 1.0, "Earth": 1.0, "Wind": 1.0, "Electric": 1.0, 
+        "Ice": 1.0, "Nature": 1.0, "Mind": 2.0, "Shadow": 2.0, "Light": 0.5, 
+        "Metal": 0.5, "Toxic": 0.5, "Sound": 1.0, "Crystal": 1.0, "Cosmic": 2.0
+    },
+    "Metal": {
+        "Fire": 0.5, "Water": 0.5, "Earth": 1.0, "Wind": 0.5, "Electric": 0.5, 
+        "Ice": 2.0, "Nature": 1.0, "Mind": 1.0, "Shadow": 1.0, "Light": 2.0, 
+        "Metal": 0.5, "Toxic": 0.0, "Sound": 0.5, "Crystal": 2.0, "Cosmic": 1.0
+    },
+    "Toxic": {
+        "Fire": 1.0, "Water": 1.0, "Earth": 0.5, "Wind": 1.0, "Electric": 1.0, 
+        "Ice": 1.0, "Nature": 2.0, "Mind": 1.0, "Shadow": 0.5, "Light": 2.0, 
+        "Metal": 0.0, "Toxic": 0.5, "Sound": 1.0, "Crystal": 0.5, "Cosmic": 1.0
+    },
+    "Sound": {
+        "Fire": 1.0, "Water": 1.0, "Earth": 1.0, "Wind": 1.0, "Electric": 0.5, 
+        "Ice": 1.0, "Nature": 1.0, "Mind": 1.0, "Shadow": 1.0, "Light": 1.0, 
+        "Metal": 2.0, "Toxic": 1.0, "Sound": 0.5, "Crystal": 2.0, "Cosmic": 1.0
+    },
+    "Crystal": {
+        "Fire": 1.0, "Water": 1.0, "Earth": 2.0, "Wind": 1.0, "Electric": 1.0, 
+        "Ice": 0.5, "Nature": 1.0, "Mind": 0.5, "Shadow": 0.5, "Light": 1.0, 
+        "Metal": 0.5, "Toxic": 2.0, "Sound": 0.5, "Crystal": 0.5, "Cosmic": 1.0
+    },
+    "Cosmic": {
+        "Fire": 1.0, "Water": 1.0, "Earth": 1.0, "Wind": 1.0, "Electric": 1.0, 
+        "Ice": 1.0, "Nature": 1.0, "Mind": 2.0, "Shadow": 2.0, "Light": 0.0, 
+        "Metal": 0.5, "Toxic": 1.0, "Sound": 1.0, "Crystal": 1.0, "Cosmic": 0.5
+    }
+}

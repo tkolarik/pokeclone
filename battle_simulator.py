@@ -3,18 +3,26 @@ import sys
 import random
 import os
 import json
+import copy
+
+# Import the centralized config
+import config
 
 # Initialize Pygame
 pygame.init()
 pygame.mixer.init()
 
-# Screen dimensions
-WIDTH, HEIGHT = 1200, 600
-SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
+# Screen dimensions from config
+# WIDTH, HEIGHT = 1200, 600
+SCREEN = pygame.display.set_mode((config.BATTLE_WIDTH, config.BATTLE_HEIGHT))
 pygame.display.set_caption("Battle Simulator")
 
-# Font
-FONT = pygame.font.Font(None, 30)
+# Font from config
+FONT = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE)
+
+# Constants from config
+# STAT_CHANGE_MULTIPLIER = 0.66 # Defined constant for stat changes
+# NATIVE_SPRITE_RESOLUTION = (32, 32)
 
 class Move:
     def __init__(self, name, type_, power, effect=None):
@@ -32,26 +40,44 @@ class Creature:
         self.attack = attack
         self.defense = defense
         self.moves = moves
-        self.sprite = pygame.transform.scale(sprite, (int(64 * 3), int(64 * 3)))
+        # Sprite is expected to be native resolution here
+        # Scaling happens in draw_battle
+        self.sprite = sprite
 
     def is_alive(self):
         return self.current_hp > 0
 
 # Load type effectiveness chart
-with open('data/type_chart.json', 'r') as f:
+# Use path from config
+with open(os.path.join(config.DATA_DIR, 'type_chart.json'), 'r') as f:
     type_chart = json.load(f)
 
 def apply_stat_change(creature, stat, change):
-    if stat == "attack":
+    """Applies a stat change multiplier to a creature's specified stat."""
+    if hasattr(creature, stat):
+        current_stat_value = getattr(creature, stat)
         if change > 0:
-            creature.attack = int(creature.attack * (1 + 0.66 / (2 ** (change - 1))))
-        else:
-            creature.attack = int(creature.attack / (1 + 0.66 / (2 ** (abs(change) - 1))))
-    elif stat == "defense":
-        if change > 0:
-            creature.defense = int(creature.defense * (1 + 0.66 / (2 ** (change - 1))))
-        else:
-            creature.defense = int(creature.defense / (1 + 0.66 / (2 ** (abs(change) - 1))))
+            # Formula for increasing stat stage
+            multiplier = 1 + config.STAT_CHANGE_MULTIPLIER / (2 ** (change - 1))
+            new_stat_value = int(current_stat_value * multiplier)
+        elif change < 0: # Check for negative change explicitly
+            # Formula for decreasing stat stage
+            # Use abs(change) for the exponent
+            divider = 1 + config.STAT_CHANGE_MULTIPLIER / (2 ** (abs(change) - 1))
+            # Avoid division by zero if divider somehow becomes 0 (unlikely with current formula)
+            if divider == 0:
+                print(f"Warning: Stat change divider became zero for stat {stat}, change {change}. Stat unchanged.")
+                new_stat_value = current_stat_value
+            else:
+                 new_stat_value = int(current_stat_value / divider)
+        else: # change == 0
+            # No change if change is zero
+            new_stat_value = current_stat_value
+
+        setattr(creature, stat, new_stat_value)
+        # print(f"Debug: Applied change {change} to {stat}. Old: {current_stat_value}, New: {new_stat_value}") # Optional debug print
+    else:
+        print(f"Warning: Stat '{stat}' not found on creature {creature.name}.")
 
 def calculate_damage(attacker, defender, move):
     if move.power == 0:  # Stat-changing move
@@ -69,32 +95,58 @@ def calculate_damage(attacker, defender, move):
     return damage, effectiveness
 
 def create_default_sprite():
-    sprite = pygame.Surface((64, 64), pygame.SRCALPHA)
-    sprite.fill((200, 200, 200))  # Light gray background
-    pygame.draw.rect(sprite, (100, 100, 100), (10, 10, 44, 44))  # Dark gray rectangle
-    pygame.draw.circle(sprite, (255, 255, 255), (32, 32), 10)  # White circle
+    """Creates a default sprite at native resolution."""
+    sprite = pygame.Surface(config.NATIVE_SPRITE_RESOLUTION, pygame.SRCALPHA)
+    # Simple placeholder: gray square with border
+    sprite.fill(config.GRAY_LIGHT)
+    pygame.draw.rect(sprite, config.GRAY_DARK, sprite.get_rect(), 2)
+    # Draw a simple question mark or symbol if desired
+    # font = pygame.font.Font(config.DEFAULT_FONT, config.NATIVE_SPRITE_RESOLUTION[1] // 2)
+    # text = font.render("?", True, config.BLACK)
+    # text_rect = text.get_rect(center=sprite.get_rect().center)
+    # sprite.blit(text, text_rect)
     return sprite
 
 def create_sprite_from_file(filename):
+    """Loads sprite at native resolution, scales down if necessary."""
     try:
         sprite = pygame.image.load(filename).convert_alpha()
-        return pygame.transform.scale(sprite, (64, 64))
+        # Check if loaded image matches native resolution
+        if sprite.get_size() != config.NATIVE_SPRITE_RESOLUTION:
+            print(f"Warning: Loaded sprite {filename} size {sprite.get_size()} does not match native {config.NATIVE_SPRITE_RESOLUTION}. Scaling down.")
+            sprite = pygame.transform.smoothscale(sprite, config.NATIVE_SPRITE_RESOLUTION)
+        return sprite
     except pygame.error:
         print(f"Sprite file not found: {filename}")
-        return create_default_sprite()
+        # Return a default native size sprite if file not found
+        return create_default_sprite() 
     
 def load_creatures():
     creatures = []
-    with open('data/monsters.json', 'r') as f:
-        monsters_data = json.load(f)
+    # Use paths from config
+    monsters_file = os.path.join(config.DATA_DIR, 'monsters.json')
+    moves_file = os.path.join(config.DATA_DIR, 'moves.json')
     
-    with open('data/moves.json', 'r') as f:
-        moves_data = json.load(f)
+    try:
+        with open(monsters_file, 'r') as f:
+            monsters_data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Error loading {monsters_file}: {e}")
+        return [] # Return empty list if core data fails
+
+    try:
+        with open(moves_file, 'r') as f:
+            moves_data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+         print(f"Error loading {moves_file}: {e}")
+         return []
     
     moves_dict = {move['name']: Move(move['name'], move['type'], move['power'], move.get('effect')) for move in moves_data}
     
     for monster in monsters_data:
-        sprite = create_sprite_from_file(f"sprites/{monster['name']}_front.png")
+        # Use path from config
+        sprite_path = os.path.join(config.SPRITE_DIR, f"{monster['name']}_front.png")
+        sprite = create_sprite_from_file(sprite_path)
         moves = [moves_dict.get(move_name, Move(move_name, 'Normal', 50)) for move_name in monster['moves']]
         creature = Creature(monster['name'], monster['type'], monster['max_hp'], 
                             monster['attack'], monster['defense'], moves, sprite)
@@ -107,17 +159,17 @@ class Button:
         self.rect = pygame.Rect(rect)
         self.text = text
         self.action = action
-        self.color = (200, 200, 200)
-        self.hover_color = (150, 150, 150)
-        self.font = pygame.font.Font(None, 24)
+        self.color = config.BUTTON_COLOR
+        self.hover_color = config.BUTTON_HOVER_COLOR
+        self.font = pygame.font.Font(config.DEFAULT_FONT, config.BUTTON_FONT_SIZE)
 
     def draw(self, surface):
         mouse_pos = pygame.mouse.get_pos()
         is_hover = self.rect.collidepoint(mouse_pos)
         color = self.hover_color if is_hover else self.color
         pygame.draw.rect(surface, color, self.rect)
-        pygame.draw.rect(surface, (0, 0, 0), self.rect, 2)
-        text_surf = self.font.render(self.text, True, (0, 0, 0))
+        pygame.draw.rect(surface, config.BLACK, self.rect, 2)
+        text_surf = self.font.render(self.text, True, config.BLACK)
         text_rect = text_surf.get_rect(center=self.rect.center)
         surface.blit(text_surf, text_rect)
 
@@ -130,40 +182,50 @@ class Button:
 def draw_battle(creature1, creature2, buttons, background):
     SCREEN.blit(background, (0, 0))
 
-    # Draw creatures higher up
-    SCREEN.blit(creature1.sprite, (100, HEIGHT - creature1.sprite.get_height() - 200))
-    SCREEN.blit(creature2.sprite, (WIDTH - creature2.sprite.get_width() - 100, HEIGHT - creature2.sprite.get_height() - 200))
+    # Sprites are stored at native resolution in creature.sprite
+    # Scale them ONCE here for display
+    display_size = config.BATTLE_SPRITE_DISPLAY_SIZE
+    
+    # Use nearest-neighbor scaling (scale) for pixel art feel
+    creature1_display_sprite = pygame.transform.scale(creature1.sprite, display_size)
+    creature2_display_sprite = pygame.transform.scale(creature2.sprite, display_size)
+
+    # Draw creatures higher up, adjusting position based on new display size
+    SCREEN.blit(creature1_display_sprite, (100, config.BATTLE_HEIGHT - display_size[1] - 200))
+    SCREEN.blit(creature2_display_sprite, (config.BATTLE_WIDTH - display_size[0] - 100, config.BATTLE_HEIGHT - display_size[1] - 200))
 
     # Draw HP bars
-    pygame.draw.rect(SCREEN, (0, 0, 0), (100, 100, 200, 20))
-    pygame.draw.rect(SCREEN, (0, 255, 0), (100, 100, 200 * (creature1.current_hp / creature1.max_hp), 20))
-    pygame.draw.rect(SCREEN, (0, 0, 0), (WIDTH - 300, 100, 200, 20))
-    pygame.draw.rect(SCREEN, (0, 255, 0), (WIDTH - 300, 100, 200 * (creature2.current_hp / creature2.max_hp), 20))
+    hp_bar_width = 200
+    hp_bar_height = 20
+    pygame.draw.rect(SCREEN, config.BLACK, (100, 100, hp_bar_width, hp_bar_height))
+    pygame.draw.rect(SCREEN, config.HP_BAR_COLOR, (100, 100, hp_bar_width * (creature1.current_hp / creature1.max_hp), hp_bar_height))
+    pygame.draw.rect(SCREEN, config.BLACK, (config.BATTLE_WIDTH - 100 - hp_bar_width, 100, hp_bar_width, hp_bar_height))
+    pygame.draw.rect(SCREEN, config.HP_BAR_COLOR, (config.BATTLE_WIDTH - 100 - hp_bar_width, 100, hp_bar_width * (creature2.current_hp / creature2.max_hp), hp_bar_height))
 
     # Draw names and HP
-    name1 = FONT.render(f"{creature1.name} HP: {creature1.current_hp}/{creature1.max_hp}", True, (0, 0, 0))
-    name2 = FONT.render(f"{creature2.name} HP: {creature2.current_hp}/{creature2.max_hp}", True, (0, 0, 0))
+    name1 = FONT.render(f"{creature1.name} HP: {creature1.current_hp}/{creature1.max_hp}", True, config.BLACK)
+    name2 = FONT.render(f"{creature2.name} HP: {creature2.current_hp}/{creature2.max_hp}", True, config.BLACK)
     SCREEN.blit(name1, (100, 80))
-    SCREEN.blit(name2, (WIDTH - 300, 80))
+    SCREEN.blit(name2, (config.BATTLE_WIDTH - 100 - hp_bar_width, 80))
 
     # Draw attack and defense stats
-    attack1 = FONT.render(f"ATK: {creature1.attack}", True, (0, 0, 0))
-    defense1 = FONT.render(f"DEF: {creature1.defense}", True, (0, 0, 0))
-    attack2 = FONT.render(f"ATK: {creature2.attack}", True, (0, 0, 0))
-    defense2 = FONT.render(f"DEF: {creature2.defense}", True, (0, 0, 0))
+    attack1 = FONT.render(f"ATK: {creature1.attack}", True, config.BLACK)
+    defense1 = FONT.render(f"DEF: {creature1.defense}", True, config.BLACK)
+    attack2 = FONT.render(f"ATK: {creature2.attack}", True, config.BLACK)
+    defense2 = FONT.render(f"DEF: {creature2.defense}", True, config.BLACK)
     
     SCREEN.blit(attack1, (100, 130))
     SCREEN.blit(defense1, (100, 160))
-    SCREEN.blit(attack2, (WIDTH - 300, 130))
-    SCREEN.blit(defense2, (WIDTH - 300, 160))
+    SCREEN.blit(attack2, (config.BATTLE_WIDTH - 100 - hp_bar_width, 130))
+    SCREEN.blit(defense2, (config.BATTLE_WIDTH - 100 - hp_bar_width, 160))
 
     # Draw move buttons (smaller and at the bottom)
     button_width = 150
     button_height = 40
     button_spacing = 10
     total_width = len(buttons) * (button_width + button_spacing) - button_spacing
-    start_x = (WIDTH - total_width) // 2
-    start_y = HEIGHT - button_height - 20
+    start_x = (config.BATTLE_WIDTH - total_width) // 2
+    start_y = config.BATTLE_HEIGHT - button_height - 20
 
     for i, button in enumerate(buttons):
         button.rect.x = start_x + i * (button_width + button_spacing)
@@ -178,26 +240,45 @@ def opponent_choose_move(creature):
     return random.choice(creature.moves)
 
 def play_random_song():
-    songs_dir = 'songs'
-    songs = [f for f in os.listdir(songs_dir) if f.endswith('.mp3') or f.endswith('.wav')]
-    if songs:
-        random_song = random.choice(songs)
-        pygame.mixer.music.load(os.path.join(songs_dir, random_song))
-        pygame.mixer.music.play(-1)  # -1 means loop indefinitely
+    # Use path from config
+    songs_dir = config.SONGS_DIR
+    try:
+        songs = [f for f in os.listdir(songs_dir) if f.endswith('.mp3') or f.endswith('.wav')]
+        if songs:
+            random_song = random.choice(songs)
+            pygame.mixer.music.load(os.path.join(songs_dir, random_song))
+            pygame.mixer.music.play(-1)  # -1 means loop indefinitely
+        else:
+             print(f"No songs found in {songs_dir}")
+    except FileNotFoundError:
+         print(f"Songs directory not found: {songs_dir}")
+    except pygame.error as e:
+         print(f"Error loading or playing song: {e}")
 
 def stop_music():
     pygame.mixer.music.stop()
 
 def load_random_background():
-    backgrounds = [f for f in os.listdir('backgrounds') if f.endswith('.png')]
-    if backgrounds:
-        background_path = os.path.join('backgrounds', random.choice(backgrounds))
-        background = pygame.image.load(background_path).convert_alpha()
-        return pygame.transform.scale(background, (WIDTH, HEIGHT))
-    else:
-        default_bg = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        default_bg.fill((255, 255, 255, 255))  # White background with full opacity
-        return default_bg
+    # Use path from config
+    backgrounds_dir = config.BACKGROUND_DIR
+    try:
+        backgrounds = [f for f in os.listdir(backgrounds_dir) if f.endswith('.png')]
+        if backgrounds:
+            background_path = os.path.join(backgrounds_dir, random.choice(backgrounds))
+            background = pygame.image.load(background_path).convert_alpha()
+            # Scale background to fit battle screen size
+            return pygame.transform.scale(background, (config.BATTLE_WIDTH, config.BATTLE_HEIGHT))
+        else:
+             print(f"No backgrounds found in {backgrounds_dir}. Using default.")
+    except FileNotFoundError:
+         print(f"Backgrounds directory not found: {backgrounds_dir}. Using default.")
+    except pygame.error as e:
+         print(f"Error loading background: {e}. Using default.")
+         
+    # Default fallback background
+    default_bg = pygame.Surface((config.BATTLE_WIDTH, config.BATTLE_HEIGHT), pygame.SRCALPHA)
+    default_bg.fill((*config.BATTLE_BG_COLOR, 255))  # Ensure full opacity
+    return default_bg
 
 def battle(creature1, creature2):
     clock = pygame.time.Clock()
@@ -212,8 +293,8 @@ def battle(creature1, creature2):
     button_height = 40
     button_spacing = 10
     total_width = len(creature1.moves) * (button_width + button_spacing) - button_spacing
-    start_x = (WIDTH - total_width) // 2
-    start_y = HEIGHT - button_height - 20
+    start_x = (config.BATTLE_WIDTH - total_width) // 2
+    start_y = config.BATTLE_HEIGHT - button_height - 20
     for i, move in enumerate(creature1.moves):
         rect = (start_x + i * (button_width + button_spacing), start_y, button_width, button_height)
         button = Button(rect, move.name, action=move)
@@ -222,8 +303,8 @@ def battle(creature1, creature2):
     background = load_random_background()
 
     while running:
-        # Clear the screen with a white color instead of black
-        SCREEN.fill((255, 255, 255))  # Fill with white
+        # Clear the screen using config color
+        SCREEN.fill(config.BATTLE_BG_COLOR)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -271,21 +352,22 @@ def battle(creature1, creature2):
         # Check for win condition
         if not creature1.is_alive() or not creature2.is_alive():
             winner = creature1.name if creature1.is_alive() else creature2.name
-            message = FONT.render(f"{winner} wins!", True, (0, 0, 0))
-            SCREEN.blit(message, (WIDTH // 2 - message.get_width() // 2, HEIGHT // 2 - message.get_height() // 2))
+            message = FONT.render(f"{winner} wins!", True, config.BLACK)
+            SCREEN.blit(message, (config.BATTLE_WIDTH // 2 - message.get_width() // 2, config.BATTLE_HEIGHT // 2 - message.get_height() // 2))
             pygame.display.flip()
             pygame.time.delay(3000)
             stop_music()
             return show_end_options()
 
-        clock.tick(30)
+        clock.tick(config.FPS) # Use FPS from config
 
 def show_end_options():
-    new_battle_button = Button((WIDTH // 2 - 150, HEIGHT // 2 - 60, 300, 50), "New Battle")
-    quit_button = Button((WIDTH // 2 - 150, HEIGHT // 2 + 10, 300, 50), "Quit")
+    # Center buttons on battle screen dimensions
+    new_battle_button = Button((config.BATTLE_WIDTH // 2 - 150, config.BATTLE_HEIGHT // 2 - 60, 300, 50), "New Battle")
+    quit_button = Button((config.BATTLE_WIDTH // 2 - 150, config.BATTLE_HEIGHT // 2 + 10, 300, 50), "Quit")
 
     while True:
-        SCREEN.fill((255, 255, 255))
+        SCREEN.fill(config.BATTLE_BG_COLOR)
         new_battle_button.draw(SCREEN)
         quit_button.draw(SCREEN)
         pygame.display.flip()
@@ -305,6 +387,9 @@ def main():
         print("Not enough creatures to battle. Please add more creature data.")
         return
 
+    # Font for hints (can reuse FONT or create a specific one)
+    hint_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - 2) # Slightly smaller
+
     while True:
         # Constants for grid layout
         GRID_COLS = 3
@@ -314,9 +399,9 @@ def main():
         BUTTON_HEIGHT = 80
         BUTTON_SPACING = 20
         
-        # Calculate grid positions
-        start_x = (WIDTH - (BUTTON_WIDTH * GRID_COLS + BUTTON_SPACING * (GRID_COLS - 1))) // 2
-        start_y = (HEIGHT - (BUTTON_HEIGHT * GRID_ROWS + BUTTON_SPACING * (GRID_ROWS - 1))) // 2
+        # Calculate grid positions based on battle screen size
+        start_x = (config.BATTLE_WIDTH - (BUTTON_WIDTH * GRID_COLS + BUTTON_SPACING * (GRID_COLS - 1))) // 2
+        start_y = (config.BATTLE_HEIGHT - (BUTTON_HEIGHT * GRID_ROWS + BUTTON_SPACING * (GRID_ROWS - 1))) // 2
 
         # Pagination variables
         current_page = 0
@@ -324,23 +409,31 @@ def main():
 
         player_creature = None
         selected_index = 0
+        selected_player_creature = None
 
-        while player_creature is None:
-            SCREEN.fill((255, 255, 255))
-            title = FONT.render("Choose your monster:", True, (0, 0, 0))
-            SCREEN.blit(title, (WIDTH // 2 - title.get_width() // 2, 20))
+        # Hint variables
+        nav_hint_text = ""
+        hint_display_start_time = 0
+        HINT_DURATION_MS = 1500 # Display hint for 1.5 seconds
+
+        while selected_player_creature is None:
+            current_time = pygame.time.get_ticks() # Get current time for hint timer
+            SCREEN.fill(config.BATTLE_BG_COLOR)
+            title = FONT.render("Choose your monster:", True, config.BLACK)
+            SCREEN.blit(title, (config.BATTLE_WIDTH // 2 - title.get_width() // 2, 20))
 
             # Display page number
-            page_info = FONT.render(f"Page {current_page + 1}/{total_pages}", True, (0, 0, 0))
-            SCREEN.blit(page_info, (WIDTH // 2 - page_info.get_width() // 2, HEIGHT - 30))
+            page_info = FONT.render(f"Page {current_page + 1}/{total_pages}", True, config.BLACK)
+            SCREEN.blit(page_info, (config.BATTLE_WIDTH // 2 - page_info.get_width() // 2, config.BATTLE_HEIGHT - 30))
 
             # Create and draw buttons for the current page
             buttons = []
-            for i in range(CREATURES_PER_PAGE):
-                creature_index = current_page * CREATURES_PER_PAGE + i
-                if creature_index >= len(creatures):
-                    break
+            start_creature_index = current_page * CREATURES_PER_PAGE
+            end_creature_index = min(start_creature_index + CREATURES_PER_PAGE, len(creatures))
+            num_buttons_on_page = end_creature_index - start_creature_index
 
+            for i in range(num_buttons_on_page):
+                creature_index = start_creature_index + i
                 creature = creatures[creature_index]
                 row = i // GRID_COLS
                 col = i % GRID_COLS
@@ -353,54 +446,147 @@ def main():
 
                 # Highlight the selected button
                 if i == selected_index:
-                    pygame.draw.rect(SCREEN, (0, 255, 0), button.rect, 3)  # Green border
+                    pygame.draw.rect(SCREEN, config.GREEN, button.rect, 3)  # Green border
 
                 # Display the creature's sprite next to the button
                 creature_sprite = pygame.transform.scale(creature.sprite, (64, 64))
                 SCREEN.blit(creature_sprite, (x + 5 , y + (BUTTON_HEIGHT - 64) // 2))
+
+            # --- Display Navigation Hint ---
+            if nav_hint_text and (current_time - hint_display_start_time < HINT_DURATION_MS):
+                hint_surf = hint_font.render(nav_hint_text, True, config.RED) # Use a noticeable color
+                # Position hint near the bottom page number
+                hint_rect = hint_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT - 60))
+                SCREEN.blit(hint_surf, hint_rect)
+            else:
+                nav_hint_text = "" # Clear hint if time expired
+            # -------------------------------
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
 
+                # Check KEYDOWN first
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_RIGHT:
+                    # Clear previous hint on NEW key press
+                    nav_hint_text = ""
+                    # num_buttons_on_page calculated above
+                    if num_buttons_on_page == 0: continue
+
+                    # --- Intra-page Navigation --- 
+                    if event.key == pygame.K_DOWN:
+                        # Move down, wrapping around columns
+                        if selected_index + GRID_COLS < num_buttons_on_page:
+                            selected_index += GRID_COLS
+                        else:
+                            # Wrap to top row if possible, otherwise stay in last row
+                            new_index = selected_index % GRID_COLS
+                            if new_index < num_buttons_on_page:
+                                selected_index = new_index
+                            # else: stay at current index if wrapping leads nowhere valid
+                    elif event.key == pygame.K_UP:
+                        # Move up, wrapping around columns
+                        if selected_index - GRID_COLS >= 0:
+                            selected_index -= GRID_COLS
+                        else:
+                            # Wrap to bottom-most item in the same column
+                            col = selected_index % GRID_COLS
+                            last_row_items = num_buttons_on_page % GRID_COLS
+                            last_full_row_index = num_buttons_on_page - last_row_items if last_row_items != 0 else num_buttons_on_page - GRID_COLS
+                            target_index = last_full_row_index + col
+                            if target_index >= num_buttons_on_page:
+                                # If the target in the last row doesn't exist, go to the row above it
+                                target_index -= GRID_COLS 
+                            if target_index >= 0:
+                                selected_index = target_index
+                            # else: stay at current index if wrapping leads nowhere valid
+                    elif event.key == pygame.K_RIGHT:
+                        # Check if already at the last item on the page
+                        if selected_index == num_buttons_on_page - 1:
+                            if current_page < total_pages - 1:
+                                nav_hint_text = "Press ] for Next Page"
+                                hint_display_start_time = current_time
+                            # Don't wrap around selection index if at edge and hint shown
+                        elif selected_index + 1 < num_buttons_on_page:
+                            selected_index += 1
+                        # else: # Original wrap logic removed, hint handles the edge case
+                        #     selected_index = 0 
+                    elif event.key == pygame.K_LEFT:
+                        # Check if already at the first item on the page
+                        if selected_index == 0:
+                            if current_page > 0:
+                                nav_hint_text = "Press [ for Prev Page"
+                                hint_display_start_time = current_time
+                            # Don't wrap around selection index if at edge and hint shown
+                        elif selected_index - 1 >= 0:
+                            selected_index -= 1
+                        # else: # Original wrap logic removed, hint handles the edge case
+                        #      selected_index = num_buttons_on_page - 1
+                    
+                    # --- Page Navigation (Existing) --- 
+                    elif event.key == pygame.K_RIGHTBRACKET: # Use ] for next page
                         if current_page < total_pages - 1:
                             current_page += 1
-                            selected_index = 0
-                    elif event.key == pygame.K_LEFT:
+                            selected_index = 0 # Reset index on page change
+                    elif event.key == pygame.K_LEFTBRACKET: # Use [ for previous page
                         if current_page > 0:
                             current_page -= 1
-                            selected_index = 0
-                    elif event.key == pygame.K_DOWN:
-                        selected_index = (selected_index + GRID_COLS) % len(buttons)
-                    elif event.key == pygame.K_UP:
-                        selected_index = (selected_index - GRID_COLS) % len(buttons)
-                    elif event.key == pygame.K_RIGHT and selected_index % GRID_COLS < GRID_COLS - 1:
-                        selected_index = min(selected_index + 1, len(buttons) - 1)
-                    elif event.key == pygame.K_LEFT and selected_index % GRID_COLS > 0:
-                        selected_index = max(selected_index - 1, 0)
-                    elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
-                        player_creature = buttons[selected_index].action
+                            selected_index = 0 # Reset index on page change
 
+                    # --- Selection (Existing) --- 
+                    elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                        if 0 <= selected_index < num_buttons_on_page:
+                            # Check if buttons list is valid for the index
+                            if selected_index < len(buttons):
+                                selected_player_creature = buttons[selected_index].action
+                            else:
+                                print(f"Error: selected_index {selected_index} out of range for buttons list (len {len(buttons)}).")
+
+                # Check MOUSEBUTTONDOWN next
                 elif event.type == pygame.MOUSEBUTTONDOWN:
+                    # Clear previous hint on mouse click
+                    nav_hint_text = ""
                     if event.button == 1:  # Left mouse button
                         for i, button in enumerate(buttons):
                             if button.rect.collidepoint(event.pos):
-                                player_creature = button.action
+                                selected_player_creature = button.action
                                 break
+                
+                # Can add other elif event checks here if needed
 
             pygame.display.flip()
 
+        # Create NEW instances for the battle to avoid deepcopy issues with Surface
+        # and ensure stats/HP are reset.
+        player_sprite_path = os.path.join(config.SPRITE_DIR, f"{selected_player_creature.name}_front.png")
+        player_sprite = create_sprite_from_file(player_sprite_path)
+        player_for_battle = Creature(
+            name=selected_player_creature.name,
+            type_=selected_player_creature.type,
+            max_hp=selected_player_creature.max_hp,
+            attack=selected_player_creature.attack,
+            defense=selected_player_creature.defense,
+            moves=selected_player_creature.moves, # Moves are simple objects, ok to reuse reference
+            sprite=player_sprite
+        )
+
         # Choose a random opponent that isn't the player's creature
-        opponent_creature = random.choice([c for c in creatures if c != player_creature])
+        selected_opponent_creature = random.choice([c for c in creatures if c.name != selected_player_creature.name])
+        opponent_sprite_path = os.path.join(config.SPRITE_DIR, f"{selected_opponent_creature.name}_front.png")
+        opponent_sprite = create_sprite_from_file(opponent_sprite_path)
+        opponent_for_battle = Creature(
+            name=selected_opponent_creature.name,
+            type_=selected_opponent_creature.type,
+            max_hp=selected_opponent_creature.max_hp,
+            attack=selected_opponent_creature.attack,
+            defense=selected_opponent_creature.defense,
+            moves=selected_opponent_creature.moves,
+            sprite=opponent_sprite
+        )
         
-        # Reset HP for both creatures before the battle
-        player_creature.current_hp = player_creature.max_hp
-        opponent_creature.current_hp = opponent_creature.max_hp
-        
-        continue_game = battle(player_creature, opponent_creature)
+        # Pass the new instances to the battle function
+        continue_game = battle(player_for_battle, opponent_for_battle)
         
         if not continue_game:
             break
