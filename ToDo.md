@@ -123,6 +123,22 @@
         * Unit tests for `Editor` are potentially easier to write/maintain.
     * **Labels:** `refactoring`, `architecture`, `code-quality`, `maintainability`, `editor`, `dependency-injection`, `testing`
 
+* **[FEAT-REFIMG-PANZOOM] Implement Reference Image Panning and Scaling**
+    * **Type:** Feature
+    * **Priority:** Medium
+    * **Description:** Currently, the reference image loaded in the monster editor (`[FEAT-REFIMG]`) is displayed at a fixed position and scale (aspect-fit). This can make it difficult to precisely align with the pixel grid, especially if the desired tracing area is small or off-center in the original image. Implement controls to allow the user to pan (move horizontally/vertically) and scale (zoom in/out) the reference image layer independently of the main pixel grid zoom/pan. This could involve dedicated UI buttons/sliders or keyboard modifiers + mouse interactions.
+    * **Acceptance Criteria:**
+        * Controls (UI elements or keyboard/mouse shortcuts) are available to pan the reference image horizontally and vertically.
+        * Controls are available to scale the reference image up and down.
+        * Panning and scaling operations affect only the reference image layer, not the pixel grid or other UI elements.
+        * The transparency setting (`[FEAT-REFIMG]`) still functions correctly with the panned/scaled image.
+        * The "Clear Ref Img" function resets any panning and scaling applied.
+        * The editor remains performant even with panning/scaling applied.
+        * **Testing:** Manual testing confirms panning and scaling controls work intuitively and independently of the main canvas controls.
+        * **Testing:** Manual testing confirms transparency and clearing functions work correctly with the transformed image.
+        * **Testing:** Unit/integration tests are *written and pass* for the panning/scaling logic, verifying correct transformation calculations and state updates (potentially mocking user input/GUI elements).
+    * **Labels:** `feature`, `editor`, `ui`, `ux`, `reference-image`, `input`, `enhancement`, `testing`
+
 ### Low Priority
 
 * **[POKE-15] Remove Magic Numbers from Codebase**

@@ -179,6 +179,10 @@ class Editor:
         self.subject_alpha = 255 # << Add subject alpha (fully opaque default)
         self.adjusting_subject_alpha = False # << Add flag for subject slider
 
+        # --- Reference Image Panning/Scaling State ---
+        self.ref_img_offset = pygame.Vector2(0, 0) # Pan offset (x, y)
+        self.ref_img_scale = 1.0 # Scale factor
+
         # Define slider rect (adjust position/size as needed)
         # Reference Alpha Slider
         ref_slider_x = 300 # Position next to brush slider for now
@@ -1289,15 +1293,15 @@ class Editor:
                  print("Reference image loading cancelled or file not found.")
 
     def _scale_reference_image(self):
-        """Scales the loaded reference image using Aspect Fit (Option B)
-           and prepares it for display behind the active editor."""
+        """Scales the loaded reference image using Aspect Fit, then applies
+           user-defined scale and offset, preparing it for display behind the active editor.
+        """
         if not self.reference_image:
             self.scaled_reference_image = None
             return
 
         # Target dimensions are the display size of the sprite editor grid
-        # Use the 'front' sprite editor dimensions as reference (assuming both are same size)
-        sprite_editor = self.sprites.get('front') # Get dimensions from one editor
+        sprite_editor = self.sprites.get('front')
         if not sprite_editor:
             print("Error: Cannot scale reference image, sprite editor 'front' not found.")
             self.scaled_reference_image = None
@@ -1312,45 +1316,50 @@ class Editor:
              self.scaled_reference_image = None
              return
 
-        # Calculate aspect fit scale
-        scale_w = canvas_w / orig_w
-        scale_h = canvas_h / orig_h
-        scale = min(scale_w, scale_h)
+        # 1. Calculate initial aspect fit scale
+        scale_w_ratio = canvas_w / orig_w
+        scale_h_ratio = canvas_h / orig_h
+        aspect_scale = min(scale_w_ratio, scale_h_ratio)
+        initial_scaled_w = int(orig_w * aspect_scale)
+        initial_scaled_h = int(orig_h * aspect_scale)
 
-        scaled_w = int(orig_w * scale)
-        scaled_h = int(orig_h * scale)
+        # 2. Apply user scale on top of aspect fit
+        current_scaled_w = int(initial_scaled_w * self.ref_img_scale)
+        current_scaled_h = int(initial_scaled_h * self.ref_img_scale)
 
         # Prevent scaling to zero size
-        if scaled_w <= 0 or scaled_h <= 0:
-             print("Warning: Calculated scaled size is zero or negative. Cannot scale.")
+        if current_scaled_w <= 0 or current_scaled_h <= 0:
+             print("Warning: Calculated final scaled size is zero or negative. Cannot scale.")
              self.scaled_reference_image = None
              return
 
         try:
-            aspect_scaled_surf = pygame.transform.smoothscale(self.reference_image, (scaled_w, scaled_h))
+            # 3. Scale the ORIGINAL image to the final calculated size
+            user_scaled_surf = pygame.transform.smoothscale(self.reference_image, (current_scaled_w, current_scaled_h))
 
-            # Create the final surface matching canvas size, transparent background
-            # This surface will have the scaled image centered on it.
+            # 4. Create the final surface matching canvas size, transparent background
             final_display_surf = pygame.Surface((canvas_w, canvas_h), pygame.SRCALPHA)
             final_display_surf.fill((0, 0, 0, 0)) # Fully transparent
 
-            # Calculate centering position
-            blit_x = (canvas_w - scaled_w) // 2
-            blit_y = (canvas_h - scaled_h) // 2
+            # 5. Calculate centering position AND apply user offset
+            center_x = (canvas_w - current_scaled_w) // 2
+            center_y = (canvas_h - current_scaled_h) // 2
+            blit_x = center_x + int(self.ref_img_offset.x)
+            blit_y = center_y + int(self.ref_img_offset.y)
 
-            # Blit the aspect-scaled image onto the transparent canvas
-            final_display_surf.blit(aspect_scaled_surf, (blit_x, blit_y))
+            # 6. Blit the user-scaled image onto the transparent canvas at the final position
+            final_display_surf.blit(user_scaled_surf, (blit_x, blit_y))
 
-            # Store this potentially un-alpha'd surface before applying alpha
+            # Store this surface before applying alpha
             self.scaled_reference_image = final_display_surf
 
-            # Apply the current alpha value (apply_reference_alpha will be called after this, or now)
-            self.apply_reference_alpha() # Apply alpha immediately after scaling
+            # Apply the current alpha value
+            self.apply_reference_alpha()
 
         except pygame.error as e:
             print(f"Error during reference image scaling: {e}")
             self.scaled_reference_image = None
-        except ValueError as e: # Catch potential issues with smoothscale (e.g., zero dimensions)
+        except ValueError as e: # Catch potential issues with smoothscale
             print(f"Error during reference image scaling (ValueError): {e}")
             self.scaled_reference_image = None
 
@@ -1360,6 +1369,9 @@ class Editor:
         self.reference_image_path = None
         self.reference_image = None
         self.scaled_reference_image = None
+        # Reset panning and scaling
+        self.ref_img_offset.update(0, 0)
+        self.ref_img_scale = 1.0
         print("Reference image cleared.")
 
     def set_reference_alpha(self, alpha_value):

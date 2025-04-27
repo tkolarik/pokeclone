@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import pygame
-from pygame.locals import MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP, KEYDOWN, QUIT, KMOD_META, KMOD_CTRL, K_z, K_y, K_c, K_v, K_RETURN, K_BACKSPACE, K_ESCAPE, K_UP, K_DOWN
+from pygame.locals import MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP, KEYDOWN, QUIT, KMOD_META, KMOD_CTRL, KMOD_ALT, K_z, K_y, K_c, K_v, K_RETURN, K_BACKSPACE, K_ESCAPE, K_UP, K_DOWN, MOUSEWHEEL
 from src.core import config
 # Import the Button class from editor_ui
 # from ..editor.editor_ui import Button, Palette # Relative import
@@ -20,6 +20,7 @@ class EventHandler:
         """
         self.editor = editor
         self.left_mouse_button_down = False # <<< Add flag to track mouse state
+        self.ref_img_panning = False # <<< Flag for panning reference image
 
     def process_event(self, event):
         """
@@ -57,20 +58,25 @@ class EventHandler:
         
         # --- Handle Mouse Wheel for Zoom/Scroll ---
         elif event.type == pygame.MOUSEWHEEL:
-             # TODO: Implement zoom/scroll later (maybe part of UI/camera manager)
-             # Example: zooming on background?
-             # if self.editor.edit_mode == 'background':
-             #     if event.y > 0: editor.zoom_in(pygame.mouse.get_pos()) # Zoom in towards mouse
-             #     elif event.y < 0: editor.zoom_out(pygame.mouse.get_pos()) # Zoom out from mouse
-             #     return True
-             # Example: Scrolling palette?
-             # palette_rect = ...
-             # if palette_rect.collidepoint(pygame.mouse.get_pos()):
-             #     if event.y > 0: editor.palette.scroll(-1) # Scroll up
-             #     elif event.y < 0: editor.palette.scroll(1) # Scroll down
-             #     return True
-             pass
-
+             # --- Reference Image Scaling --- 
+             mods = pygame.key.get_mods()
+             if self.editor.edit_mode == 'monster' and (mods & KMOD_ALT):
+                 active_sprite_editor = self.editor.sprites.get(self.editor.current_sprite)
+                 if active_sprite_editor:
+                     editor_rect = pygame.Rect(active_sprite_editor.position, 
+                                                (active_sprite_editor.display_width, active_sprite_editor.display_height))
+                     if editor_rect.collidepoint(pygame.mouse.get_pos()): # Check if mouse is over editor
+                         scale_factor = 1.1 if event.y > 0 else (1 / 1.1)
+                         self.editor.ref_img_scale *= scale_factor
+                         # Clamp scale
+                         self.editor.ref_img_scale = max(0.1, min(self.editor.ref_img_scale, 10.0))
+                         print(f"Reference image scale: {self.editor.ref_img_scale:.2f}")
+                         self.editor._scale_reference_image() # Rescale after zoom
+                         return True # Consumed event
+             # --- End Reference Image Scaling ---
+             
+             # TODO: Implement background zoom/scroll or palette scroll here if needed
+             pass # Pass if not handled by ref img scaling
 
         return False # Event not handled by this function
 
@@ -189,6 +195,20 @@ class EventHandler:
                 self._update_alpha_slider(event.pos) # Update alpha and knob position
                 return True # Event handled
 
+            # 0c. Check Reference Image Pan Start (Alt + Click on active editor)
+            mods = pygame.key.get_mods()
+            if self.editor.edit_mode == 'monster' and (mods & KMOD_ALT):
+                active_sprite_editor = self.editor.sprites.get(self.editor.current_sprite)
+                if active_sprite_editor:
+                    editor_rect = pygame.Rect(active_sprite_editor.position, 
+                                               (active_sprite_editor.display_width, active_sprite_editor.display_height))
+                    if editor_rect.collidepoint(event.pos):
+                        self.ref_img_panning = True
+                        # Maybe change cursor?
+                        # pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_SIZEALL)
+                        print("Reference image panning started.")
+                        return True # Event handled by starting ref image pan
+
             # 1. Check UI Buttons
             for button in editor.buttons:
                 if button.is_clicked(event):
@@ -285,6 +305,22 @@ class EventHandler:
             self._update_subject_alpha_slider(event.pos)
             return True
 
+        # Handle Reference Image Panning Drag (Alt + Drag)
+        if self.ref_img_panning and (event.buttons[0] == 1):
+            mods = pygame.key.get_mods() # Re-check mods in case Alt released mid-drag? Maybe not needed if start requires Alt.
+            if mods & KMOD_ALT: # Continue panning only if Alt is still held?
+                 dx, dy = event.rel
+                 self.editor.ref_img_offset.x += dx
+                 self.editor.ref_img_offset.y += dy
+                 self.editor._scale_reference_image() # Rescale needed after offset change
+                 return True # Consumed event
+            else: # If Alt released, stop panning
+                 self.ref_img_panning = False
+                 # Maybe change cursor back?
+                 # pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+                 print("Reference image panning stopped (Alt released).")
+                 return True
+
         # Handle Panning Drag
         if editor.panning and (event.buttons[1] == 1): # Check if middle button is held
             dx, dy = event.rel # Get relative motion
@@ -360,6 +396,14 @@ class EventHandler:
                 editor.selection.selecting = False # Turn off selecting flag
                 # Keep editor.selection.active True
                 return True
+
+            # Stop Reference Image Panning
+            elif self.ref_img_panning:
+                 self.ref_img_panning = False
+                 # Maybe change cursor back?
+                 # pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+                 print("Reference image panning stopped.")
+                 return True
 
         elif event.button == 2: # Middle button release
             if editor.panning:
