@@ -4,6 +4,7 @@ import os
 import sys # Import sys earlier for path adjustments if needed
 import unittest.mock # Move import here
 import config # Import the config module
+from unittest.mock import MagicMock
 
 # Add project root to the Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -244,32 +245,28 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         mock_screen = MockSurface((config.BATTLE_WIDTH, config.BATTLE_HEIGHT))
 
         # Mock SCREEN object used within draw_battle if necessary
-        with unittest.mock.patch('battle_simulator.SCREEN', mock_screen): 
+        with unittest.mock.patch('battle_simulator.SCREEN', mock_screen):
             # Mock blit to avoid errors if SCREEN is not a real surface
              with unittest.mock.patch.object(mock_screen, 'blit') as mock_blit:
-                # Mock font rendering to avoid errors
-                 with unittest.mock.patch('battle_simulator.FONT.render', return_value=MockSurface((10,10))):
-            
-                    # Act
-                    # Import draw_battle locally to use the patched SCREEN
-                    from battle_simulator import draw_battle 
-                    draw_battle(creature1, creature2, mock_buttons, mock_background)
-            
-                    # Assert
-                    # Check the arguments passed to pygame.transform.scale
-                    self.assertEqual(mock_scale.call_count, 2, "pygame.transform.scale should be called twice (once per creature)")
-                    
-                    # Check the arguments of the first call (creature1)
-                    args1, kwargs1 = mock_scale.call_args_list[0]
-                    self.assertIs(args1[0], native_sprite1, "First scale call should use creature1's native sprite")
-                    self.assertEqual(args1[1], config.BATTLE_SPRITE_DISPLAY_SIZE, 
-                                     f"First scale call should target display size {config.BATTLE_SPRITE_DISPLAY_SIZE}, got {args1[1]}")
-            
-                    # Check the arguments of the second call (creature2)
-                    args2, kwargs2 = mock_scale.call_args_list[1]
-                    self.assertIs(args2[0], native_sprite2, "Second scale call should use creature2's native sprite")
-                    self.assertEqual(args2[1], config.BATTLE_SPRITE_DISPLAY_SIZE, 
-                                     f"Second scale call should target display size {config.BATTLE_SPRITE_DISPLAY_SIZE}, got {args2[1]}")
+                # Mock font rendering: Patch the Font constructor instead of the render method
+                mock_font_instance = MagicMock()
+                mock_font_instance.render.return_value = MockSurface((10,10)) # Configure the mock render
+                with unittest.mock.patch('battle_simulator.pygame.font.Font', return_value=mock_font_instance) as mock_font_constructor:
+                     # ALSO patch pygame.draw.rect to avoid TypeError with MockSurface
+                     with unittest.mock.patch('battle_simulator.pygame.draw.rect') as mock_draw_rect:
+                         # Act
+                         from battle_simulator import draw_battle
+                         draw_battle(creature1, creature2, mock_buttons, mock_background)
+
+        # Assert
+        # Check if pygame.transform.scale was called correctly for both creatures
+        expected_size = config.BATTLE_SPRITE_DISPLAY_SIZE
+        calls = [
+            unittest.mock.call(native_sprite1, expected_size),
+            unittest.mock.call(native_sprite2, expected_size)
+        ]
+        mock_scale.assert_has_calls(calls, any_order=True)
+        assert mock_scale.call_count == 2
 
     # --- Tests for TEST-2 (Damage Calculation) ---
 

@@ -11,13 +11,30 @@ import colorsys
 # Import the centralized config
 import config
 
+# Import newly created modules
+from event_handler import EventHandler
+from editor_ui import Button, Palette, PALETTE # <<< UPDATE IMPORT
+from selection_manager import SelectionTool # <<< ADD THIS IMPORT
+from sprite_editor import SpriteEditor # <<< IMPORT NEW MODULE
+from tool_manager import ToolManager # <<< Import ToolManager
+# Add other imports as needed: from editor_ui import EditorUI, Button, Palette, SpriteEditor etc.
+
 # Initialize Tkinter root window and hide it
+root = None # Keep module-level variable as None, Editor will manage its own instance
+
+# --- Initialize Tkinter Root FIRST --- 
+tk_root = None
+tkinter_error = None
 try:
-    root = tk.Tk() # Indent this
-    root.withdraw() # Indent this
-except tk.TclError as e:
-    print(f"Warning: Could not initialize Tkinter (Needed for native dialogs): {e}")
-    root = None # Flag that tkinter is unavailable
+    print("Attempting to initialize tk.Tk() globally...")
+    tk_root = tk.Tk()
+    tk_root.withdraw() # Hide the main window
+    print("Global tk.Tk() initialized successfully.")
+except Exception as e:
+    # Store error if Tkinter fails to initialize globally
+    print(f"ERROR: Global Tkinter initialization failed: {e}")
+    tkinter_error = e 
+# --- End Tkinter Init ---
 
 # Now import and initialize Pygame
 pygame.init()
@@ -37,33 +54,6 @@ pygame.init()
 screen = pygame.display.set_mode((config.EDITOR_WIDTH, config.EDITOR_HEIGHT))
 pygame.display.set_caption("Advanced Pixel Art Sprite Editor with Enhanced Features")
 clock = pygame.time.Clock()
-
-# Enhanced color palette generation
-def generate_palette():
-    """
-    Generate an enhanced color palette for the pixel art editor.
-
-    This function creates a wide range of colors, including a variety of hues,
-    saturations, and values, as well as grayscale colors. The resulting palette
-    is used for painting and color selection in the editor.
-
-    Returns:
-        list: A list of RGBA color tuples representing the generated palette.
-    """
-    PALETTE = [(0, 0, 0, 255)]  # Start with black
-    # Generate a wide range of colors
-    for h in range(0, 360, 30):  # Hue
-        for s in [50, 100]:  # Saturation
-            for v in [50, 100]:  # Value
-                r, g, b = colorsys.hsv_to_rgb(h/360, s/100, v/100)
-                PALETTE.append((int(r*255), int(g*255), int(b*255), 255))
-    # Add grayscale
-    for i in range(10):
-        gray = int(255 * i / 9)
-        PALETTE.append((gray, gray, gray, 255))
-    return PALETTE
-
-PALETTE = generate_palette()
 
 # Load monster data
 def load_monsters():
@@ -97,468 +87,6 @@ def load_monsters():
         sys.exit(1)
 
 monsters = load_monsters()
-
-# Button Class
-class Button:
-    """
-    A simple button class for the pixel art editor.
-
-    This class represents a clickable button with a text label. It handles drawing
-    the button on a surface, checking for mouse clicks, and executing an associated
-    action when clicked.
-
-    Attributes:
-        rect (pygame.Rect): The rectangle defining the button's position and size.
-        text (str): The text label displayed on the button.
-        action (callable): The function to be executed when the button is clicked.
-        color (tuple): The background color of the button (R, G, B).
-        hover_color (tuple): The background color of the button when the mouse is hovering over it (R, G, B).
-        font (pygame.font.Font): The font used for rendering the button text.
-
-    Methods:
-        draw(surface: pygame.Surface) -> None
-        is_clicked(event: pygame.event.Event) -> bool
-    """
-
-    def __init__(self, rect, text, action=None, value=None):
-        """
-        Initialize a new Button instance.
-
-        Args:
-            rect (tuple): A tuple representing the button's rectangle (x, y, width, height).
-            text (str): The text label to display on the button.
-            action (callable, optional): The function to be executed when the button is clicked.
-            value (any, optional): The value to be stored with the button.
-        """
-        self.rect = pygame.Rect(rect)
-        self.text = text
-        self.action = action
-        self.value = value
-        self.color = config.BUTTON_COLOR
-        self.hover_color = config.BUTTON_HOVER_COLOR
-        self.font = pygame.font.Font(config.DEFAULT_FONT, config.BUTTON_FONT_SIZE)
-
-    def draw(self, surface):
-        """
-        Draw the button on a given surface.
-
-        Args:
-            surface (pygame.Surface): The surface on which to draw the button.
-        """
-        mouse_pos = pygame.mouse.get_pos()
-        is_hover = self.rect.collidepoint(mouse_pos)
-        color = self.hover_color if is_hover else self.color
-        pygame.draw.rect(surface, color, self.rect)
-        pygame.draw.rect(surface, config.BLACK, self.rect, 2)
-        text_surf = self.font.render(self.text, True, config.BLACK)
-        text_rect = text_surf.get_rect(center=self.rect.center)
-        surface.blit(text_surf, text_rect)
-
-    def is_clicked(self, event):
-        """
-        Check if the button was clicked based on a mouse event.
-
-        Args:
-            event (pygame.event.Event): The mouse event to check for a click.
-
-        Returns:
-            bool: True if the button was clicked, False otherwise.
-        """
-        return event.type == pygame.MOUSEBUTTONDOWN and self.rect.collidepoint(event.pos)
-
-# SpriteEditor Class
-class SpriteEditor:
-    """ Edits sprites at 32x32 native resolution. """
-    def __init__(self, position, name, sprite_dir):
-        self.position = position
-        self.name = name
-        self.sprite_dir = sprite_dir # Store the directory
-        # Internal frame stores the actual sprite data at native resolution (32x32)
-        self.frame = pygame.Surface(config.NATIVE_SPRITE_RESOLUTION, pygame.SRCALPHA)
-        self.frame.fill((*config.BLACK[:3], 0)) # Transparent black
-        # Calculate the total display size of the editor grid
-        self.display_width = config.EDITOR_GRID_SIZE * config.EDITOR_PIXEL_SIZE
-        self.display_height = config.EDITOR_GRID_SIZE * config.EDITOR_PIXEL_SIZE
-
-    def load_sprite(self, monster_name):
-        """Loads sprite, checks size, scales to NATIVE_SPRITE_RESOLUTION if needed."""
-        self.frame.fill((*config.BLACK[:3], 0)) # Transparent black
-        # Use the stored sprite_dir
-        filename = os.path.join(self.sprite_dir, f"{monster_name}_{self.name}.png")
-        if os.path.exists(filename):
-            try:
-                loaded_image = pygame.image.load(filename).convert_alpha()
-                # Scale to native (32x32) if it doesn't match
-                if loaded_image.get_size() != config.NATIVE_SPRITE_RESOLUTION:
-                    print(f"Warning: Loaded sprite {filename} size {loaded_image.get_size()} does not match native {config.NATIVE_SPRITE_RESOLUTION}. Scaling down.")
-                    loaded_image = pygame.transform.smoothscale(loaded_image, config.NATIVE_SPRITE_RESOLUTION)
-                self.frame.blit(loaded_image, (0, 0))
-            except pygame.error as e:
-                 print(f"Error loading sprite {filename}: {e}")
-                 self.frame.fill((*config.RED[:3], 100)) # Semi-transparent red/magenta placeholder
-        else:
-            print(f"Sprite not found: {filename}. Creating blank.")
-            self.frame.fill((*config.BLACK[:3], 0))
-
-    def save_sprite(self, monster_name):
-        """Saves the internal 32x32 frame directly, requires monster_name."""
-        # config.py should ensure SPRITE_DIR exists
-
-        # Ensure monster_name is provided
-        if not monster_name:
-            print("Error: Cannot save sprite. Monster name is required.")
-            return
-
-        filename = os.path.join(self.sprite_dir, f"{monster_name}_{self.name}.png")
-        try:
-            pygame.image.save(self.frame, filename)
-            print(f"Saved sprite: {filename} at {config.NATIVE_SPRITE_RESOLUTION}")
-        except pygame.error as e:
-             print(f"Error saving sprite {filename}: {e}")
-
-    def draw_background(self, surface):
-        """Draws the checkerboard background for the editor grid."""
-        for y in range(config.EDITOR_GRID_SIZE):
-            for x in range(config.EDITOR_GRID_SIZE):
-                rect = (self.position[0] + x * config.EDITOR_PIXEL_SIZE, 
-                        self.position[1] + y * config.EDITOR_PIXEL_SIZE, 
-                        config.EDITOR_PIXEL_SIZE, config.EDITOR_PIXEL_SIZE)
-                color = config.GRID_COLOR_1 if (x + y) % 2 == 0 else config.GRID_COLOR_2
-                pygame.draw.rect(surface, color, rect)
-
-    def draw_pixels(self, surface):
-        """Draws the scaled sprite pixels onto the target surface."""
-        # Scale the 32x32 native frame up to the display size (e.g., 480x480)
-        # Use regular scale for pixel art sharpness
-        scaled_display_frame = pygame.transform.scale(self.frame, (self.display_width, self.display_height))
-        surface.blit(scaled_display_frame, self.position)
-
-    def draw_highlight(self, surface):
-        """Draws the highlight rectangle if this editor is active."""
-        # Draw highlight rectangle based on display size (unchanged)
-        # This logic is moved from the old draw method
-        # Assuming `editor` is accessible globally or passed differently if needed.
-        # For now, let's assume it's accessible as before.
-        # TODO: Refactor editor access if needed.
-        global editor # Temporary fix, consider passing editor instance if refactoring
-        if editor.current_sprite == self.name:
-            highlight_rect = pygame.Rect(self.position[0] - 10, self.position[1] - 10,
-                                         self.display_width + 20, self.display_height + 20)
-            pygame.draw.rect(surface, config.SELECTION_HIGHLIGHT_COLOR, highlight_rect, 3)
-
-    def draw(self, surface):
-        """Draws the scaled-up sprite editor grid onto the target surface.
-           DEPRECATED in favor of draw_background and draw_pixels.
-           Kept for compatibility or potential future use, but logic moved.
-        """
-        # This method is now simplified or can be removed if draw_ui is fully updated.
-        # For safety, let's make it call the new methods for now.
-        self.draw_background(surface)
-        self.draw_pixels(surface)
-        # Highlight is drawn separately in draw_ui now.
-
-    def get_grid_position(self, pos):
-        """Converts screen coordinates (within display area) to 32x32 grid coordinates."""
-        x, y = pos
-        # Check if click is within the visual editor bounds
-        if not (self.position[0] <= x < self.position[0] + self.display_width and
-                self.position[1] <= y < self.position[1] + self.display_height):
-            return None
-
-        # Calculate grid coordinates directly from relative position and PIXEL_SIZE
-        grid_x = (x - self.position[0]) // config.EDITOR_PIXEL_SIZE
-        grid_y = (y - self.position[1]) // config.EDITOR_PIXEL_SIZE
-
-        # Ensure coordinates are within the 32x32 grid bounds
-        if 0 <= grid_x < config.EDITOR_GRID_SIZE and 0 <= grid_y < config.EDITOR_GRID_SIZE:
-             # Since native is 32x32 and editor grid is 32x32, coords are the same
-            return grid_x, grid_y
-        return None
-
-    def draw_pixel(self, grid_pos, color):
-        """Draws a pixel at the given 32x32 grid coordinates."""
-        if 0 <= grid_pos[0] < config.NATIVE_SPRITE_RESOLUTION[0] and 0 <= grid_pos[1] < config.NATIVE_SPRITE_RESOLUTION[1]:
-            self.frame.set_at(grid_pos, color)
-
-    def get_pixel_color(self, grid_pos):
-         """Gets the color of a pixel from the 32x32 grid coordinates."""
-         if 0 <= grid_pos[0] < config.NATIVE_SPRITE_RESOLUTION[0] and 0 <= grid_pos[1] < config.NATIVE_SPRITE_RESOLUTION[1]:
-            return self.frame.get_at(grid_pos)
-         return None
-
-# Palette Class with Scrollable Feature
-class Palette:
-    """
-    A scrollable color palette for the pixel art editor.
-
-    This class represents a scrollable color palette that allows users to select
-    colors for painting and drawing in the editor. It supports scrolling through
-    a large number of colors and provides a visual representation of each color.
-
-    Attributes:
-        position (tuple): The (x, y) position of the palette on the screen.
-        block_size (int): The size of each color block in the palette.
-        padding (int): The padding between color blocks.
-        gap (int): The gap between the palette and other UI elements.
-        font (pygame.font.Font): The font used for rendering the palette label.
-        scroll_offset (int): The current scroll offset within the palette.
-        colors_per_page (int): The number of colors displayed per page.
-        total_pages (int): The total number of pages in the palette.
-
-    Methods:
-        draw(surface: pygame.Surface) -> None
-        handle_click(pos: tuple) -> None
-    """
-
-    def __init__(self, position):
-        """
-        Initialize a new Palette instance.
-
-        Args:
-            position (tuple): The (x, y) position of the palette on the screen.
-        """
-        self.position = position  # (x, y) starting position on screen
-        self.block_size = 15  # Reduced block size
-        self.padding = 2  # Reduced padding
-        self.gap = 5
-        self.font = pygame.font.Font(config.DEFAULT_FONT, config.PALETTE_FONT_SIZE)
-        self.scroll_offset = 0
-        self.colors_per_page = config.PALETTE_COLS * config.PALETTE_ROWS
-        self.total_pages = (len(PALETTE) + self.colors_per_page - 1) // self.colors_per_page
-
-    def draw(self, surface):
-        """
-        Draw the palette on a given surface.
-
-        Args:
-            surface (pygame.Surface): The surface on which to draw the palette.
-        """
-        x0, y0 = self.position
-        current_page = self.scroll_offset
-        start_index = current_page * self.colors_per_page
-        end_index = start_index + self.colors_per_page
-        visible_palette = PALETTE[start_index:end_index]
-
-        for index, color in enumerate(visible_palette):
-            col = index % config.PALETTE_COLS
-            row = index // config.PALETTE_COLS
-            rect = pygame.Rect(
-                x0 + col * (self.block_size + self.padding),
-                y0 + row * (self.block_size + self.padding),
-                self.block_size,
-                self.block_size
-            )
-
-            if color[3] == 0:  # Transparent color
-                pygame.draw.rect(surface, config.GRAY_LIGHT, rect)
-                pygame.draw.line(surface, config.TRANSPARENT_INDICATOR_COLOR, rect.topleft, rect.bottomright, 2)
-                pygame.draw.line(surface, config.TRANSPARENT_INDICATOR_COLOR, rect.topright, rect.bottomleft, 2)
-            else:
-                pygame.draw.rect(surface, color[:3], rect)
-
-            if color == editor.current_color:
-                pygame.draw.rect(surface, config.SELECTION_HIGHLIGHT_COLOR, rect.inflate(4, 4), 2)
-
-        # Palette label
-        label = self.font.render("Palette", True, config.BLACK)
-        surface.blit(label, (x0, y0 - 30))
-
-        # Scroll indicators
-        if self.total_pages > 1:
-            up_arrow = self.font.render("↑", True, config.BLACK)
-            down_arrow = self.font.render("↓", True, config.BLACK)
-            surface.blit(up_arrow, (x0 + config.PALETTE_COLS * (self.block_size + self.padding) + 10, y0))
-            surface.blit(down_arrow, (x0 + config.PALETTE_COLS * (self.block_size + self.padding) + 10, y0 + config.PALETTE_ROWS * (self.block_size + self.padding) - 20))
-
-    def handle_click(self, pos):
-        """
-        Handle a mouse click event on the palette.
-
-        This method checks if a color block was clicked and selects the corresponding
-        color in the editor. It also handles scrolling through the palette using
-        the scroll indicators.
-
-        Args:
-            pos (tuple): The (x, y) position of the mouse click.
-        """
-        x0, y0 = self.position
-        x, y = pos
-        # Check for scroll buttons
-        scroll_area_x = x0 + config.PALETTE_COLS * (self.block_size + self.padding) + 10
-        if x >= scroll_area_x and x <= scroll_area_x + 20:
-            if y <= self.position[1] + config.PALETTE_ROWS * (self.block_size + self.padding):
-                # Up arrow
-                if self.scroll_offset > 0:
-                    self.scroll_offset -= 1
-            elif y >= self.position[1] + config.PALETTE_ROWS * (self.block_size + self.padding) - 20:
-                # Down arrow
-                if self.scroll_offset < self.total_pages - 1:
-                    self.scroll_offset += 1
-            return
-
-        # Determine which color was clicked
-        for index, color in enumerate(PALETTE[self.scroll_offset * self.colors_per_page:(self.scroll_offset + 1) * self.colors_per_page]):
-            col = index % config.PALETTE_COLS
-            row = index // config.PALETTE_COLS
-            rect = pygame.Rect(
-                x0 + col * (self.block_size + self.padding),
-                y0 + row * (self.block_size + self.padding),
-                self.block_size,
-                self.block_size
-            )
-            if rect.collidepoint(x, y):
-                editor.select_color(color)
-                # Disable paste mode and select mode when selecting a color
-                editor.paste_mode = False
-                if editor.mode == 'select':
-                    editor.mode = 'draw'
-                    editor.selection.selecting = False
-                    editor.selection.active = False
-                return
-
-# Selection Tool Class
-class SelectionTool:
-    """
-    A selection tool for the pixel art editor.
-
-    This class allows users to select and manipulate a rectangular area of pixels
-    within the editor. It supports copying, pasting, mirroring, and rotating
-    the selected area.
-
-    Attributes:
-        editor (Editor): The main editor instance.
-        selecting (bool): Flag indicating if the selection tool is currently active.
-        active (bool): Flag indicating if a selection is currently in progress.
-        start_pos (tuple): The starting position of the selection rectangle.
-        end_pos (tuple): The ending position of the selection rectangle.
-        rect (pygame.Rect): The current selection rectangle.
-
-    Methods:
-        toggle() -> None
-        start(pos: tuple) -> None
-        update(pos: tuple) -> None
-        end_selection(pos: tuple) -> None
-        update_rect() -> None
-        draw(surface: pygame.Surface) -> None
-        get_selected_pixels() -> dict
-    """
-
-    def __init__(self, editor):
-        """
-        Initialize a new SelectionTool instance.
-
-        Args:
-            editor (Editor): The main editor instance.
-        """
-        self.editor = editor
-        self.selecting = False
-        self.active = False
-        self.start_pos = None
-        self.end_pos = None
-        self.rect = pygame.Rect(0, 0, 0, 0)
-
-    def toggle(self):
-        """
-        Toggle the selection tool's activation state.
-        """
-        self.selecting = True  # Always start fresh selection
-        self.active = False  # Reset active state
-        self.start_pos = None  # Reset start position
-        self.end_pos = None  # Reset end position
-        self.rect = pygame.Rect(0, 0, 0, 0)  # Reset rectangle
-        print("Selection mode activated.")
-
-    def start(self, pos):
-        """
-        Start a new selection at the given position.
-
-        Args:
-            pos (tuple): The starting position of the selection rectangle.
-        """
-        sprite = self.editor.sprites[self.editor.current_sprite]
-        grid_pos = sprite.get_grid_position(pos)
-        if grid_pos:
-            self.start_pos = grid_pos
-            self.end_pos = grid_pos
-            self.update_rect()
-            print(f"Selection started at: {self.start_pos}")
-
-    def update(self, pos):
-        """
-        Update the selection rectangle based on the given position.
-
-        Args:
-            pos (tuple): The current position of the mouse.
-        """
-        sprite = self.editor.sprites[self.editor.current_sprite]
-        grid_pos = sprite.get_grid_position(pos)
-        if grid_pos:
-            self.end_pos = grid_pos
-            self.update_rect()
-            print(f"Selection updated to: {self.end_pos}")
-
-    def end_selection(self, pos):
-        """
-        End the current selection at the given position.
-
-        Args:
-            pos (tuple): The ending position of the selection rectangle.
-        """
-        sprite = self.editor.sprites[self.editor.current_sprite]
-        grid_pos = sprite.get_grid_position(pos)
-        if grid_pos:
-            self.end_pos = grid_pos
-            self.update_rect()
-            self.active = True
-            self.selecting = False
-            print(f"Selection defined: {self.rect}")
-
-    def update_rect(self):
-        """
-        Update the selection rectangle based on the start and end positions.
-        """
-        if self.start_pos and self.end_pos:
-            x1, y1 = self.start_pos
-            x2, y2 = self.end_pos
-            left = min(x1, x2)
-            top = min(y1, y2)
-            width = abs(x2 - x1) + 1
-            height = abs(y2 - y1) + 1
-            self.rect = pygame.Rect(left, top, width, height)
-
-    def draw(self, surface):
-        """
-        Draw the selection rectangle on a given surface.
-        """
-        # Draw selection rectangle while selecting (mouse down) or when selection is active
-        if (self.selecting and self.start_pos and self.end_pos) or self.active:
-            sprite = self.editor.sprites[self.editor.current_sprite]
-            x0, y0 = sprite.position
-            selection_surface = pygame.Surface((self.rect.width * config.EDITOR_PIXEL_SIZE, self.rect.height * config.EDITOR_PIXEL_SIZE), pygame.SRCALPHA)
-            selection_surface.fill(config.SELECTION_FILL_COLOR)  # Semi-transparent blue
-            pygame.draw.rect(selection_surface, config.BLUE, selection_surface.get_rect(), 2)
-            surface.blit(selection_surface, (x0 + self.rect.x * config.EDITOR_PIXEL_SIZE, y0 + self.rect.y * config.EDITOR_PIXEL_SIZE))
-
-    def get_selected_pixels(self):
-        """ Get the pixels within the selection rectangle (coords relative to 32x32 grid). """
-        sprite_editor = self.editor.sprites.get(self.editor.current_sprite)
-        if not sprite_editor:
-            return {}
-            
-        pixels = {}
-        # self.rect is relative to the visual grid (0-31 range)
-        # Native frame is also 32x32, so coords match directly
-        for x in range(self.rect.width):
-            for y in range(self.rect.height):
-                grid_x = self.rect.x + x
-                grid_y = self.rect.y + y
-                # Check bounds against native resolution (32x32)
-                if 0 <= grid_x < config.NATIVE_SPRITE_RESOLUTION[0] and 0 <= grid_y < config.NATIVE_SPRITE_RESOLUTION[1]:
-                    color = sprite_editor.get_pixel_color((grid_x, grid_y))
-                    if color is not None:
-                        pixels[(x, y)] = color # Store relative to selection top-left
-        return pixels
-
 
 # Editor Class with Enhanced Features
 class Editor:
@@ -600,52 +128,48 @@ class Editor:
         """
         Initialize a new Editor instance.
         """
-        self.current_color = PALETTE[0]
+        self.current_color = PALETTE[0] # <<< Uses imported PALETTE
         self.current_monster_index = 0
-        self.drawing = False
-        self.eraser_mode = False
-        self.fill_mode = False
+        self.eraser_mode = False # Keep temporarily? DrawTool uses it.
+        self.fill_mode = False # Keep temporarily? Needed for FillTool logic later.
+        self.paste_mode = False # Keep temporarily? Needed for PasteTool logic later.
         self.current_sprite = 'front'
         self.sprites = {
             'front': SpriteEditor((50, 110), 'front', config.SPRITE_DIR),
-            'back': SpriteEditor((575, 110), 'back', config.SPRITE_DIR)  # Adjusted position, pass SPRITE_DIR
+            'back': SpriteEditor((575, 110), 'back', config.SPRITE_DIR) 
         }
-        self.palette = Palette((50, config.EDITOR_HEIGHT - 180))  # Adjusted position
-        self.brush_size = 1  # Default brush size
-        self.adjusting_brush = False  # Add this line
-        self.selection = SelectionTool(self)
+        self.palette = Palette((50, config.EDITOR_HEIGHT - 180))
+        self.brush_size = 1
+        self.adjusting_brush = False
+        self.selection = SelectionTool(self) # SelectionTool might become a tool in ToolManager later
         self.copy_buffer = None
-        self.paste_mode = False
-        self.mode = 'draw'  # 'draw' or 'select'
+        self.mode = 'draw'  # Keep? Or manage via ToolManager? Keep for 'select' vs other tools for now.
         self.backgrounds = self.load_backgrounds()
         self.current_background_index = 0 if self.backgrounds else -1
-        self.edit_mode = self.choose_edit_mode()
-        self.editor_zoom = 1.0  # Initialize zoom level
+        self.edit_mode = None
+        self.editor_zoom = 1.0
+        self.view_offset_x = 0 
+        self.view_offset_y = 0
+        self.panning = False
 
-        if self.edit_mode == 'background':
-            self.canvas_rect = pygame.Rect(50, 100, config.DEFAULT_BACKGROUND_WIDTH, config.DEFAULT_BACKGROUND_HEIGHT)
-            if self.backgrounds:
-                self.current_background = self.backgrounds[0][1].copy()
-            else:
-                self.create_new_background()
-        else:
-            self.current_background = pygame.Surface((config.DEFAULT_BACKGROUND_WIDTH, config.DEFAULT_BACKGROUND_HEIGHT))
-            self.current_background.fill(config.WHITE)
+        # Instantiate the EventHandler
+        self.event_handler = EventHandler(self)
 
-        # Load the first monster's art
-        self.load_monster()
+        # Instantiate the ToolManager <<< NEW
+        self.tool_manager = ToolManager(self)
+
+        self.current_background = None
+        self.canvas_rect = None
 
         # Undo/Redo stacks
         self.undo_stack = []
         self.redo_stack = []
 
-        # Create buttons after setting edit_mode
-        self.buttons = self.create_buttons()
+        self.buttons = [] # Start with empty buttons
 
-        # Add this line to create a font
         self.font = pygame.font.Font(config.DEFAULT_FONT, config.EDITOR_INFO_FONT_SIZE)
 
-        self.brush_slider = pygame.Rect(50, config.EDITOR_HEIGHT - 40, 200, 20)  # Add this line
+        self.brush_slider = pygame.Rect(50, config.EDITOR_HEIGHT - 40, 200, 20)
 
         # --- Reference Image Attributes ---
         self.reference_image_path = None
@@ -653,17 +177,29 @@ class Editor:
         self.scaled_reference_image = None # Scaled and alpha-applied surface for display
         self.reference_alpha = 128 # Default alpha (50% opaque)
         self.adjusting_alpha = False # Flag for slider interaction
+        self.subject_alpha = 255 # << Add subject alpha (fully opaque default)
+        self.adjusting_subject_alpha = False # << Add flag for subject slider
 
         # Define slider rect (adjust position/size as needed)
-        slider_x = 300 # Position next to brush slider for now
-        slider_y = config.EDITOR_HEIGHT - 40
-        slider_width = 150
-        slider_height = 20
-        self.ref_alpha_slider_rect = pygame.Rect(slider_x, slider_y, slider_width, slider_height)
-        # Initial knob position reflects default alpha
-        knob_slider_width = self.ref_alpha_slider_rect.width - 10 # Available track width
-        initial_knob_x = self.ref_alpha_slider_rect.x + int((self.reference_alpha / 255) * knob_slider_width)
-        self.ref_alpha_knob_rect = pygame.Rect(initial_knob_x, slider_y, 10, slider_height)
+        # Reference Alpha Slider
+        ref_slider_x = 300 # Position next to brush slider for now
+        ref_slider_y = config.EDITOR_HEIGHT - 40
+        ref_slider_width = 150
+        ref_slider_height = 20
+        self.ref_alpha_slider_rect = pygame.Rect(ref_slider_x, ref_slider_y, ref_slider_width, ref_slider_height)
+        ref_knob_slider_width = self.ref_alpha_slider_rect.width - 10 # Available track width
+        initial_ref_knob_x = self.ref_alpha_slider_rect.x + int((self.reference_alpha / 255) * ref_knob_slider_width)
+        self.ref_alpha_knob_rect = pygame.Rect(initial_ref_knob_x, ref_slider_y, 10, ref_slider_height)
+
+        # Subject Alpha Slider (Position below reference slider)
+        subj_slider_x = ref_slider_x 
+        subj_slider_y = ref_slider_y + ref_slider_height + 10 # Place below ref slider
+        subj_slider_width = ref_slider_width
+        subj_slider_height = ref_slider_height
+        self.subj_alpha_slider_rect = pygame.Rect(subj_slider_x, subj_slider_y, subj_slider_width, subj_slider_height)
+        subj_knob_slider_width = self.subj_alpha_slider_rect.width - 10
+        initial_subj_knob_x = self.subj_alpha_slider_rect.x + int((self.subject_alpha / 255) * subj_knob_slider_width)
+        self.subj_alpha_knob_rect = pygame.Rect(initial_subj_knob_x, subj_slider_y, 10, subj_slider_height)
 
         # --- Dialog State ---
         self.dialog_mode = None # e.g., 'choose_edit_mode', 'choose_bg_action', 'save_bg', 'load_bg', 'color_picker', 'input_text'
@@ -682,6 +218,21 @@ class Editor:
         self.dialog_color_picker_val = 1 # Value for HSV
         self.dialog_color_picker_rects = {} # Rects for color picker elements
         # --- End Dialog State ---
+
+        self.tk_root = None # Initialize instance variable for Tkinter root
+
+        # <<< --- ADD THE CALL HERE --- >>>
+        self.choose_edit_mode() # Setup the initial dialog state AFTER resetting dialog attrs
+
+    def _ensure_tkinter_root(self):
+        """Check if the global Tkinter root was initialized successfully."""
+        # Access the global tk_root variable
+        global tk_root, tkinter_error 
+        if tk_root is None:
+             print(f"Tkinter root unavailable. Global init error: {tkinter_error}")
+             return False
+        # If global root exists, return True
+        return True
 
     def choose_edit_mode(self):
         """
@@ -709,37 +260,66 @@ class Editor:
             Button(pygame.Rect(button_x, background_button_y, button_width, button_height), "Background", value="background"), # No action, store value
         ]
         self.dialog_callback = self._set_edit_mode_and_continue
+        # print(f"DEBUG: choose_edit_mode finished. self.dialog_mode = {self.dialog_mode}") # DEBUG
 
-        # Return a default mode temporarily until the dialog is resolved in the main loop
-        # The rest of __init__ might depend on a valid edit_mode
-        return "monster" # Default to monster initially
+        # <<< --- REMOVE THIS RETURN --- >>>
+        # return "monster" # Default to monster initially
 
     def _set_edit_mode_and_continue(self, mode):
         """Callback after choosing edit mode."""
-        print(f"Edit mode chosen: {mode}")
-        self.edit_mode = mode
+        # print(f"DEBUG: Start _set_edit_mode_and_continue(mode='{mode}')") # DEBUG 4 - REMOVE
+        self.edit_mode = mode # Set mode FIRST
         if mode == 'background':
-            # Now trigger the background action choice
+            # --- Setup for Background Mode --- 
+            self.canvas_rect = pygame.Rect(50, 100, config.DEFAULT_BACKGROUND_WIDTH, config.DEFAULT_BACKGROUND_HEIGHT)
+            self.current_background = pygame.Surface(self.canvas_rect.size, pygame.SRCALPHA)
+            self.current_background.fill(config.WHITE) # Default to white
+            # --- End Setup ---
+            # Now trigger the background action choice (new/edit)
+            # print(f"DEBUG: Before calling choose_background_action()") # DEBUG 5 - REMOVE
             self.choose_background_action()
-        else:
+        else: # Monster mode
             # If monster mode, initialization is complete
+            # Clear potential background canvas rect
+            self.canvas_rect = None
+            self.current_background = None
             self.load_monster() # Ensure monster is loaded if chosen
             self.buttons = self.create_buttons() # Recreate buttons for the correct mode
-            self.dialog_mode = None # Exit dialog
+            # --- ADD CLEARING LOGIC FOR MONSTER MODE --- 
+            self.dialog_mode = None 
+            self.dialog_prompt = ""
+            self.dialog_options = []
+            self.dialog_callback = None
+        # print(f"DEBUG: End _set_edit_mode_and_continue. dialog_mode={self.dialog_mode}") # DEBUG 6 - REMOVE
 
     def _handle_dialog_choice(self, value):
         """Internal handler for dialog button values or direct calls."""
-        # If a value was passed (from button click), call the main callback
-        if value is not None and self.dialog_callback:
-            callback = self.dialog_callback
-            # Important: Clear dialog state BEFORE calling callback
-            # to prevent infinite loops if callback re-triggers a dialog
-            # self.dialog_mode = None # Maybe not here? Callback should set None?
-            callback(value)
-        # Reset parts of dialog state AFTER callback potentially ran
-        # self.dialog_options = [] # Callback might set these again
-        # self.dialog_prompt = "" # Callback might set these again
-        # self.dialog_callback = None # Callback might set this again
+        # print(f"DEBUG: Start _handle_dialog_choice(value={repr(value)})") # DEBUG 1 - REMOVE
+        callback_to_call = self.dialog_callback # Store before potential modification
+        if callback_to_call:
+            if value is None: # Cancel Path
+                 print("Dialog action cancelled by user.")
+                 self.dialog_mode = None
+                 self.dialog_prompt = ""
+                 self.dialog_options = []
+                 # Set back to None
+                 # if hasattr(self, 'dialog_callback'):
+                 #     del self.dialog_callback 
+                 self.dialog_callback = None # <<< REVERT TO THIS
+                 # Reset input-specific state too
+                 self.dialog_input_text = ""
+                 # ... rest of cancel path clearing ...
+            else: # Value is not None (Confirm Path)
+                 try:
+                     # print(f"DEBUG: Before calling callback {getattr(callback_to_call, '__name__', 'unknown')}") # DEBUG 2 - REMOVE
+                     callback_to_call(value)
+                     # Callback handles its own state transitions now
+                 except Exception as e:
+                     print(f"ERROR during dialog callback {getattr(callback_to_call, '__name__', 'unknown')}: {e}")
+                     # Clear dialog on error
+                     self.dialog_mode = None
+                     # ... clear other stuff ...
+        # print(f"DEBUG: End _handle_dialog_choice. dialog_mode={self.dialog_mode}") # DEBUG 3 - REMOVE
 
     def refocus_pygame_window(self):
         """
@@ -811,6 +391,11 @@ class Editor:
                 ("Brush -", self.decrease_brush_size),
                 ("Prev BG", self.previous_background),
                 ("Next BG", self.next_background),
+                # Add Panning Buttons
+                ("Pan Up", self.pan_up),
+                ("Pan Down", self.pan_down),
+                ("Pan Left", self.pan_left),
+                ("Pan Right", self.pan_right),
             ]
 
         for i, (text, action) in enumerate(all_buttons):
@@ -865,59 +450,95 @@ class Editor:
             print(f"Warning: Unknown edit mode '{self.edit_mode}' for clear operation.")
 
     def toggle_eraser(self):
-        """Toggle eraser mode."""
-        self.eraser_mode = not self.eraser_mode
-        self.fill_mode = False
-        self.paste_mode = False # Corrected indent
-        if self.mode == 'select': # Corrected indent
-            self.mode = 'draw' # Corrected indent
-            self.selection.selecting = False # Corrected indent
-            self.selection.active = False # Corrected indent
-        print(f"Eraser mode: {self.eraser_mode}")
+        """Toggle eraser mode (now handled by DrawTool state)."""
+        # If already draw tool, just toggle erase_mode
+        if self.tool_manager.active_tool_name == 'draw':
+             self.eraser_mode = not self.eraser_mode
+             print(f"Eraser mode: {self.eraser_mode}")
+             # Ensure other potentially conflicting modes are off
+             self.fill_mode = False 
+             self.paste_mode = False
+        else:
+             # If switching from another tool, activate draw tool and set erase mode
+             self.tool_manager.set_active_tool('draw')
+             self.eraser_mode = True
+             print(f"Eraser mode: {self.eraser_mode}")
+        # No longer need to manage select mode here, set_active_tool does it
 
     def toggle_fill(self):
-        """Toggle fill mode."""
-        self.fill_mode = not self.fill_mode
+        """Activate fill tool."""
+        # self.fill_mode = not self.fill_mode # OLD
+        # self.eraser_mode = False # OLD
+        # self.paste_mode = False # OLD
+        # if self.mode == 'select': # OLD
+        #     self.mode = 'draw' # OLD
+        #     self.selection.selecting = False # OLD
+        #     self.selection.active = False # OLD
+        # print(f"Fill mode: {self.fill_mode}") # OLD
+        self.tool_manager.set_active_tool('fill') # <<< NEW
+        # We might need flags like self.fill_mode if FillTool needs them?
+        # For now, assume activating the tool is sufficient.
+        # ToolManager.set_active_tool handles turning off other flags.
+        self.fill_mode = True # Keep flag for now until FillTool state is internal
         self.eraser_mode = False
         self.paste_mode = False
-        if self.mode == 'select':
-            self.mode = 'draw'
-            self.selection.selecting = False
-            self.selection.active = False
-        print(f"Fill mode: {self.fill_mode}")
 
     def toggle_selection_mode(self):
         """Toggle selection mode."""
+        # Selection is not yet a formal tool in ToolManager
+        # Keep existing logic for now
         if self.mode == 'select':
             self.mode = 'draw'
             self.selection.selecting = False
             self.selection.active = False
+            # Ensure draw tool is active when exiting select mode
+            self.tool_manager.set_active_tool('draw') 
             print("Switched to Draw mode.")
         else:
             self.mode = 'select'
             self.selection.toggle() # Activate selection tool logic
+            # Deactivate other tools implicitly by switching mode (handled by event handler checks)
             self.eraser_mode = False
             self.fill_mode = False
             self.paste_mode = False
+            # Maybe explicitly deactivate the ToolManager's tool?
+            if self.tool_manager.active_tool:
+                 self.tool_manager.active_tool.deactivate(self)
             print("Switched to Select mode.")
 
     def copy_selection(self):
         """Copy the selected pixels to the buffer."""
         if self.mode == 'select' and self.selection.active:
-            self.copy_buffer = self.selection.get_selected_pixels()
-            print(f"Copied {len(self.copy_buffer)} pixels.")
+            # Get the currently active sprite editor
+            sprite_editor = self.sprites.get(self.current_sprite)
+            if not sprite_editor:
+                 print("Copy failed: Cannot find active sprite editor.")
+                 return
+                 
+            # Pass the sprite_editor instance
+            self.copy_buffer = self.selection.get_selected_pixels(sprite_editor)
+            
+            if self.copy_buffer:
+                 print(f"Copied {len(self.copy_buffer)} pixels.")
+            else:
+                 print("Copy failed: No pixels selected or error getting pixels.")
         else:
             print("Copy failed: No active selection.")
 
     def paste_selection(self):
         """Activate paste mode with the buffered pixels."""
         if self.copy_buffer:
-            self.paste_mode = True
-            self.mode = 'draw' # Exit select mode implicitly
-            self.selection.active = False
+            # self.paste_mode = True # OLD
+            # self.mode = 'draw' # Exit select mode implicitly # OLD
+            # self.selection.active = False # OLD
+            # self.eraser_mode = False # OLD
+            # self.fill_mode = False # OLD
+            # print("Paste mode activated. Click to place.") # OLD
+            self.tool_manager.set_active_tool('paste') # <<< NEW
+            # Keep flags for now until PasteTool state is internal?
+            self.paste_mode = True 
             self.eraser_mode = False
             self.fill_mode = False
-            print("Paste mode activated. Click to place.")
         else:
             print("Paste failed: Copy buffer is empty.")
 
@@ -988,15 +609,27 @@ class Editor:
 
     def zoom_in(self):
         """Zoom in on the background canvas."""
-        # Placeholder - requires implementation
-        print("Zoom In - Not Implemented")
-        pass
+        if self.edit_mode == 'background':
+            # Increase zoom level, potentially up to a max limit
+            self.editor_zoom *= 1.2 # Example: Increase by 20%
+            max_zoom = 8.0 # Example maximum zoom
+            self.editor_zoom = min(self.editor_zoom, max_zoom)
+            print(f"Zoom In: Level {self.editor_zoom:.2f}x")
+            # TODO: Adjust view offset based on mouse position
+        else:
+            print("Zoom only available in background mode.")
 
     def zoom_out(self):
         """Zoom out on the background canvas."""
-        # Placeholder - requires implementation
-        print("Zoom Out - Not Implemented")
-        pass
+        if self.edit_mode == 'background':
+            # Decrease zoom level, potentially down to a min limit
+            self.editor_zoom /= 1.2 # Example: Decrease by 20%
+            min_zoom = 0.25 # Example minimum zoom
+            self.editor_zoom = max(self.editor_zoom, min_zoom)
+            print(f"Zoom Out: Level {self.editor_zoom:.2f}x")
+            # TODO: Adjust view offset based on mouse position
+        else:
+             print("Zoom only available in background mode.")
 
     def increase_brush_size(self):
         """Increase brush size."""
@@ -1044,35 +677,33 @@ class Editor:
 
     def open_color_picker(self):
         """Open the system's native color picker dialog using Tkinter."""
-        if root is None:
-            print("Tkinter failed to initialize. Cannot open native color picker.")
-            # Fallback: Trigger the old Pygame color picker maybe?
-            # self._open_pygame_color_picker() # Need to rename old method
+        if not self._ensure_tkinter_root():
+            # Message already printed by _ensure_tkinter_root
             return
 
         # Convert current color to Tkinter format (hex string)
         initial_color_hex = "#{:02x}{:02x}{:02x}".format(*self.current_color[:3])
 
-        # Open the dialog
+        # Open the dialog, passing the global root as parent
         try:
-             chosen_color = colorchooser.askcolor(color=initial_color_hex, title="Select Color")
+             # Use the global tk_root directly
+             chosen_color = colorchooser.askcolor(parent=tk_root, color=initial_color_hex, title="Select Color")
         except tk.TclError as e:
              print(f"Error opening native color picker: {e}")
              chosen_color = None
+        except Exception as e: # Catch other potential errors
+             print(f"Unexpected error during color chooser: {e}")
+             chosen_color = None
 
-        # Bring Pygame window back to focus (experimental)
-        # self.refocus_pygame_window() # Might be needed
+        # Bring Pygame window back to focus might be needed here too if dialog issues persist
 
-        if chosen_color and chosen_color[1] is not None: # Check if a color was chosen (result is tuple: ((r,g,b), hex)) or (None, None)
+        if chosen_color and chosen_color[1] is not None: 
             rgb, _ = chosen_color
             new_color_rgba = (int(rgb[0]), int(rgb[1]), int(rgb[2]), 255) # Add full alpha
             self.select_color(new_color_rgba)
             print(f"Color selected via native picker: {new_color_rgba}")
         else:
             print("Color selection cancelled or failed.")
-
-        # Clear any lingering dialog state from Pygame picker (if we add fallback)
-        # self.dialog_mode = None 
 
     def _get_current_picker_color(self):
         # ... This method is now only relevant for a potential Pygame fallback ...
@@ -1094,12 +725,17 @@ class Editor:
         """
         if color is not None:
             self.current_color = color
-            self.eraser_mode = False
-            self.fill_mode = False
-            # Disable paste mode and select mode when selecting a color
-            self.paste_mode = False
+            self.eraser_mode = False # Keep? DrawTool uses this
+            self.fill_mode = False   # Keep? FillTool might need later?
+            self.paste_mode = False  # Explicitly set paste mode flag off
+            
+            # Switch back to draw tool if another tool was active
+            if self.tool_manager.active_tool_name != 'draw':
+                self.tool_manager.set_active_tool('draw')
+            
+            # Also ensure selection mode is off
             if self.mode == 'select':
-                self.mode = 'draw'
+                self.mode = 'draw' # Already handled by set_active_tool if needed
                 self.selection.selecting = False
                 self.selection.active = False
             print(f"Selected color: {color}")
@@ -1149,46 +785,59 @@ class Editor:
         """
         Handle background-specific actions (new or edit) using dialog state.
         """
+        # print(f"DEBUG: Start choose_background_action()") # DEBUG 7 - REMOVE
         if not self.backgrounds:
             print("No existing backgrounds. Creating a new one.")
-            # Trigger the 'new background' dialog/flow directly
-            self.create_new_background() # This will need modification for Pygame UI
-            self.dialog_mode = None # Assume create_new_background handles its own dialog state or finishes
+            # print(f"DEBUG: Before calling create_new_background()") # DEBUG 8 - REMOVE
+            self.create_new_background()
         else:
             self.dialog_mode = 'choose_bg_action'
             self.dialog_prompt = "Choose Background Action:"
+            # --- Calculate positions --- Needed if creating buttons here
+            dialog_center_x = config.EDITOR_WIDTH // 2
+            dialog_center_y = config.EDITOR_HEIGHT // 2
+            button_width = 150
+            button_height = 40
+            button_padding = 10
+            new_button_y = dialog_center_y - button_height - button_padding // 2
+            edit_button_y = dialog_center_y + button_padding // 2
+            button_x = dialog_center_x - button_width // 2
+            # --- UNCOMMENT AND SETUP DIALOG OPTIONS --- 
             self.dialog_options = [
-                Button(pygame.Rect(0, 0, 150, 40), "New", action=lambda: self._handle_dialog_choice("new")),
-                Button(pygame.Rect(0, 0, 150, 40), "Edit Existing", action=lambda: self._handle_dialog_choice("edit")),
+                Button(pygame.Rect(button_x, new_button_y, button_width, button_height), "New", value="new"),
+                Button(pygame.Rect(button_x, edit_button_y, button_width, button_height), "Edit Existing", value="edit")
             ]
             self.dialog_callback = self._handle_background_action_choice
+        # print(f"DEBUG: End choose_background_action. dialog_mode={self.dialog_mode}") # DEBUG 9 - REMOVE
 
     def _handle_background_action_choice(self, action):
         """Callback after choosing background action."""
         print(f"Background action chosen: {action}")
-        # Corrected Indentation:
         if action == 'new':
-            self.create_new_background() # Needs modification for Pygame UI
-            # Assuming create_new_background completes or sets its own dialog state
-            self.dialog_mode = None
+            self.create_new_background() # This sets dialog_mode = 'input_text'
+            # Don't clear dialog state here, let the next step handle it
         elif action == 'edit' and self.backgrounds:
             self.current_background_index = 0
             self.current_background = self.backgrounds[self.current_background_index][1].copy()
             print(f"Editing background: {self.backgrounds[self.current_background_index][0]}")
             self.buttons = self.create_buttons() # Recreate buttons for the correct mode
-            self.dialog_mode = None # Exit dialog
+            # --- ADD CLEARING LOGIC FOR EDIT BACKGROUND --- 
+            self.dialog_mode = None 
+            self.dialog_prompt = ""
+            self.dialog_options = []
+            self.dialog_callback = None
         else:
             print("Invalid action or no backgrounds to edit. Creating new.")
-            self.create_new_background() # Needs modification for Pygame UI
-            self.dialog_mode = None
+            self.create_new_background() # This sets dialog_mode = 'input_text'
+            # Don't clear dialog state here
 
     def create_new_background(self):
         """
         Create a new background image.
-        Uses a Pygame input dialog for the filename.
         """
-        # Trigger the input dialog
+        # print(f"DEBUG: Start create_new_background()") # DEBUG 10 - REMOVE
         self.dialog_mode = 'input_text'
+        # print(f"DEBUG: Set dialog_mode='{self.dialog_mode}' in create_new_background") # DEBUG 11 - REMOVE
         self.dialog_prompt = "Enter filename for new background (.png):"
         self.dialog_input_text = "new_background.png" # Default text
         self.dialog_input_active = True
@@ -1197,10 +846,11 @@ class Editor:
             Button(pygame.Rect(0,0, 100, 40), "Cancel", action=lambda: self._handle_dialog_choice(None))
         ]
         self.dialog_callback = self._create_new_background_callback
+        # print(f"DEBUG: End create_new_background. dialog_mode={self.dialog_mode}") # DEBUG 12 - REMOVE
 
     def _create_new_background_callback(self, filename):
         """Callback after getting filename for new background."""
-        self.dialog_mode = None # Clear dialog state first
+        # We don't clear dialog state here immediately, as _handle_dialog_choice handles cancel
         if filename:
             if not filename.endswith('.png'):
                 filename += '.png'
@@ -1225,6 +875,11 @@ class Editor:
             )
             # Ensure buttons are created/updated for the correct mode
             self.buttons = self.create_buttons()
+            # --- ADD CLEARING LOGIC ON SUCCESS --- 
+            self.dialog_mode = None 
+            self.dialog_prompt = ""
+            self.dialog_options = []
+            self.dialog_callback = None
         else:
             print("New background creation cancelled.")
             # If cancellation happened during initial setup, decide what to do.
@@ -1277,7 +932,7 @@ class Editor:
 
     def _save_background_callback(self, filename):
         """Callback after getting filename for saving background."""
-        self.dialog_mode = None # Clear dialog state
+        # We don't clear dialog state here immediately
         if filename:
             if not filename.endswith('.png'):
                 filename += '.png'
@@ -1299,6 +954,11 @@ class Editor:
             )
             # Update buttons if needed (though likely already correct)
             self.buttons = self.create_buttons()
+            # --- ADD CLEARING LOGIC ON SUCCESS --- 
+            self.dialog_mode = None 
+            self.dialog_prompt = ""
+            self.dialog_options = []
+            self.dialog_callback = None
         else:
             print("Background save cancelled.")
 
@@ -1406,7 +1066,7 @@ class Editor:
 
     def _load_selected_background_callback(self, filename):
         """Callback after selecting a background file to load."""
-        self.dialog_mode = None # Clear dialog state
+        # We don't clear dialog state here immediately
         if filename:
             full_path = os.path.join(config.BACKGROUND_DIR, filename)
             try:
@@ -1441,6 +1101,11 @@ class Editor:
                 print(f"Error loading background {full_path}: {e}")
             except FileNotFoundError:
                 print(f"Error: Background file {full_path} not found.")
+            # --- ADD CLEARING LOGIC ON SUCCESS --- 
+            self.dialog_mode = None 
+            self.dialog_prompt = ""
+            self.dialog_options = []
+            self.dialog_callback = None
         else:
             print("Background load cancelled.")
 
@@ -1575,283 +1240,29 @@ class Editor:
                     return sprite_editor
         return None
 
-    def _handle_canvas_click(self, pos):
-        """Handles drawing, erasing, or filling based on current mode when canvas is clicked/dragged."""
-        sprite_editor = self._get_sprite_editor_at_pos(pos)
-        if not sprite_editor:
-            # TODO: Handle background canvas clicks
-            if self.edit_mode == 'background' and self.canvas_rect.collidepoint(pos):
-                print("Background canvas click - TBD")
-            return
-
-        grid_pos = sprite_editor.get_grid_position(pos)
-        if not grid_pos:
-            return
-
-        if self.fill_mode:
-            # Trigger fill operation (needs implementation)
-            target_color = sprite_editor.get_pixel_color(grid_pos)
-            if target_color != self.current_color: # Avoid filling with same color
-                self.flood_fill(sprite_editor, grid_pos, self.current_color)
-            self.fill_mode = False # Typically fill is a one-shot action
-        elif self.paste_mode and self.copy_buffer:
-            # Paste the buffer at the clicked location
-            self.apply_paste(sprite_editor, grid_pos)
-            # Keep paste mode active until another tool/color is selected
-            # self.paste_mode = False 
-        else:
-            # Regular draw/erase
-            color = (*config.BLACK[:3], 0) if self.eraser_mode else self.current_color
-            # Apply brush size
-            half_brush = (self.brush_size - 1) // 2
-            for dy in range(-half_brush, half_brush + 1):
-                for dx in range(-half_brush, half_brush + 1):
-                    # Optional: Check for circular brush shape
-                    # if dx*dx + dy*dy <= half_brush*half_brush:
-                    draw_x = grid_pos[0] + dx
-                    draw_y = grid_pos[1] + dy
-                    # Ensure drawing stays within bounds
-                    if 0 <= draw_x < config.NATIVE_SPRITE_RESOLUTION[0] and 0 <= draw_y < config.NATIVE_SPRITE_RESOLUTION[1]:
-                        sprite_editor.draw_pixel((draw_x, draw_y), color)
-
-    def flood_fill(self, sprite_editor, start_pos, fill_color):
-        """Perform flood fill on the sprite editor's frame."""
-        native_res = config.NATIVE_SPRITE_RESOLUTION
-        target_color = sprite_editor.get_pixel_color(start_pos)
-
-        if target_color == fill_color:
-            return # No need to fill
-
-        stack = [start_pos]
-        visited = {start_pos}
-
-        while stack:
-            x, y = stack.pop()
-            if sprite_editor.get_pixel_color((x, y)) == target_color:
-                sprite_editor.draw_pixel((x, y), fill_color)
-                # Check neighbors
-                for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-                    nx, ny = x + dx, y + dy
-                    if 0 <= nx < native_res[0] and 0 <= ny < native_res[1]:
-                        neighbor_pos = (nx, ny)
-                        if neighbor_pos not in visited:
-                             stack.append(neighbor_pos)
-                             visited.add(neighbor_pos)
-        print("Fill complete.")
-        # Don't forget to save state *before* calling fill if you want undo
-        # self.save_state() should be called before flood_fill is invoked
-
-    def apply_paste(self, sprite_editor, top_left_grid_pos):
-        """Pastes the copy_buffer onto the sprite_editor frame."""
-        if not self.copy_buffer:
-            return
-
-        start_x, start_y = top_left_grid_pos
-        for (rel_x, rel_y), color in self.copy_buffer.items():
-            abs_x = start_x + rel_x
-            abs_y = start_y + rel_y
-            # Check bounds before attempting to draw
-            if 0 <= abs_x < config.NATIVE_SPRITE_RESOLUTION[0] and 0 <= abs_y < config.NATIVE_SPRITE_RESOLUTION[1]:
-                # Only paste non-transparent pixels.
-                if color[3] > 0:
-                    sprite_editor.draw_pixel((abs_x, abs_y), color)
-
     def handle_event(self, event):
-        """Process a single Pygame event."""
-        # Handle dialog events first
-        if self.dialog_mode:
-            # Let dialog buttons handle their own clicks via their action lambda
-            # Needs modification: Check button value, not action
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                 for option in self.dialog_options:
-                      # Check if it's a button AND it was clicked
-                      if isinstance(option, Button) and option.rect.collidepoint(event.pos):
-                           # Use button's stored value to call the dialog choice handler
-                           if option.value is not None:
-                                self._handle_dialog_choice(option.value)
-                           # If button has direct action AND value, maybe prioritize action?
-                           # elif option.action:
-                           #      option.action()
-                           return True # Handled by dialog button
-            # Add specific handling for color picker drags, text input etc. here
-            # e.g., if self.dialog_mode == 'color_picker' and event.type == MOUSEMOTION:
-            # handle_color_picker_drag(event.pos)
+        """Process a single Pygame event by delegating to the EventHandler."""
+        return self.event_handler.process_event(event)
 
-            # Handle KEYDOWN specifically for dialogs that need it
-            elif event.type == pygame.KEYDOWN:
-                 if self.dialog_mode == 'input_text' and self.dialog_input_active:
-                      if event.key == pygame.K_RETURN:
-                           self._handle_dialog_choice("save") # Pass 'save' value
-                      elif event.key == pygame.K_BACKSPACE:
-                           self.dialog_input_text = self.dialog_input_text[:-1]
-                      elif event.key == pygame.K_ESCAPE:
-                           self._handle_dialog_choice("cancel") # Pass 'cancel' value
-                      elif len(self.dialog_input_text) < self.dialog_input_max_length:
-                           self.dialog_input_text += event.unicode # Add typed character
-                      return True # Consume key event for text input
-                 # Add key handling for file list navigation (up/down, enter)
-                 elif self.dialog_mode == 'load_bg': # Example for file list
-                      if event.key == pygame.K_UP:
-                           # Move selection up, handle scrolling
-                           if self.dialog_selected_file_index > 0:
-                                self.dialog_selected_file_index -= 1
-                           # Add scroll logic here if needed
-                           return True
-                      elif event.key == pygame.K_DOWN:
-                           # Move selection down, handle scrolling
-                           if self.dialog_selected_file_index < len(self.dialog_file_list) - 1:
-                                self.dialog_selected_file_index += 1
-                           # Add scroll logic here if needed
-                           return True
-                      elif event.key == pygame.K_RETURN:
-                           # Trigger Load action if a file is selected
-                           if self.dialog_selected_file_index != -1:
-                                self._handle_dialog_choice("load")
-                           return True
-                      elif event.key == pygame.K_ESCAPE:
-                           self._handle_dialog_choice("cancel")
-                           return True
-                 # Add key handling for other dialogs if needed (e.g., Escape to cancel)
-                 elif event.key == pygame.K_ESCAPE:
-                     # Generic cancel for other dialogs? Check type first.
-                     if self.dialog_mode in ['choose_edit_mode', 'choose_bg_action']:
-                          self._handle_dialog_choice(None) # Or a specific cancel value?
-                     return True
-
-            return True # Consume unhandled events while dialog is open
-
-        # --- Normal Event Handling (No Dialog Active) ---
-        if event.type == pygame.QUIT:
-             return False # Allows the main loop to catch QUIT
-
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1: # Left click
-                # 0. Check Alpha Slider Click/Drag Start FIRST <<<<<< MOVED & UPDATED
-                if self.ref_alpha_slider_rect.collidepoint(event.pos):
-                    self.adjusting_alpha = True
-                    # Update alpha based on click position immediately
-                    click_x_relative = event.pos[0] - self.ref_alpha_slider_rect.x
-                    # Calculate effective width (slider width minus knob width) for ratio calculation
-                    slider_width_effective = self.ref_alpha_slider_rect.width - self.ref_alpha_knob_rect.width
-                    if slider_width_effective <= 0: slider_width_effective = 1 # Avoid division by zero
-                    new_alpha = (click_x_relative / slider_width_effective) * 255
-                    self.set_reference_alpha(new_alpha)
-                    # Update knob position visually based on relative click
-                    # We adjust the knob's center based on the relative click pos within the slider track
-                    self.ref_alpha_knob_rect.centerx = self.ref_alpha_slider_rect.x + click_x_relative
-                    # Clamp knob position to slider track bounds
-                    self.ref_alpha_knob_rect.left = max(self.ref_alpha_slider_rect.left, self.ref_alpha_knob_rect.left)
-                    self.ref_alpha_knob_rect.right = min(self.ref_alpha_slider_rect.right - self.ref_alpha_knob_rect.width, self.ref_alpha_knob_rect.left) + self.ref_alpha_knob_rect.width
-
-                    return True # Event handled by slider
-
-                # 1. Check UI Buttons (Existing)
-                for button in self.buttons:
-                    if button.is_clicked(event):
-                        if button.action:
-                            button.action() # Call the button's assigned method
-                        return True # Event handled by UI button
-
-                # 2. Check Palette Click (Existing)
-                palette_rect = pygame.Rect(self.palette.position[0], self.palette.position[1],
-                                         config.PALETTE_COLS * (self.palette.block_size + self.palette.padding),
-                                           config.PALETTE_ROWS * (self.palette.block_size + self.palette.padding) + 40) # Include scroll area roughly
-                if palette_rect.collidepoint(event.pos):
-                    self.palette.handle_click(event.pos)
-                    return True # Event handled by palette
-
-                # 3. Check Canvas Click (Existing)
-                clicked_sprite_editor = self._get_sprite_editor_at_pos(event.pos)
-                is_bg_click = self.edit_mode == 'background' and self.canvas_rect.collidepoint(event.pos)
-
-                if clicked_sprite_editor or is_bg_click:
-                    self.save_state() # Save state BEFORE the action
-                    if self.mode == 'select':
-                        if clicked_sprite_editor: # Selection only on sprites for now
-                             self.selection.start(event.pos)
-                        # else: ignore select start on background?
-                    else: # Draw, erase, fill, paste modes
-                        self.drawing = True
-                        self._handle_canvas_click(event.pos) # Apply first click
-                    return True # Event handled by canvas click
-
-            # Handle Right-click, Middle-click, etc. (Existing)
-            # ...
-
-        elif event.type == pygame.MOUSEMOTION:
-            # Handle alpha slider drag FIRST <<<<<< MOVED & UPDATED
-            if self.adjusting_alpha and (event.buttons[0] == 1): # Check if left button is held
-                move_x_relative = event.pos[0] - self.ref_alpha_slider_rect.x
-                slider_width_effective = self.ref_alpha_slider_rect.width - self.ref_alpha_knob_rect.width
-                if slider_width_effective <= 0: slider_width_effective = 1
-                new_alpha = (move_x_relative / slider_width_effective) * 255
-                self.set_reference_alpha(new_alpha)
-                # Update knob position visually
-                self.ref_alpha_knob_rect.centerx = self.ref_alpha_slider_rect.x + move_x_relative
-                 # Clamp knob position to slider track bounds
-                self.ref_alpha_knob_rect.left = max(self.ref_alpha_slider_rect.left, self.ref_alpha_knob_rect.left)
-                self.ref_alpha_knob_rect.right = min(self.ref_alpha_slider_rect.right - self.ref_alpha_knob_rect.width, self.ref_alpha_knob_rect.left) + self.ref_alpha_knob_rect.width
-
-                return True # Event handled by slider drag
-
-            # Handle drawing/selection drag (Existing)
-            if self.drawing and (event.buttons[0] == 1):
-                self._handle_canvas_click(event.pos)
-                return True
-            elif self.selection.selecting and (event.buttons[0] == 1):
-                 self.selection.update(event.pos)
-                 return True
-
-        elif event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1: # Left button release
-                 # Stop adjusting alpha slider FIRST <<<<<< MOVED & UPDATED
-                if self.adjusting_alpha:
-                    self.adjusting_alpha = False
-                    return True # Event handled
-
-                # Handle drawing/selection end (Existing)
-                if self.drawing:
-                    self.drawing = False
-                    return True
-                elif self.selection.selecting:
-                    self.selection.end_selection(event.pos)
-                    return True
-
-        # Handle KEYDOWN for shortcuts etc. (Existing)
-        elif event.type == pygame.KEYDOWN:
-            # Example: Ctrl+Z for undo, Ctrl+Y for redo
-            if event.mod & pygame.KMOD_META or event.mod & pygame.KMOD_CTRL: # Cmd on Mac, Ctrl elsewhere
-                if event.key == pygame.K_z:
-                    self.undo()
-                    return True
-                if event.key == pygame.K_y:
-                    self.redo()
-                    return True
-                if event.key == pygame.K_c and self.mode == 'select':
-                     self.copy_selection()
-                     return True
-                if event.key == pygame.K_v:
-                     self.paste_selection()
-                     return True
-            # Add other key bindings
-
-        return False # Event not handled by this function
-
-    # Add the new methods here or elsewhere within the class
     def load_reference_image(self):
         """Opens a dialog to select a reference image, loads and scales it."""
-        if root is None:
-            print("Tkinter failed to initialize. Cannot open file dialog.")
+        if not self._ensure_tkinter_root():
+            # Message already printed by _ensure_tkinter_root
             return
 
         try:
+            # Use the global tk_root directly
             file_path = filedialog.askopenfilename(
+                parent=tk_root, # Explicitly set parent
                 title="Select Reference Image",
                 filetypes=[("Image Files", "*.png *.jpg *.jpeg *.bmp *.gif"), ("All Files", "*.*")]
             )
         except tk.TclError as e:
             print(f"Error opening file dialog: {e}")
             file_path = None
+        except Exception as e: # Catch other potential errors
+             print(f"Unexpected error during file dialog: {e}")
+             file_path = None
 
         # Bring Pygame window back to focus might be needed here too if dialog issues persist
 
@@ -1860,20 +1271,23 @@ class Editor:
                 self.reference_image = pygame.image.load(file_path).convert_alpha()
                 self.reference_image_path = file_path
                 print(f"Loaded reference image: {file_path}")
-                self._scale_reference_image() # Scale and position the image
-                self.apply_reference_alpha() # Apply the current alpha (or default if just loaded)
+                self._scale_reference_image() 
+                self.apply_reference_alpha() 
             except pygame.error as e:
                 print(f"Error loading image {file_path}: {e}")
                 self.reference_image = None
                 self.reference_image_path = None
                 self.scaled_reference_image = None
-            except Exception as e: # Catch other potential errors during loading/scaling
+            except Exception as e: 
                 print(f"An unexpected error occurred during reference image loading: {e}")
                 self.reference_image = None
                 self.reference_image_path = None
                 self.scaled_reference_image = None
         else:
-            print("Reference image loading cancelled or file not found.")
+            # Only print cancel message if file_path was initially valid but selection was cancelled
+            # Avoids printing cancel if the dialog itself failed to open
+            if file_path is not None:
+                 print("Reference image loading cancelled or file not found.")
 
     def _scale_reference_image(self):
         """Scales the loaded reference image using Aspect Fit (Option B)
@@ -1993,9 +1407,24 @@ class Editor:
                  # Handle case where scaled_reference_image might be None unexpectedly
                  print("Warning: Tried to apply alpha but scaled_reference_image is None.")
 
+    def set_subject_alpha(self, alpha_value):
+        """Sets the alpha value (0-255) for the subject sprite being edited."""
+        new_alpha = max(0, min(255, int(alpha_value))) # Clamp value
+        if new_alpha != self.subject_alpha:
+            self.subject_alpha = new_alpha
+            # Update knob position
+            slider_width = self.subj_alpha_slider_rect.width - self.subj_alpha_knob_rect.width
+            if slider_width > 0:
+                knob_x = self.subj_alpha_slider_rect.x + int((self.subject_alpha / 255) * slider_width)
+                self.subj_alpha_knob_rect.x = knob_x
+            else:
+                self.subj_alpha_knob_rect.x = self.subj_alpha_slider_rect.x
+            # No need to call apply_alpha here, draw_ui will use the value
+            
     def draw_ui(self):
         """Draw the entire editor UI onto the screen."""
         screen.fill(config.EDITOR_BG_COLOR)
+        # print(f"DEBUG: draw_ui start. self.dialog_mode = {self.dialog_mode}") # REMOVE EXCESSIVE PRINT
 
         # --- Draw Dialog FIRST if active --- 
         if self.dialog_mode:
@@ -2028,46 +1457,83 @@ class Editor:
                     screen.blit(self.scaled_reference_image, active_sprite_editor.position)
 
             # 3. Draw Sprite Pixels for BOTH editors (on top of checkerboard and ref image)
-            for sprite_editor in self.sprites.values():
-                sprite_editor.draw_pixels(screen)
-
+            for name, sprite_editor in self.sprites.items():
+                # --- Apply Subject Alpha --- 
+                # Create a temporary surface with the subject alpha applied
+                display_surface = sprite_editor.frame.copy() # Get the native sprite data
+                # Scale it up first for display
+                scaled_display_frame = pygame.transform.scale(display_surface, (sprite_editor.display_width, sprite_editor.display_height))
+                # Apply the subject alpha to the scaled surface
+                scaled_display_frame.set_alpha(self.subject_alpha) 
+                # Blit the alpha-modified scaled surface
+                screen.blit(scaled_display_frame, sprite_editor.position)
+                # --- End Apply Subject Alpha ---
+            
             # 4. Draw Highlight for the ACTIVE editor
             active_sprite_editor = self.sprites.get(self.current_sprite)
             if active_sprite_editor:
-                active_sprite_editor.draw_highlight(screen)
+                active_sprite_editor.draw_highlight(screen, self.current_sprite) # Pass current_sprite
 
             # Draw Palette & Info Text (Existing)
-            self.palette.draw(screen)
+            self.palette.draw(screen, self.current_color) # Pass current_color
             monster_name = config.monsters[self.current_monster_index].get('name', 'Unknown')
             info_text = f"Editing: {monster_name} ({self.current_sprite})" 
             info_surf = self.font.render(info_text, True, config.BLACK)
             screen.blit(info_surf, (50, 50))
 
         elif self.edit_mode == 'background':
-            # Draw background canvas (implement scaling/panning later)
+            # Draw background canvas with zoom and pan
             if self.current_background:
-                 # Placeholder: Draw directly for now
-                 screen.blit(self.current_background, self.canvas_rect.topleft)
-                 pygame.draw.rect(screen, config.BLACK, self.canvas_rect, 1) # Border
+                # 1. Calculate the scaled size of the full background image
+                scaled_width = int(self.current_background.get_width() * self.editor_zoom)
+                scaled_height = int(self.current_background.get_height() * self.editor_zoom)
+                
+                # Prevent scaling to zero size
+                if scaled_width <= 0 or scaled_height <= 0:
+                    print("Warning: Invalid zoom level resulting in zero size.")
+                else:
+                    # 2. Scale the original background to the zoomed size (consider performance for large images)
+                    # Using pygame.transform.smoothscale might be slow; regular scale is faster for pixel art feel if needed.
+                    zoomed_bg = pygame.transform.scale(self.current_background, (scaled_width, scaled_height))
+                    
+                    # 3. Define the source rect (area from zoomed_bg to display)
+                    # Clamp view_offset to prevent scrolling beyond image boundaries
+                    max_offset_x = max(0, scaled_width - self.canvas_rect.width)
+                    max_offset_y = max(0, scaled_height - self.canvas_rect.height)
+                    self.view_offset_x = max(0, min(self.view_offset_x, max_offset_x))
+                    self.view_offset_y = max(0, min(self.view_offset_y, max_offset_y))
+                    
+                    source_rect = pygame.Rect(self.view_offset_x, self.view_offset_y, 
+                                            self.canvas_rect.width, self.canvas_rect.height)
+                                            
+                    # 4. Blit the visible portion (source_rect) to the canvas destination rect
+                    screen.blit(zoomed_bg, self.canvas_rect.topleft, source_rect)
+            
+            # Draw border around the canvas view area
+            pygame.draw.rect(screen, config.BLACK, self.canvas_rect, 1) 
+            
             # Draw Palette
-            self.palette.draw(screen)
-            # Draw Info Text (current background, brush size, zoom)
+            self.palette.draw(screen, self.current_color)
+            # Draw Info Text
             bg_name = self.backgrounds[self.current_background_index][0] if self.current_background_index != -1 else "New BG"
-            info_text = f"Editing BG: {bg_name} | Brush: {self.brush_size} | Zoom: {self.editor_zoom:.1f}x"
+            info_text = f"Editing BG: {bg_name} | Brush: {self.brush_size} | Zoom: {self.editor_zoom:.2f}x"
             info_surf = self.font.render(info_text, True, config.BLACK)
             screen.blit(info_surf, (50, 50))
 
         # Draw common elements (Buttons, Selection, Slider)
-        # Ensure buttons exist before drawing
         if hasattr(self, 'buttons') and self.buttons:
              for button in self.buttons:
                   button.draw(screen)
         else:
-             # This case implies mode is set but buttons weren't created - should not happen
              print("Warning: edit_mode is set but self.buttons not found in draw_ui")
 
-        if self.mode == 'select':
-            self.selection.draw(screen)
+        # Only draw selection if in monster mode and select mode is active
+        if self.edit_mode == 'monster' and self.mode == 'select':
+            active_sprite_editor = self.sprites.get(self.current_sprite)
+            if active_sprite_editor: # Ensure we have the editor
+                self.selection.draw(screen, active_sprite_editor.position)
+            # else: # Optional: Handle case where current_sprite is somehow invalid
+            #     print(f"Warning: Cannot draw selection, invalid current_sprite: {self.current_sprite}")
 
         # Draw Brush Size Slider (Existing)
         pygame.draw.rect(screen, config.GRAY_LIGHT, self.brush_slider)
@@ -2091,9 +1557,20 @@ class Editor:
         alpha_rect = alpha_surf.get_rect(midleft=(self.ref_alpha_slider_rect.right + 10, self.ref_alpha_slider_rect.centery))
         screen.blit(alpha_surf, alpha_rect)
 
-        # Dialog drawing moved to the top
-        # if self.dialog_mode:
-        #    self.draw_dialog(screen)
+        # --- Draw Subject Alpha Slider (only in monster mode) --- 
+        if self.edit_mode == 'monster':
+            # Draw slider track
+            pygame.draw.rect(screen, config.GRAY_LIGHT, self.subj_alpha_slider_rect)
+            pygame.draw.rect(screen, config.BLACK, self.subj_alpha_slider_rect, 1)
+            # Draw slider knob
+            pygame.draw.rect(screen, config.RED, self.subj_alpha_knob_rect) # Use a different color? Red for now
+            # Draw alpha value text near slider
+            subj_alpha_text = f"Subj Alpha: {self.subject_alpha}"
+            subj_alpha_surf = self.font.render(subj_alpha_text, True, config.BLACK)
+            subj_alpha_rect = subj_alpha_surf.get_rect(midleft=(self.subj_alpha_slider_rect.right + 10, self.subj_alpha_slider_rect.centery))
+            screen.blit(subj_alpha_surf, subj_alpha_rect)
+        
+        # ... (draw dialog) ...
 
     def draw_dialog(self, surface):
         """Draws the current dialog box overlay."""
@@ -2119,9 +1596,9 @@ class Editor:
         button_y = prompt_rect.bottom + 30
         for i, option in enumerate(self.dialog_options):
              if isinstance(option, Button):
-                  # Position buttons dynamically here
-                  option.rect.center = (dialog_rect.centerx, button_y + i * (option.rect.height + 10))
-                  option.draw(surface)
+                  # REMOVED incorrect re-centering. Buttons have correct Rects already.
+                  # option.rect.center = (dialog_rect.centerx, button_y + i * (option.rect.height + 10))
+                  option.draw(surface) # Draw using the button's own Rect
         # Add rendering for other dialog elements (text input, file list, color picker)
 
     def run(self):
@@ -2145,10 +1622,52 @@ class Editor:
 
         pygame.quit()
 
+    # --- Add Panning Methods --- 
+    def _pan_view(self, dx=0, dy=0):
+        """Helper method to adjust view offset and clamp values."""
+        if self.edit_mode != 'background':
+            return
+            
+        self.view_offset_x += dx
+        self.view_offset_y += dy
+
+        # Clamp view offset
+        if self.current_background:
+            scaled_width = int(self.current_background.get_width() * self.editor_zoom)
+            scaled_height = int(self.current_background.get_height() * self.editor_zoom)
+            max_offset_x = max(0, scaled_width - self.canvas_rect.width)
+            max_offset_y = max(0, scaled_height - self.canvas_rect.height)
+            self.view_offset_x = max(0, min(self.view_offset_x, max_offset_x))
+            self.view_offset_y = max(0, min(self.view_offset_y, max_offset_y))
+
+    def pan_up(self):
+        self._pan_view(dy=-config.PAN_SPEED_PIXELS)
+
+    def pan_down(self):
+        self._pan_view(dy=config.PAN_SPEED_PIXELS)
+
+    def pan_left(self):
+        self._pan_view(dx=-config.PAN_SPEED_PIXELS)
+
+    def pan_right(self):
+        self._pan_view(dx=config.PAN_SPEED_PIXELS)
+    # --- End Panning Methods --- 
+
 # Main execution block
 if __name__ == "__main__":
+    # --- Initialize Tkinter Root HERE --- 
+    try:
+        print("Attempting to initialize tk.Tk() for main execution...")
+        tk_root = tk.Tk()
+        tk_root.withdraw() # Hide the main window
+        print("Main execution tk.Tk() initialized successfully.")
+    except Exception as e:
+        print(f"ERROR: Main execution Tkinter initialization failed: {e}")
+        tkinter_error = e
+    # --- End Tkinter Init --- 
+
     # Set up necessary directories if they don't exist
-    # (config.py might already do this, but double-check or add here)
+    # ... (directory setup code remains the same) ...
     if not os.path.exists(config.SPRITE_DIR):
         os.makedirs(config.SPRITE_DIR)
         print(f"Created missing directory: {config.SPRITE_DIR}")
@@ -2158,19 +1677,15 @@ if __name__ == "__main__":
     if not os.path.exists(config.DATA_DIR):
          os.makedirs(config.DATA_DIR)
          print(f"Created missing directory: {config.DATA_DIR}")
-         # Optional: Create dummy data files if they are missing and required for startup?
-         # e.g., create empty monsters.json if it doesn't exist? Needs careful consideration.
 
     # Ensure monster data is loaded globally for the Editor
-    # Note: load_monsters() is already called at the top level, 
-    # assigning to global `monsters`. Ensure this happens before Editor init.
+    # ... (monster loading code remains the same) ...
     if 'monsters' not in globals() or not monsters:
          print("Reloading monster data for main execution...")
-         monsters = load_monsters() # Reload if it failed earlier or wasn't assigned
+         monsters = load_monsters() 
          if not monsters:
               print("Fatal: Could not load monster data. Exiting.")
               sys.exit(1)
-    # Assign monsters to config for editor access if needed, or ensure editor uses global
     config.monsters = monsters 
 
     editor = Editor()

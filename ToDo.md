@@ -10,32 +10,17 @@
 
 ### Medium Priority
 
-* **[UI-BATTLESIM-NAVHINT] Add Page Navigation Key Hints in Battle Sim Character Select**
-    * **Type:** Improvement / UI
-    * **Priority:** Medium
-    * **Description:** In the battle simulator's character selection screen, when the user attempts to navigate left off the first item on a page or right off the last item on a page using arrow keys, display a temporary visual hint (e.g., "Press [ for Prev Page" or "Press ] for Next Page") to guide them on how to change pages.
-    * **Acceptance Criteria:**
-        * Pressing Left Arrow on the first selectable item displays the previous page hint (if applicable).
-        * Pressing Right Arrow on the last selectable item displays the next page hint (if applicable).
-        * The hint is displayed clearly on the screen (e.g., near page number or center).
-        * The hint disappears after a short duration (e.g., 1-2 seconds) or on the next user input.
-        * The core navigation logic remains unchanged.
-        * **Testing:** Manual testing confirms hints appear correctly at page edges and disappear appropriately.
-    * **Labels:** `ui`, `ux`, `battle-system`, `improvement`, `input`
-
-* **[POKE-10] Refactor Pixel Art Editor for Modularity**
+* **[POKE-22] Reorganize Project Folder Structure**
     * **Type:** Task / Improvement
     * **Priority:** Medium
-    * **Description:** The main file for the pixel art editor, `pixle_art_editor.py`, has grown very large... (previous description remains) ...Refactor the `Editor` class and `handle_event` method to delegate responsibilities to these new components.
+    * **Description:** The current project structure has most Python modules (`pixle_art_editor.py`, `tool_manager.py`, `battle_simulator.py`, etc.) directly in the root directory. This can become hard to manage as the project grows. Reorganize the codebase into a more standard structure, likely involving a main `src/` directory with subdirectories for different components (e.g., `src/editor`, `src/battle`, `src/core`, `src/ui`, `src/utils`). Update all necessary imports and ensure the application and tests still run correctly after the reorganization.
     * **Acceptance Criteria:**
-        * The codebase for the pixel editor is organized into multiple smaller, well-defined modules/classes.
-        * The main editor file (`pixle_art_editor.py` or its replacement) is significantly shorter and less complex.
-        * Responsibilities are clearly separated (e.g., tool logic is separate from UI drawing).
-        * The editor's functionality remains intact or is improved.
-        * Code is more readable and maintainable.
-        * **Testing:** Integration tests are *written and pass*, confirming that the refactored modules work together correctly within the main application loop.
-        * **Testing:** Manual regression testing confirms all previous editor functionalities work as expected after refactoring.
-    * **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`
+        * Python source files are moved into a logical directory structure (e.g., under `src/`).
+        * All internal imports within the codebase are updated to reflect the new structure.
+        * The main application entry points (e.g., `pixle_art_editor.py`, `battle_simulator.py`, potentially moved/adjusted) still launch the application correctly.
+        * All unit tests pass after the reorganization (adjusting imports in tests as needed).
+        * Directory structure is cleaner and easier to navigate.
+    * **Labels:** `refactoring`, `architecture`, `code-quality`, `maintainability`
 
 * **[POKE-11] Improve Pixel Editor UI/UX Feedback**
     * **Type:** Improvement
@@ -201,21 +186,119 @@
 
 ## In Progress
 
-* **[POKE-9] Replace Tkinter Dialogs with Native Pygame UI or Library**
-    * **Type:** Improvement / Task
+* **[POKE-10] Refactor Pixel Art Editor for Modularity**
+    * **Type:** Task / Improvement
     * **Priority:** Medium
-    * **Description:** The pixel art editor (`pixle_art_editor.py`) currently relies on Python's built-in Tkinter library... (previous description remains) ...This involves creating custom input fields, buttons, file browsers, and color pickers that work within the Pygame event loop and rendering system.
+    * **Description:** The main file for the pixel art editor, `pixle_art_editor.py`, has grown very large... (previous description remains) ...Refactor the `Editor` class and `handle_event` method to delegate responsibilities to these new components.
     * **Acceptance Criteria:**
-        * File opening, saving, color picking, and initial mode selection are handled entirely within the Pygame window environment.
-        * The Tkinter import and its usage are removed from `pixle_art_editor.py`.
-        * Window focus problems associated with external dialogs are resolved.
-        * The UI for these functions feels integrated with the rest of the editor.
-        * **Testing:** Manual tests confirm the new UI elements function correctly, reliably, and that focus issues are gone; relevant integration tests (if applicable, e.g., for a GUI library) are *written and pass*.
-    * **Labels:** `ui`, `ux`, `refactoring`, `editor`, `dependencies`, `improvement`
+        * The codebase for the pixel editor is organized into multiple smaller, well-defined modules/classes.
+        * The main editor file (`pixle_art_editor.py` or its replacement) is significantly shorter and less complex.
+        * Responsibilities are clearly separated (e.g., tool logic is separate from UI drawing).
+        * The editor's functionality remains intact or is improved.
+        * Code is more readable and maintainable.
+        * **Testing:** Integration tests are *written and pass*, confirming that the refactored modules work together correctly within the main application loop.
+        * **Testing:** Manual regression testing confirms all previous editor functionalities work as expected after refactoring.
+    * **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`
+
+***
+##### POKE-10 Sub-Tasks:
+
+*   **[POKE-10.4] Refactor UI Drawing (`draw_ui`)**
+    *   **Type:** Refactoring Task
+    *   **Priority:** Medium
+    *   **Description:** Simplify the `Editor.draw_ui` method by extracting UI drawing responsibilities. Move drawing logic for specific components (sprite editors view, background canvas view, palette, sliders, info text) into separate functions or methods, potentially within an `UIManager` or `EditorUI` class (using `ui_manager.py` or `editor_ui.py`). `Editor.draw_ui` should become primarily an orchestrator.
+    *   **Acceptance Criteria:**
+        *   The `Editor.draw_ui` method is significantly shorter and delegates drawing tasks.
+        *   Drawing logic for distinct UI areas is encapsulated in separate functions/methods/classes.
+        *   The overall UI appearance and layout remain unchanged.
+        *   Relevant integration tests are **written and pass** to verify that `draw_ui` invokes sub-drawing routines correctly (may require surface mocking).
+        *   Manual regression testing confirms the UI renders correctly in all modes.
+    *   **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`, `ui`, `drawing`, `testing`
+
+*   **[POKE-10.5] Refactor State Management**
+    *   **Type:** Refactoring Task
+    *   **Priority:** Medium
+    *   **Description:** Centralize or better encapsulate the editor's state management. Aspects like `current_color`, `mode`, `edit_mode`, `brush_size`, `editor_zoom`, `view_offset`, undo/redo stacks, etc., could be grouped into a dedicated state object/class. Access to and modification of state should be managed through clearer interfaces.
+    *   **Acceptance Criteria:**
+        *   Editor state variables are grouped logically (e.g., in a dedicated state class).
+        *   Access and modification of state are handled through well-defined methods or properties.
+        *   The `Editor` class and other components access state through the new mechanism.
+        *   All editor functionality relying on this state continues to work correctly.
+        *   Relevant unit tests are **written and pass** for the state management logic, verifying state transitions and access.
+        *   Manual regression testing confirms no state-related regressions.
+    *   **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`, `state-management`, `testing`
+
+*   **[POKE-10.6] Refactor File I/O and Dialogs**
+    *   **Type:** Refactoring Task
+    *   **Priority:** Medium-Low
+    *   **Description:** Extract file loading/saving logic (monsters, sprites, backgrounds, reference images) and dialog interactions (including the Pygame-based dialog system and any remaining Tkinter calls) from the `Editor` class. This logic could reside in dedicated file I/O modules and a `DialogManager` (using `dialog_manager.py`).
+    *   **Acceptance Criteria:**
+        *   File loading/saving logic is moved out of the `Editor` class.
+        *   Dialog presentation and handling logic are managed by a dedicated system (e.g., `DialogManager`).
+        *   The `Editor` class calls the appropriate I/O or dialog functions.
+        *   All file operations and dialog interactions work correctly.
+        *   Relevant unit/integration tests are **written and pass** for file I/O functions (mocking FS access) and dialog management logic (testing state transitions/callbacks).
+        *   Manual regression testing confirms all file and dialog operations work correctly.
+    *   **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`, `file-io`, `dialogs`, `ui`, `testing`
+    *   **Depends On:** Potentially `POKE-9`
+
+---
+
+## On Hold
+
+* **[POKE-9] Fix Tkinter Initialization Conflicts**
+    * **Type:** Bug / Task
+    * **Priority:** Medium
+    * **Description:** The pixel art editor (`pixle_art_editor.py`) relies on Python's built-in Tkinter library for the color picker and file dialogs (e.g., loading reference images), and removing it is currently blocked ([See ToDo](#on-hold)). However, initializing Tkinter (`tk.Tk()`) *after* Pygame (`pygame.init()`) can cause crashes on some systems (especially macOS) due to conflicts between SDL and Tkinter interacting with the windowing system (e.g., `-[SDLApplication macOSVersion]: unrecognized selector`). The goal is to fix this crash by ensuring Tkinter is initialized safely before Pygame, allowing its dialogs to function correctly.
+    * **Acceptance Criteria:**
+        * Tkinter initialization (`tk.Tk()`) does not crash the application when called.
+        * Tkinter-dependent features (Color Picker, Load Ref Img) open their respective dialogs without crashing the main application.
+        * The Tkinter root window remains hidden.
+        * Pygame functionality is unaffected.
+        * **Testing:** Unit tests confirm `_ensure_tkinter_root` (or equivalent logic) executes without error after Pygame init. Manual testing confirms Color Picker and Load Ref Img buttons successfully open dialogs without crashes.
+    * **Labels:** `ui`, `ux`, `editor`, `dependencies`, `bug`, `blocked`, `macos`
 
 ---
 
 ## Done
+
+*   **[POKE-10.3] Refactor Core Drawing/Tool Logic**
+    *   **Type:** Refactoring Task
+    *   **Priority:** Medium-High
+    *   **Description:** Extract the logic for different editing tools (Draw, Erase, Fill, Paste) currently residing within the `Editor` class (e.g., in `_handle_canvas_click`, `flood_fill`, `apply_paste`) into separate classes or functions, potentially managed by a `ToolManager` using `tool_manager.py`. The `EventHandler` and `Editor` should delegate actions to the appropriate tool handler based on the current mode/tool.
+    *   **Acceptance Criteria:**
+        *   Logic for Draw, Erase, Fill, and Paste tools is encapsulated outside the main `Editor` class (e.g., in `tool_manager.py` or individual tool modules).
+        *   The `Editor` class delegates canvas interactions (clicks/drags) to the active tool handler.
+        *   The `EventHandler` correctly facilitates this delegation.
+        *   All tools function correctly in both monster and background edit modes.
+        *   Relevant unit/integration tests are **written and pass** for each extracted tool's logic, verifying correct pixel manipulation on a mock canvas or `SpriteEditor` frame.
+        *   Manual regression testing confirms all tools work as expected.
+    *   **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`, `tools`, `event-handling`, `testing`
+
+*   **[POKE-10.1] Extract `SpriteEditor` Class**
+    *   **Type:** Refactoring Task
+    *   **Priority:** High
+    *   **Description:** Move the `SpriteEditor` class definition from `pixle_art_editor.py` into its own dedicated module (e.g., `sprite_editor.py`). Update `pixle_art_editor.py` to import and use the class from the new module. Ensure all functionality related to sprite data handling (loading, saving, drawing pixels, getting grid positions) remains intact.
+    *   **Acceptance Criteria:**
+        *   The `SpriteEditor` class is defined in a separate file (e.g., `sprite_editor.py`).
+        *   `pixle_art_editor.py` imports and instantiates `SpriteEditor` from the new module.
+        *   All existing sprite editing functionality works as before.
+        *   Relevant unit/integration tests are **written and pass** for the `SpriteEditor` class, verifying its core methods (e.g., `load_sprite`, `save_sprite`, `draw_pixel`, `get_grid_position`) in isolation or minimal integration.
+        *   Manual regression testing confirms sprite editing remains fully functional.
+    *   **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`, `sprite-editor`, `testing`
+
+*   **[POKE-10.2] Extract `Palette` Class**
+    *   **Type:** Refactoring Task
+    *   **Priority:** High
+    *   **Description:** Move the `Palette` class definition from `pixle_art_editor.py` into the `editor_ui.py` module. Update `pixle_art_editor.py` to import and use the class from its new location. Ensure color selection and palette scrolling functionality remain intact.
+    *   **Acceptance Criteria:**
+        *   The `Palette` class is defined in `editor_ui.py`.
+        *   `pixle_art_editor.py` imports and instantiates `Palette` from `editor_ui.py`.
+        *   Color selection using the palette works correctly.
+        *   Palette scrolling functions as expected.
+        *   Relevant unit/integration tests are **written and pass** for the `Palette` class, verifying its drawing and click handling logic (potentially mocking `editor.select_color`).
+        *   Manual regression testing confirms palette interaction remains fully functional.
+    *   **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`, `ui`, `palette`, `testing`
 
 * **[FEAT-REFIMG] Add Reference Image Layer to Pixel Editor**
     * **Type:** Feature
@@ -242,5 +325,17 @@
 * **[POKE-7] Review and Simplify Stat Change Formula** (Type: Improvement / Bug, Priority: High)
 * **[POKE-8] Fix Creature Selection Keyboard Navigation** (Type: Bug, Priority: High)
 * **[POKE-21] Editor: Eraser/Fill modes deactivate immediately upon button click** (Type: Bug, Priority: High)
+* **[UI-BATTLESIM-NAVHINT] Add Page Navigation Key Hints in Battle Sim Character Select**
+    * **Type:** Improvement / UI
+    * **Priority:** Medium
+    * **Description:** In the battle simulator's character selection screen, when the user attempts to navigate left off the first item on a page or right off the last item on a page using arrow keys, display a temporary visual hint (e.g., "Press [ for Prev Page" or "Press ] for Next Page") to guide them on how to change pages.
+    * **Acceptance Criteria:**
+        * Pressing Left Arrow on the first selectable item displays the previous page hint (if applicable).
+        * Pressing Right Arrow on the last selectable item displays the next page hint (if applicable).
+        * The hint is displayed clearly on the screen (e.g., near page number or center).
+        * The hint disappears after a short duration (e.g., 1-2 seconds) or on the next user input.
+        * The core navigation logic remains unchanged.
+        * **Testing:** Manual testing confirms hints appear correctly at page edges and disappear appropriately.
+    * **Labels:** `ui`, `ux`, `battle-system`, `improvement`, `input`
 
 ---

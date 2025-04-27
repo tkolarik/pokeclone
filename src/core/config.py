@@ -49,9 +49,9 @@ STAT_CHANGE_MULTIPLIER = 0.66
 # UI Elements Fonts (Using None uses default pygame font)
 DEFAULT_FONT = None # Pygame default
 BATTLE_FONT_SIZE = 30
-EDITOR_INFO_FONT_SIZE = 24
-PALETTE_FONT_SIZE = 20
-BUTTON_FONT_SIZE = 24
+EDITOR_INFO_FONT_SIZE = 16
+PALETTE_FONT_SIZE = 14
+BUTTON_FONT_SIZE = 14
 
 # Colors (Define common colors here)
 WHITE = (255, 255, 255)
@@ -73,6 +73,9 @@ SELECTION_FILL_COLOR = (*BLUE, 50) # Semi-transparent blue
 GRID_COLOR_1 = GRAY_LIGHT
 GRID_COLOR_2 = WHITE
 TRANSPARENT_INDICATOR_COLOR = RED # For palette
+
+# Panning Speed
+PAN_SPEED_PIXELS = 20 # Pixels to shift per pan action
 
 # Ensure data directory exists (optional nice-to-have)
 if not os.path.exists(DATA_DIR):
