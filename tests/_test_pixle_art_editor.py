@@ -27,15 +27,15 @@ def patch_global_tkinter():
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import config
+from src.core import config
 # Now import pixle_art_editor AFTER the global patch is set up by the fixture
-from pixle_art_editor import SpriteEditor, Editor, PALETTE
+from src.editor.pixle_art_editor import SpriteEditor, Editor, PALETTE
 # Import EventHandler
-from event_handler import EventHandler
+from src.core.event_handler import EventHandler
 # Import Button from editor_ui
-from editor_ui import Button 
+from src.editor.editor_ui import Button 
 # Import SelectionTool for patching
-from selection_manager import SelectionTool
+from src.editor.selection_manager import SelectionTool
 
 # Pygame setup fixture (optional, but good practice)
 @pytest.fixture(scope="session", autouse=True)
@@ -64,14 +64,14 @@ def temp_sprite_dir(tmp_path):
 def mock_editor(temp_sprite_dir):
     # Mock problematic parts to avoid GUI popups or complex setup during tests
     mock_monster_data = [{'name': 'TestMon', 'type': 'Test', 'max_hp': 10, 'moves': []}] # Define mock data
-    with patch('pixle_art_editor.Editor._get_background_files', return_value=['bg1.png', 'bg2.png'], create=True), \
-         patch('pixle_art_editor.load_monsters', return_value=mock_monster_data), \
+    with patch('src.editor.pixle_art_editor.Editor._get_background_files', return_value=['bg1.png', 'bg2.png'], create=True), \
+         patch('src.editor.pixle_art_editor.load_monsters', return_value=mock_monster_data), \
          patch('pygame.display.set_mode', return_value=pygame.Surface((10, 10))), \
          patch('pygame.display.set_caption', return_value=None), \
          patch('pygame.font.Font', return_value=MagicMock(render=MagicMock(return_value=pygame.Surface((10, 10))))), \
-         patch('pixle_art_editor.tk.Tk') as mock_tk, \
-         patch('pixle_art_editor.filedialog.askopenfilename') as mock_askopenfilename, \
-         patch('pixle_art_editor.colorchooser.askcolor') as mock_askcolor:
+         patch('src.editor.pixle_art_editor.tk.Tk') as mock_tk, \
+         patch('src.editor.pixle_art_editor.filedialog.askopenfilename') as mock_askopenfilename, \
+         patch('src.editor.pixle_art_editor.colorchooser.askcolor') as mock_askcolor:
 
         # Configure the tk.Tk mock if needed (e.g., mock withdraw method)
         mock_tk.return_value.withdraw = MagicMock()
@@ -83,7 +83,7 @@ def mock_editor(temp_sprite_dir):
         config.SPRITE_DIR = temp_sprite_dir
         try:
             # Mock load_backgrounds BEFORE Editor init if it affects choose_background_action logic
-            with patch('pixle_art_editor.Editor.load_backgrounds', return_value=[('existing_bg.png', pygame.Surface((10,10)))]) as mock_load_bgs:
+            with patch('src.editor.pixle_art_editor.Editor.load_backgrounds', return_value=[('existing_bg.png', pygame.Surface((10,10)))]) as mock_load_bgs:
                 editor = Editor()
             # Initial state should be dialog_mode = 'choose_edit_mode'
             # edit_mode should be None
@@ -139,7 +139,7 @@ def test_sprite_editor_save_current_behavior(mock_editor, temp_sprite_dir):
     mock_editor.current_monster_index = 0 
     # Patch the global `monsters` variable specifically for the save call
     mock_monster_data = [{'name': monster_name, 'type': 'Test', 'max_hp': 10, 'moves': []}]
-    with patch('pixle_art_editor.monsters', mock_monster_data):
+    with patch('src.editor.pixle_art_editor.monsters', mock_monster_data):
         # Pass monster_name to save_sprite
         sprite_editor.save_sprite(monster_name) # Save (this is the method being tested)
 
@@ -588,10 +588,10 @@ class TestReferenceImage(unittest.TestCase):
         # Basic editor setup without problematic patches
         # Mock choose_edit_mode directly during init maybe?
         # Or just manually set states after init.
-        with patch('pixle_art_editor.tk.Tk', return_value=mock_root), \
-             patch('pixle_art_editor.Editor.choose_edit_mode', return_value='monster'), \
-             patch('pixle_art_editor.load_monsters', return_value=[{"name": "TestMon", "type": "Normal", "max_hp": 100, "attack": 10, "defense": 10, "moves": []}]), \
-             patch('pixle_art_editor.pygame.image.load', side_effect=self.mock_pygame_load_basic): # Basic mock for init
+        with patch('src.editor.pixle_art_editor.tk.Tk', return_value=mock_root), \
+             patch('src.editor.pixle_art_editor.Editor.choose_edit_mode', return_value='monster'), \
+             patch('src.editor.pixle_art_editor.load_monsters', return_value=[{"name": "TestMon", "type": "Normal", "max_hp": 100, "attack": 10, "defense": 10, "moves": []}]), \
+             patch('pygame.image.load', side_effect=self.mock_pygame_load_basic): # Basic mock for init
                  self.editor = Editor()
 
         # Manually set required states after init
@@ -621,8 +621,8 @@ class TestReferenceImage(unittest.TestCase):
             return pygame.Surface((config.NATIVE_SPRITE_RESOLUTION[0], config.NATIVE_SPRITE_RESOLUTION[1]), pygame.SRCALPHA)
 
     @pytest.mark.skip(reason="Skipping test dependent on native file dialog")
-    @patch('pixle_art_editor.filedialog')
-    @patch('pixle_art_editor.pygame.image.load')
+    @patch('src.editor.pixle_art_editor.filedialog')
+    @patch('pygame.image.load')
     def test_load_reference_image(self, mock_load, mock_filedialog_arg):
         """Test loading a reference image."""
         mock_load.side_effect = self.mock_pygame_load_for_ref_test
@@ -650,8 +650,8 @@ class TestReferenceImage(unittest.TestCase):
                          "Scaled image width should match editor display width")
 
     @pytest.mark.skip(reason="Skipping test dependent on native file dialog")
-    @patch('pixle_art_editor.filedialog')
-    @patch('pixle_art_editor.pygame.image.load')
+    @patch('src.editor.pixle_art_editor.filedialog')
+    @patch('pygame.image.load')
     def test_clear_reference_image(self, mock_load, mock_filedialog_arg):
         """Test clearing the loaded reference image."""
         mock_load.side_effect = self.mock_pygame_load_for_ref_test
@@ -669,8 +669,8 @@ class TestReferenceImage(unittest.TestCase):
         self.assertIsNone(self.editor.reference_image_path, "Reference image path should be None after clear")
 
     @pytest.mark.skip(reason="Skipping test dependent on native file dialog")
-    @patch('pixle_art_editor.filedialog')
-    @patch('pixle_art_editor.pygame.image.load')
+    @patch('src.editor.pixle_art_editor.filedialog')
+    @patch('pygame.image.load')
     def test_set_reference_alpha(self, mock_load, mock_filedialog_arg):
         """Test setting the alpha value."""
         mock_load.side_effect = self.mock_pygame_load_for_ref_test
@@ -700,8 +700,8 @@ class TestReferenceImage(unittest.TestCase):
         self.assertEqual(self.editor.scaled_reference_image.get_alpha(), 255)
 
     @pytest.mark.skip(reason="Skipping test dependent on native file dialog")
-    @patch('pixle_art_editor.filedialog')
-    @patch('pixle_art_editor.pygame.image.load')
+    @patch('src.editor.pixle_art_editor.filedialog')
+    @patch('pygame.image.load')
     def test_alpha_slider_interaction(self, mock_load, mock_filedialog_arg):
         """Simulate interacting with the alpha slider."""
         mock_load.side_effect = self.mock_pygame_load_for_ref_test
@@ -826,8 +826,8 @@ class TestEventHandler:
 
 # --- Tests for Editor Drawing --- 
 
-@patch('pixle_art_editor.pygame.display.flip') # Mock flip as it's called in run loop
-@patch('pixle_art_editor.pygame.event.get', return_value=[pygame.event.Event(pygame.QUIT)]) # Mock events
+@patch('pygame.display.flip') # Mock flip as it's called in run loop
+@patch('pygame.event.get', return_value=[pygame.event.Event(pygame.QUIT)]) # Mock events
 class TestEditorDrawing:
 
     def test_draw_ui_calls_selection_draw_correctly(self, mock_event_get, mock_flip, mock_editor):
@@ -863,7 +863,7 @@ class TestEditorDrawing:
 
 # --- Tests for Tkinter Initialization and Usage --- 
 
-@patch('pixle_art_editor.tk.Tk') # Mock Tkinter root creation
+@patch('tkinter.Tk') # Mock Tkinter root creation
 class TestTkinterIntegration:
 
     # Test that ensures _ensure_tkinter_root doesn't crash when tk_root is mocked
@@ -881,7 +881,7 @@ class TestTkinterIntegration:
             pytest.fail(f"_ensure_tkinter_root raised an unexpected exception: {e}")
 
     # Test calling open_color_picker (mocks the actual dialog)
-    @patch('pixle_art_editor.colorchooser.askcolor')
+    @patch('src.editor.pixle_art_editor.colorchooser.askcolor')
     def test_open_color_picker_no_crash(self, mock_askcolor, mock_tk, mock_editor):
         """Tests calling open_color_picker doesn't crash (dialog is mocked)."""
         editor = mock_editor
@@ -898,7 +898,7 @@ class TestTkinterIntegration:
             pytest.fail(f"open_color_picker raised an unexpected exception: {e}")
 
     # Test calling load_reference_image (mocks the actual dialog)
-    @patch('pixle_art_editor.filedialog.askopenfilename')
+    @patch('src.editor.pixle_art_editor.filedialog.askopenfilename')
     def test_load_reference_image_no_crash(self, mock_askopenfilename, mock_tk, mock_editor):
         """Tests calling load_reference_image doesn't crash (dialog is mocked)."""
         editor = mock_editor

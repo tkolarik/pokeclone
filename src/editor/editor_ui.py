@@ -1,5 +1,6 @@
 import pygame
-import config # Button class needs config for colors etc.
+# from ..core import config # Relative import
+from src.core import config # Absolute import
 import colorsys # <<< Add import for palette generation
 
 class Button:

@@ -3,9 +3,11 @@
 """Manages different editing tools (Draw, Fill, Paste, etc.) for the pixel editor."""
 
 import pygame
-import config
+# from ..core import config # Relative import
+from src.core import config # Absolute import
 # Need SpriteEditor for type hinting potentially, or direct manipulation
-from sprite_editor import SpriteEditor 
+# from .sprite_editor import SpriteEditor # Relative import
+from src.editor.sprite_editor import SpriteEditor # Absolute import
 
 # --- Base Tool --- (Optional, but good for structure)
 class BaseTool:

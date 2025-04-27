@@ -9,9 +9,9 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
 # Now import the necessary modules
-import config
+from src.core import config
 # Assuming editor_ui contains Button, Palette, PALETTE
-from editor_ui import Palette, PALETTE, Button 
+from src.editor.editor_ui import Palette, PALETTE, Button 
 
 class TestPalette(unittest.TestCase):
 

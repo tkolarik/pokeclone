@@ -9,12 +9,12 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
 # Now import the necessary modules
-import config
-from event_handler import EventHandler
+from src.core import config
+from src.core.event_handler import EventHandler
 # Need Palette for position/size calculation, even if mocked
-from editor_ui import Palette, Button
-from tool_manager import ToolManager # <<< Import ToolManager
-from sprite_editor import SpriteEditor # <<< Import SpriteEditor for spec
+from src.editor.editor_ui import Palette, Button
+from src.editor.tool_manager import ToolManager
+from src.editor.sprite_editor import SpriteEditor
 
 
 class TestEventHandlerPaletteInteraction(unittest.TestCase):

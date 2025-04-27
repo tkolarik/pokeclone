@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 import pygame
 from pygame.locals import MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP, KEYDOWN, QUIT, KMOD_META, KMOD_CTRL, K_z, K_y, K_c, K_v, K_RETURN, K_BACKSPACE, K_ESCAPE, K_UP, K_DOWN
-import config
+from src.core import config
 # Import the Button class from editor_ui
-from editor_ui import Button, Palette 
+# from ..editor.editor_ui import Button, Palette # Relative import
+from src.editor.editor_ui import Button, Palette # Absolute import
 
 # <<< Import Editor for type hint if needed, or remove if mock is sufficient
-# from pixle_art_editor import Editor 
+# from ..editor.pixle_art_editor import Editor # Relative import (Commented out)
+# from src.editor.pixle_art_editor import Editor # Absolute import (Commented out)
 
 class EventHandler:
     def __init__(self, editor):

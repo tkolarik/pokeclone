@@ -3,7 +3,7 @@ import copy
 import os
 import sys # Import sys earlier for path adjustments if needed
 import unittest.mock # Move import here
-import config # Import the config module
+from src.core import config # Updated import
 from unittest.mock import MagicMock
 
 # Add project root to the Python path
@@ -13,7 +13,7 @@ sys.path.insert(0, project_root)
 # Adjust path to import from the parent directory if tests are in a subfolder
 # Assuming test_battle_simulator.py is in the root alongside battle_simulator.py
 # If not, you might need path adjustments like sys.path.append('..')
-from battle_simulator import Creature, Move, load_creatures, apply_stat_change, create_default_sprite
+from src.battle.battle_simulator import Creature, Move, load_creatures, apply_stat_change, create_default_sprite
 
 # Mock Pygame functionalities needed for loading if not running full Pygame init
 class MockSurface:
@@ -73,9 +73,9 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
 
         # Mock sprite creation globally for this test class
         global original_create_sprite_from_file
-        import battle_simulator
-        original_create_sprite_from_file = battle_simulator.create_sprite_from_file
-        battle_simulator.create_sprite_from_file = mock_create_sprite_from_file
+        import src.battle.battle_simulator
+        original_create_sprite_from_file = src.battle.battle_simulator.create_sprite_from_file
+        src.battle.battle_simulator.create_sprite_from_file = mock_create_sprite_from_file
 
         # Set up general Pygame mocks
         setup_mocks()
@@ -86,8 +86,8 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         # Restore original sprite creation
         global original_create_sprite_from_file
         if original_create_sprite_from_file:
-            import battle_simulator
-            battle_simulator.create_sprite_from_file = original_create_sprite_from_file
+            import src.battle.battle_simulator
+            src.battle.battle_simulator.create_sprite_from_file = original_create_sprite_from_file
 
         # Tear down general Pygame mocks
         teardown_mocks()
@@ -229,7 +229,7 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
                          f"Creature sprite should be initialized with native resolution {config.NATIVE_SPRITE_RESOLUTION}, "
                          f"but got {creature.sprite.get_size()}")
 
-    @unittest.mock.patch('battle_simulator.pygame.transform.scale')
+    @unittest.mock.patch('src.battle.battle_simulator.pygame.transform.scale')
     def test_draw_battle_scales_sprite_correctly(self, mock_scale):
         """Test if draw_battle calls pygame.transform.scale with the correct target size."""
         # Arrange
@@ -245,17 +245,17 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         mock_screen = MockSurface((config.BATTLE_WIDTH, config.BATTLE_HEIGHT))
 
         # Mock SCREEN object used within draw_battle if necessary
-        with unittest.mock.patch('battle_simulator.SCREEN', mock_screen):
+        with unittest.mock.patch('src.battle.battle_simulator.SCREEN', mock_screen):
             # Mock blit to avoid errors if SCREEN is not a real surface
              with unittest.mock.patch.object(mock_screen, 'blit') as mock_blit:
                 # Mock font rendering: Patch the Font constructor instead of the render method
                 mock_font_instance = MagicMock()
                 mock_font_instance.render.return_value = MockSurface((10,10)) # Configure the mock render
-                with unittest.mock.patch('battle_simulator.pygame.font.Font', return_value=mock_font_instance) as mock_font_constructor:
+                with unittest.mock.patch('src.battle.battle_simulator.pygame.font.Font', return_value=mock_font_instance) as mock_font_constructor:
                      # ALSO patch pygame.draw.rect to avoid TypeError with MockSurface
-                     with unittest.mock.patch('battle_simulator.pygame.draw.rect') as mock_draw_rect:
+                     with unittest.mock.patch('src.battle.battle_simulator.pygame.draw.rect') as mock_draw_rect:
                          # Act
-                         from battle_simulator import draw_battle
+                         from src.battle.battle_simulator import draw_battle
                          draw_battle(creature1, creature2, mock_buttons, mock_background)
 
         # Assert
@@ -284,7 +284,7 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         expected_max_dmg = 64
 
         # Act
-        from battle_simulator import calculate_damage # Import locally to use updated type_chart
+        from src.battle.battle_simulator import calculate_damage # Import locally to use updated type_chart
         # Run multiple times to account for randomness
         damages = [calculate_damage(attacker, defender, move)[0] for _ in range(100)]
 
@@ -303,7 +303,7 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         expected_min_dmg = 13
         expected_max_dmg = 16
 
-        from battle_simulator import calculate_damage
+        from src.battle.battle_simulator import calculate_damage
         damages = [calculate_damage(attacker, defender, move)[0] for _ in range(100)]
 
         for dmg in damages:
@@ -320,7 +320,7 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         expected_min_dmg = 27
         expected_max_dmg = 32
 
-        from battle_simulator import calculate_damage
+        from src.battle.battle_simulator import calculate_damage
         damages = [calculate_damage(attacker, defender, move)[0] for _ in range(100)]
 
         for dmg in damages:
@@ -334,7 +334,7 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         move = Move("PsyBeam", "Mind", 65) # Mind attack
         # Expected Damage = 0
 
-        from battle_simulator import calculate_damage
+        from src.battle.battle_simulator import calculate_damage
         damage, effectiveness = calculate_damage(attacker, defender, move)
 
         self.assertEqual(damage, 0, f"Immune damage should be 0, got {damage}")
@@ -347,7 +347,7 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         # Assuming a stat move like Growl (Power 0, Effect: lower opponent attack)
         stat_move = Move("Growl", "Normal", 0, effect={'target': 'opponent', 'stat': 'attack', 'change': 1})
 
-        from battle_simulator import calculate_damage
+        from src.battle.battle_simulator import calculate_damage
         damage, effectiveness = calculate_damage(attacker, defender, stat_move)
 
         self.assertEqual(damage, 0, f"Stat move damage should be 0, got {damage}")

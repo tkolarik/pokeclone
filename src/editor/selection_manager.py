@@ -1,5 +1,6 @@
 import pygame
-import config
+# from ..core import config # Relative import
+from src.core import config # Absolute import
 
 # Selection Tool Class
 class SelectionTool:

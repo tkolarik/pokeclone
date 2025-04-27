@@ -9,10 +9,10 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
 # Now import the necessary modules
-import config
-from tool_manager import DrawTool, FillTool, PasteTool, ToolManager
-from sprite_editor import SpriteEditor # Needed for isinstance check and spec
-from selection_manager import SelectionTool # Fixed capitalization
+from src.core import config
+from src.editor.tool_manager import DrawTool, FillTool, PasteTool, ToolManager
+from src.editor.sprite_editor import SpriteEditor
+from src.editor.selection_manager import SelectionTool
 
 class TestDrawTool(unittest.TestCase):
 

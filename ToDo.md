@@ -10,18 +10,6 @@
 
 ### Medium Priority
 
-* **[POKE-22] Reorganize Project Folder Structure**
-    * **Type:** Task / Improvement
-    * **Priority:** Medium
-    * **Description:** The current project structure has most Python modules (`pixle_art_editor.py`, `tool_manager.py`, `battle_simulator.py`, etc.) directly in the root directory. This can become hard to manage as the project grows. Reorganize the codebase into a more standard structure, likely involving a main `src/` directory with subdirectories for different components (e.g., `src/editor`, `src/battle`, `src/core`, `src/ui`, `src/utils`). Update all necessary imports and ensure the application and tests still run correctly after the reorganization.
-    * **Acceptance Criteria:**
-        * Python source files are moved into a logical directory structure (e.g., under `src/`).
-        * All internal imports within the codebase are updated to reflect the new structure.
-        * The main application entry points (e.g., `pixle_art_editor.py`, `battle_simulator.py`, potentially moved/adjusted) still launch the application correctly.
-        * All unit tests pass after the reorganization (adjusting imports in tests as needed).
-        * Directory structure is cleaner and easier to navigate.
-    * **Labels:** `refactoring`, `architecture`, `code-quality`, `maintainability`
-
 * **[POKE-11] Improve Pixel Editor UI/UX Feedback**
     * **Type:** Improvement
     * **Priority:** Medium
@@ -111,6 +99,29 @@
         * **Testing:** Running the test suite executes all *written* stat modification tests and reports success. (AC inherently covers testing).
     * **Labels:** `testing`, `battle-system`, `code-quality`
     * **Depends On:** TEST-1
+
+* **[TEST-4] Add Integration Test for Editor Startup**
+    * **Type:** Task / Testing
+    * **Priority:** Medium
+    * **Description:** The current unit tests mock dependencies heavily and didn't catch an `AttributeError` related to `config.monsters` not being set during application startup via the root entry point script (`pixle_art_editor.py`). Create an integration test that attempts to launch the editor application (e.g., by running the entry script or using `python -m src.editor.pixle_art_editor`) and verifies that it initializes completely without crashing, including loading necessary data like monsters.
+    * **Acceptance Criteria:**
+        * An integration test exists that simulates application startup for the pixel art editor.
+        * The test verifies that the editor initializes without critical errors (like the `AttributeError` for `config.monsters`).
+        * The test uses minimal mocking, focusing on the integration of components during startup.
+        * The test passes reliably.
+    * **Labels:** `testing`, `integration-test`, `code-quality`, `editor`, `startup`
+
+* **[REFACTOR-1] Inject Dependencies into Editor Class**
+    * **Type:** Refactoring / Improvement
+    * **Priority:** Medium
+    * **Description:** The `Editor` class in `src/editor/pixle_art_editor.py` currently relies on globally loaded monster data (`config.monsters`) set by the entry point script. This makes the class harder to test in isolation and couples it to the startup sequence. Refactor the `Editor` class to accept dependencies like the loaded monster data via its constructor (`__init__`) instead of relying on global state. Update the entry point script (`pixle_art_editor.py`) to load the data and pass it to the `Editor` instance.
+    * **Acceptance Criteria:**
+        * `Editor.__init__` accepts necessary data (like loaded monster list) as arguments.
+        * The `Editor` class uses the passed-in data instead of relying on `config.monsters`.
+        * The root entry point script (`pixle_art_editor.py`) loads the data and passes it correctly during `Editor` instantiation.
+        * Existing functionality remains unchanged.
+        * Unit tests for `Editor` are potentially easier to write/maintain.
+    * **Labels:** `refactoring`, `architecture`, `code-quality`, `maintainability`, `editor`, `dependency-injection`, `testing`
 
 ### Low Priority
 
@@ -337,5 +348,17 @@
         * The core navigation logic remains unchanged.
         * **Testing:** Manual testing confirms hints appear correctly at page edges and disappear appropriately.
     * **Labels:** `ui`, `ux`, `battle-system`, `improvement`, `input`
+
+* **[POKE-22] Reorganize Project Folder Structure**
+    * **Type:** Task / Improvement
+    * **Priority:** Medium
+    * **Description:** The current project structure has most Python modules (`pixle_art_editor.py`, `tool_manager.py`, `battle_simulator.py`, etc.) directly in the root directory. This can become hard to manage as the project grows. Reorganize the codebase into a more standard structure, likely involving a main `src/` directory with subdirectories for different components (e.g., `src/editor`, `src/battle`, `src/core`, `src/ui`, `src/utils`). Update all necessary imports and ensure the application and tests still run correctly after the reorganization.
+    * **Acceptance Criteria:**
+        * Python source files are moved into a logical directory structure (e.g., under `src/`).
+        * All internal imports within the codebase are updated to reflect the new structure.
+        * The main application entry points (e.g., `pixle_art_editor.py`, `battle_simulator.py`, potentially moved/adjusted) still launch the application correctly.
+        * All unit tests pass after the reorganization (adjusting imports in tests as needed).
+        * Directory structure is cleaner and easier to navigate.
+    * **Labels:** `refactoring`, `architecture`, `code-quality`, `maintainability`
 
 ---

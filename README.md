@@ -103,20 +103,50 @@ python battle_simulator.py
 
 ```
 pokeclone/
-├── battle_simulator.py     # Main game logic
-├── pixel_art_editor.py     # Advanced pixel art sprite editor
+├── battle_simulator.py     # Entry point script for the battle simulator
+├── pixle_art_editor.py     # Entry point script for the pixel art editor
 ├── requirements.txt        # Project dependencies
 ├── README.md               # This file
-├── LICENSE                 # MIT License
-├── data/
+├── LICENSE                 # MIT License (Assumed, add if exists)
+├── ToDo.md                 # KANBAN/ToDo list
+├── scripts/                # Utility and conversion scripts
+│   ├── convert_sprites.py
+│   └── ...
+├── src/                    # Main source code directory
+│   ├── __init__.py         # Makes src a package
+│   ├── core/               # Core components (config, event handling)
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   └── event_handler.py
+│   ├── battle/             # Battle simulator logic
+│   │   ├── __init__.py
+│   │   └── battle_simulator.py
+│   ├── editor/             # Pixel art editor logic and UI
+│   │   ├── __init__.py
+│   │   ├── pixle_art_editor.py
+│   │   ├── editor_ui.py
+│   │   ├── sprite_editor.py
+│   │   └── ... (tool_manager, selection_manager, etc.)
+│   └── ui/                 # General UI components (if any)
+│       ├── __init__.py
+│       └── ui_manager.py
+├── data/                   # Game data files
 │   ├── monsters.json       # Monster definitions
 │   ├── moves.json          # Move definitions
 │   └── type_chart.json     # Type effectiveness data
-├── sprites/                # Monster sprite images
+├── sprites/                # Monster sprite images (native resolution)
+│   └── ...
+├── sprites_backup/         # Backups of original sprites (if conversion script used)
 │   └── ...
 ├── backgrounds/            # Battle background images
 │   └── ...
-└── sounds/                 # Game sound effects
+├── sounds/                 # Game sound effects
+│   └── ...
+├── songs/                  # Background music tracks
+│   └── ...
+└── tests/                  # Unit and integration tests
+    ├── __init__.py
+    ├── test_battle_simulator.py
     └── ...
 ```
 

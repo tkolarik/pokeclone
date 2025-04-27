@@ -1,6 +1,7 @@
 import pygame
 import os
-import config
+# from ..core import config # Relative import
+from src.core import config # Absolute import
 
 class SpriteEditor:
     """ Edits sprites at 32x32 native resolution. """

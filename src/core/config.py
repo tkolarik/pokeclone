@@ -36,7 +36,14 @@ DEFAULT_BACKGROUND_HEIGHT = 800
 
 # Directory Paths (relative to project root)
 # Use absolute paths based on this file's location for robustness
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+# Go up two levels: src/core -> src -> project_root
+# PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # Previous attempt
+
+# Calculate paths based on this file's location
+CONFIG_DIR = os.path.dirname(os.path.abspath(__file__)) # .../pokeclone/src/core
+SRC_DIR = os.path.dirname(CONFIG_DIR) # .../pokeclone/src
+PROJECT_ROOT = os.path.dirname(SRC_DIR) # .../pokeclone
+
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 SPRITE_DIR = os.path.join(PROJECT_ROOT, "sprites")
 BACKGROUND_DIR = os.path.join(PROJECT_ROOT, "backgrounds")
