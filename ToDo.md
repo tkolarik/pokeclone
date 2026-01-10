@@ -6,7 +6,92 @@
 
 ### Highest Priority
 
+* **[OVERWORLD-1] Implement Basic Overworld Functionality (Completed)**
+    * **Type:** Feature
+    * **Priority:** Highest
+    * **Description:** Establish the foundational overworld gameplay loop and architecture. This milestone introduces a new "Overworld" game mode, distinct from the battle simulator and pixel art editor, and accessible via a main menu. The overworld will serve as the player's primary navigation and exploration interface, laying the groundwork for future features such as encounters, NPCs, and map-based events.
+    * **Scope:**
+        * **Game Loop & State Management:**  
+          - Create a dedicated overworld state within the main application, with clear transitions to/from other modes (battle, editor, main menu).
+          - Implement a basic game loop for the overworld, handling input, updates, and rendering.
+        * **Player Character:**  
+          - Define a player avatar (sprite or placeholder) that can be moved around the map using keyboard input (e.g., arrow keys or WASD).
+          - Track player position and direction.
+        * **Map Structure:**  
+          - Design a simple tile-based map system (e.g., 2D grid of tiles, loaded from a JSON or CSV file).
+          - Support for at least one sample map with walkable and non-walkable tiles (e.g., walls, grass, water).
+          - Render the map and player character to the screen.
+        * **Movement & Collision:**  
+          - Implement basic movement logic, including collision detection with impassable tiles.
+          - Smooth or grid-based movement (choose one for initial implementation).
+        * **Interactions:**  
+          - Allow the player to interact with the environment (e.g., pressing a key to trigger an action or display a message when facing an interactive tile).
+          - Placeholder for future NPC or object interactions.
+        * **Mode Switching:**  
+          - Add a main menu option to enter the overworld mode.
+          - Provide a way to exit back to the main menu.
+    * **Acceptance Criteria:**
+        * The player can enter the overworld mode from the main menu.
+        * The overworld displays a map and a controllable player character.
+        * Player movement is responsive and respects map boundaries/collisions.
+        * At least one type of interactive tile or object is present (even if only as a placeholder).
+        * The player can return to the main menu from the overworld.
+        * The code is organized to allow future expansion (e.g., adding NPCs, wild encounters, map transitions).
+    * **Testing:**
+        * Manual testing confirms all acceptance criteria.
+        * Unit tests cover overworld state movement, collision, and interaction logic.
+    * **Implementation Notes (Completed):**
+        * Added a dedicated overworld state module (map, player, movement, interactions).
+        * Implemented a pygame overworld runner with a tile map, player movement, and message prompts.
+        * Added a main menu entrypoint that can launch overworld, battle simulator, or pixel art editor.
+        * Added a basic message box for interactive tiles and ESC to return to the main menu.
+    * **Labels:** `feature`, `overworld`, `gameplay`, `architecture`, `core`, `map`, `player`, `input`
+
+* **[OVERWORLD-6] Implement Overworld Runtime (per design doc)**
+    * **Type:** Feature
+    * **Priority:** Highest
+    * **Description:** Implement/align the overworld runtime systems according to `docs/overworld-system-design.md` so the game has a stable, testable contract that tooling (map editor, tile manager, audio) can target.
+    * **Acceptance Criteria:**
+        * The runtime behavior matches `docs/overworld-system-design.md` for movement, collision, interactions, triggers/actions, connections/portals, and per-map audio.
+        * The overworld consumes the map schema defined in `docs/map-editor-design.md` without manual data edits.
+        * **Testing:** Unit/integration tests cover collision, trigger ordering, connection transitions, and music switching as described in the design doc.
+    * **Labels:** `feature`, `overworld`, `runtime`, `architecture`, `gameplay`
+
+
 ### High Priority
+
+* **[OVERWORLD-3] Implement Map Editor (per design doc)**
+    * **Type:** Feature
+    * **Priority:** High
+    * **Description:** Build the overworld map editor according to `docs/map-editor-design.md`, enabling creation, editing, saving, and loading of maps that the overworld runtime can consume.
+    * **Acceptance Criteria:**
+        * The implementation follows `docs/map-editor-design.md` (UX, data model, validation, and integration points).
+        * The editor can create, edit, save, and load maps that the overworld can render and navigate without errors.
+        * **Testing:** Manual end-to-end test per the workflow described in `docs/map-editor-design.md`.
+    * **Labels:** `feature`, `overworld`, `map`, `editor`, `tools`
+
+* **[OVERWORLD-4] Extend Pixel Art Editor for Tiles + Tile Manager**
+    * **Type:** Feature
+    * **Priority:** High
+    * **Description:** Extend the existing pixel art editor to support tile-focused editing, plus add a tile manager system to edit, save, load, and reference tiles used by the overworld. This system should enable creating tile sets and linking tiles to in-game maps.
+    * **Acceptance Criteria:**
+        * The existing pixel art editor includes a tile-editing mode or workflow to create and edit individual tiles at a fixed tile size.
+        * Tile sets can be saved and loaded from disk with metadata (e.g., tile IDs, names, properties).
+        * A tile manager (integrated with or adjacent to the editor UI) provides a way to browse and select tiles for use in the map editor.
+        * Overworld maps can reference tiles by stable IDs from the tile set.
+        * **Testing:** Manual testing confirms tiles can be created, saved, loaded, and referenced in-game without missing tile errors.
+    * **Labels:** `feature`, `overworld`, `tiles`, `editor`, `asset-pipeline`
+
+* **[OVERWORLD-5] Add Overworld Music Per Map**
+    * **Type:** Feature
+    * **Priority:** High
+    * **Description:** Add overworld music support with per-map soundtrack assignment so each map can define its own background music.
+    * **Acceptance Criteria:**
+        * Each map definition can reference a music track (by filename or ID).
+        * Entering a map plays its assigned track and stops or fades out the previous map's track.
+        * A default overworld track is used when a map does not specify one.
+        * **Testing:** Manual testing confirms music switches correctly when changing maps and the default plays when no track is assigned.
+    * **Labels:** `audio`, `overworld`, `feature`, `music`, `maps`
 
 ### Medium Priority
 
@@ -61,6 +146,25 @@
         * **Testing:** Unit tests for the state machine/manager logic are *written and pass*.
     * **Labels:** `editor`, `state-management`, `refactoring`, `ux`, `bug`, `architecture`
     * **Depends On:** POKE-10 (potentially)
+
+* **[POKE-23] Add Clipboard History + Persistent Favorite Paste Patterns**
+    * **Type:** Feature
+    * **Priority:** Medium
+    * **Description:** Extend the existing copy/paste workflow in the pixel art editor with a clipboard history (multiple recently copied selections/patterns) and session-to-session persistent “favorites” for frequently reused patterns.
+    * **Acceptance Criteria:**
+        * Copy operations add the current selection/pattern to a bounded clipboard history (most-recent-first).
+        * Users can browse/select an item from clipboard history to paste (via UI and/or hotkeys).
+        * Users can mark clipboard items as favorites; favorites persist across app restarts.
+        * Pasting a history/favorite item behaves like the current paste tool (preview + placement + cancel), without breaking existing copy/paste behavior.
+    * **Testing:**
+        * **Manual:** Confirms history ordering, favorite persistence, and correct paste placement across editor restarts.
+        * **Automated (Unit/Integration):**
+          - Clipboard history behavior: capacity limit, MRU ordering, and immutability (stored items don’t change when the canvas changes).
+          - Favorites persistence: save → reload roundtrip preserves IDs/metadata/pixel data; missing/corrupt favorites file does not crash (loads empty with warning).
+          - Paste computation: given a stored pattern + cursor position, computed paste bounds and applied pixels match expected, including clipping at canvas edges.
+          - Undo/redo integration: pasting from history/favorite creates the intended undo granularity and restores exact pixels on undo/redo.
+          - (If separable) Hotkey/UI selection: selecting next/prev clipboard item updates active paste source state without mutating history.
+    * **Labels:** `editor`, `feature`, `ux`, `clipboard`, `pasting`, `persistence`
 
 * **[TEST-1] Set up Unit Testing Framework**
     * **Type:** Task
@@ -122,22 +226,6 @@
         * Existing functionality remains unchanged.
         * Unit tests for `Editor` are potentially easier to write/maintain.
     * **Labels:** `refactoring`, `architecture`, `code-quality`, `maintainability`, `editor`, `dependency-injection`, `testing`
-
-* **[FEAT-REFIMG-PANZOOM] Implement Reference Image Panning and Scaling**
-    * **Type:** Feature
-    * **Priority:** Medium
-    * **Description:** Currently, the reference image loaded in the monster editor (`[FEAT-REFIMG]`) is displayed at a fixed position and scale (aspect-fit). This can make it difficult to precisely align with the pixel grid, especially if the desired tracing area is small or off-center in the original image. Implement controls to allow the user to pan (move horizontally/vertically) and scale (zoom in/out) the reference image layer independently of the main pixel grid zoom/pan. This could involve dedicated UI buttons/sliders or keyboard modifiers + mouse interactions.
-    * **Acceptance Criteria:**
-        * Controls (UI elements or keyboard/mouse shortcuts) are available to pan the reference image horizontally and vertically.
-        * Controls are available to scale the reference image up and down.
-        * Panning and scaling operations affect only the reference image layer, not the pixel grid or other UI elements.
-        * The transparency setting (`[FEAT-REFIMG]`) still functions correctly with the panned/scaled image.
-        * The "Clear Ref Img" function resets any panning and scaling applied.
-        * The editor remains performant even with panning/scaling applied.
-        * **Testing:** Manual testing confirms panning and scaling controls work intuitively and independently of the main canvas controls.
-        * **Testing:** Manual testing confirms transparency and clearing functions work correctly with the transformed image.
-        * **Testing:** Unit/integration tests are *written and pass* for the panning/scaling logic, verifying correct transformation calculations and state updates (potentially mocking user input/GUI elements).
-    * **Labels:** `feature`, `editor`, `ui`, `ux`, `reference-image`, `input`, `enhancement`, `testing`
 
 ### Low Priority
 
@@ -288,6 +376,29 @@
 ---
 
 ## Done
+
+* **[OVERWORLD-2] Add Map Editor Functionality (Design Doc Complete)**
+    * **Type:** Feature
+    * **Priority:** High
+    * **Description:** Authored the map editor design and requirements in a dedicated design doc for future implementation.
+    * **Outcome:** Design doc created at `docs/map-editor-design.md` covering UX/tools, data model, file format, validation, and runtime integration; ticket requirements relocated to the doc.
+    * **Labels:** `feature`, `overworld`, `map`, `editor`, `tools`
+
+* **[FEAT-REFIMG-PANZOOM] Implement Reference Image Panning and Scaling**
+    * **Type:** Feature
+    * **Priority:** Medium
+    * **Description:** Currently, the reference image loaded in the monster editor (`[FEAT-REFIMG]`) is displayed at a fixed position and scale (aspect-fit). This can make it difficult to precisely align with the pixel grid, especially if the desired tracing area is small or off-center in the original image. Implement controls to allow the user to pan (move horizontally/vertically) and scale (zoom in/out) the reference image layer independently of the main pixel grid zoom/pan. This could involve dedicated UI buttons/sliders or keyboard modifiers + mouse interactions.
+    * **Acceptance Criteria:**
+        * Controls (UI elements or keyboard/mouse shortcuts) are available to pan the reference image horizontally and vertically.
+        * Controls are available to scale the reference image up and down.
+        * Panning and scaling operations affect only the reference image layer, not the pixel grid or other UI elements.
+        * The transparency setting (`[FEAT-REFIMG]`) still functions correctly with the panned/scaled image.
+        * The "Clear Ref Img" function resets any panning and scaling applied.
+        * The editor remains performant even with panning/scaling applied.
+        * **Testing:** Manual testing confirms panning and scaling controls work intuitively and independently of the main canvas controls.
+        * **Testing:** Manual testing confirms transparency and clearing functions work correctly with the transformed image.
+        * **Testing:** Unit/integration tests are *written and pass* for the panning/scaling logic, verifying correct transformation calculations and state updates (potentially mocking user input/GUI elements).
+    * **Labels:** `feature`, `editor`, `ui`, `ux`, `reference-image`, `input`, `enhancement`, `testing`
 
 *   **[POKE-10.3] Refactor Core Drawing/Tool Logic**
     *   **Type:** Refactoring Task

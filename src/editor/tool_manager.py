@@ -42,6 +42,8 @@ class DrawTool(BaseTool):
         """Helper to get the target sprite editor or background surface."""
         if editor.edit_mode == 'monster':
             return editor._get_sprite_editor_at_pos(pos)
+        elif editor.edit_mode == 'tile':
+            return editor._get_sprite_editor_at_pos(pos)
         elif editor.edit_mode == 'background' and editor.canvas_rect and editor.current_background:
             if editor.canvas_rect.collidepoint(pos):
                 return editor.current_background # Return the surface
@@ -136,7 +138,7 @@ class FillTool(BaseTool):
         pass
 
     def handle_click(self, editor, pos):
-        if editor.edit_mode == 'monster':
+        if editor.edit_mode in ['monster', 'tile']:
             sprite_editor = editor._get_sprite_editor_at_pos(pos)
             if sprite_editor:
                 grid_pos = sprite_editor.get_grid_position(pos)
@@ -191,7 +193,7 @@ class PasteTool(BaseTool):
              editor.tool_manager.set_active_tool('draw') # Switch back to draw if buffer empty
              return
              
-        if editor.edit_mode == 'monster':
+        if editor.edit_mode in ['monster', 'tile']:
             sprite_editor = editor._get_sprite_editor_at_pos(pos)
             if sprite_editor:
                 grid_pos = sprite_editor.get_grid_position(pos)
@@ -252,4 +254,3 @@ class ToolManager:
         if self.active_tool:
             # Need to pass the editor instance to the tool method
             self.active_tool.handle_drag(self.editor, pos)
-

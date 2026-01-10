@@ -10,6 +10,7 @@ import colorsys
 
 # Import the centralized config
 from src.core import config
+from src.core.tileset import TileDefinition, TileSet, list_tileset_files, NPCSprite
 
 # Import newly created modules
 from src.core.event_handler import EventHandler
@@ -18,24 +19,34 @@ from src.editor.selection_manager import SelectionTool
 from src.editor.sprite_editor import SpriteEditor
 from src.editor.tool_manager import ToolManager
 
-# Initialize Tkinter root window and hide it
-root = None # Keep module-level variable as None, Editor will manage its own instance
+NPC_STATES = ["standing", "walking"]
+NPC_ANGLES = ["south", "west", "east", "north"]
 
-# --- Initialize Tkinter Root FIRST --- 
-tk_root = None
-tkinter_error = None
-try:
-    print("Attempting to initialize tk.Tk() globally...")
-    tk_root = tk.Tk()
-    tk_root.withdraw() # Hide the main window
-    print("Global tk.Tk() initialized successfully.")
-except Exception as e:
-    # Store error if Tkinter fails to initialize globally
-    print(f"ERROR: Global Tkinter initialization failed: {e}")
-    tkinter_error = e 
-# --- End Tkinter Init ---
+# Tkinter root is initialized lazily to avoid crashes on launch in some setups.
+_tk_root_instance = None
+_tk_init_error = None
 
-# Now import and initialize Pygame
+
+def _get_tk_root():
+    global _tk_root_instance, _tk_init_error
+    if _tk_root_instance:
+        return _tk_root_instance
+    if _tk_init_error is not None:
+        return None
+    if sys.platform == "darwin":
+        _tk_init_error = RuntimeError("Tk dialogs are disabled on macOS for stability.")
+        return None
+    try:
+        _tk_root_instance = tk.Tk()
+        _tk_root_instance.withdraw()
+        return _tk_root_instance
+    except Exception as e:
+        print(f"ERROR: Tkinter initialization failed: {e}")
+        _tk_init_error = e
+        _tk_root_instance = None
+        return None
+
+# Initialize Pygame Globally
 pygame.init()
 
 # Constants are now in config.py
@@ -151,6 +162,29 @@ class Editor:
         self.view_offset_y = 0
         self.panning = False
 
+        # --- Tile Mode State ---
+        self.tile_set = None
+        self.tile_canvas = SpriteEditor((50, 110), 'tile', config.TILE_IMAGE_DIR)
+        self.current_tile_index = -1
+        self.selected_tile_id = None
+        self.tile_preview_cache = {}
+        self.tile_list_scroll = 0
+        panel_width = 180
+        panel_x = config.EDITOR_WIDTH - (100 + 5) - panel_width - 20 # leave space for the buttons column
+        self.tile_panel_rect = pygame.Rect(panel_x, 50, panel_width, config.EDITOR_HEIGHT - 100)
+        self.tile_button_rects = []
+        self.current_tile_frame_index = 0
+        self.asset_edit_target = 'tile'  # 'tile' or 'npc'
+        self.tile_anim_last_tick = 0
+
+        # NPC editing state
+        self.npc_list_scroll = 0
+        self.npc_button_rects = []
+        self.selected_npc_id = None
+        self.current_npc_state = "standing"
+        self.current_npc_angle = "south"
+        self.current_npc_frame_index = 0
+
         # Instantiate the EventHandler
         self.event_handler = EventHandler(self)
 
@@ -216,6 +250,16 @@ class Editor:
         self.dialog_file_list = [] # List of files for file browser dialog
         self.dialog_file_scroll_offset = 0 # Scroll offset for file list
         self.dialog_selected_file_index = -1 # Index of selected file in list
+        self.dialog_file_labels = [] # Display labels for file list
+        self.dialog_file_list_rect = None # Rect for file list area
+        self.dialog_file_page_size = 0 # Visible rows in file list
+        self.dialog_file_scrollbar_rect = None
+        self.dialog_file_scroll_thumb_rect = None
+        self.dialog_file_dragging_scrollbar = False
+        self.dialog_quick_dirs = []
+        self.dialog_quick_dir_rects = []
+        self.dialog_current_dir = ""
+        self.dialog_sort_recent = True
         self.dialog_color_picker_hue = 0 # Hue for HSV color picker
         self.dialog_color_picker_sat = 1 # Saturation for HSV
         self.dialog_color_picker_val = 1 # Value for HSV
@@ -228,14 +272,11 @@ class Editor:
         self.choose_edit_mode() # Setup the initial dialog state AFTER resetting dialog attrs
 
     def _ensure_tkinter_root(self):
-        """Check if the global Tkinter root was initialized successfully."""
-        # Access the global tk_root variable
-        global tk_root, tkinter_error 
-        if tk_root is None:
-             print(f"Tkinter root unavailable. Global init error: {tkinter_error}")
-             return False
-        # If global root exists, return True
-        return True
+        """Return a Tkinter root if available, otherwise None."""
+        tk_root = _get_tk_root()
+        if tk_root is None and _tk_init_error is not None:
+            print(f"Tkinter root unavailable. Init error: {_tk_init_error}")
+        return tk_root
 
     def choose_edit_mode(self):
         """
@@ -254,12 +295,14 @@ class Editor:
         button_width = 150
         button_height = 40
         button_padding = 10
-        monster_button_y = dialog_center_y - button_height - button_padding // 2
-        background_button_y = dialog_center_y + button_padding // 2
+        monster_button_y = dialog_center_y - button_height - button_padding
+        tile_button_y = dialog_center_y
+        background_button_y = dialog_center_y + button_height + button_padding
         button_x = dialog_center_x - button_width // 2
 
         self.dialog_options = [
             Button(pygame.Rect(button_x, monster_button_y, button_width, button_height), "Monster", value="monster"), # No action, store value
+            Button(pygame.Rect(button_x, tile_button_y, button_width, button_height), "Tiles", value="tile"),
             Button(pygame.Rect(button_x, background_button_y, button_width, button_height), "Background", value="background"), # No action, store value
         ]
         self.dialog_callback = self._set_edit_mode_and_continue
@@ -281,6 +324,8 @@ class Editor:
             # Now trigger the background action choice (new/edit)
             # print(f"DEBUG: Before calling choose_background_action()") # DEBUG 5 - REMOVE
             self.choose_background_action()
+        elif mode == 'tile':
+            self.setup_tile_mode()
         else: # Monster mode
             # If monster mode, initialization is complete
             # Clear potential background canvas rect
@@ -294,6 +339,586 @@ class Editor:
             self.dialog_options = []
             self.dialog_callback = None
         # print(f"DEBUG: End _set_edit_mode_and_continue. dialog_mode={self.dialog_mode}") # DEBUG 6 - REMOVE
+
+    def setup_tile_mode(self):
+        """Initialize tile editing state and load a tileset."""
+        default_path = os.path.join(config.TILESET_DIR, f"{config.DEFAULT_TILESET_ID}.json")
+        self.load_tileset(default_path if os.path.exists(default_path) else None)
+        self.asset_edit_target = 'tile'
+        self.buttons = self.create_buttons()
+        self.dialog_mode = None
+        self.dialog_prompt = ""
+        self.dialog_options = []
+        self.dialog_callback = None
+
+    def load_tileset(self, path=None):
+        """Load a tileset from disk or create a new one if none are found."""
+        chosen_path = path
+        if not chosen_path:
+            files = list_tileset_files()
+            if files:
+                chosen_path = files[0]
+        if chosen_path and os.path.exists(chosen_path):
+            try:
+                self.tile_set = TileSet.load(chosen_path)
+                print(f"Loaded tileset: {os.path.basename(chosen_path)}")
+            except Exception as e:
+                print(f"Failed to load tileset {chosen_path}: {e}")
+                self.tile_set = None
+        if not self.tile_set:
+            tileset_id = config.DEFAULT_TILESET_ID
+            self.tile_set = TileSet(tileset_id, "New Tileset", config.OVERWORLD_TILE_SIZE)
+            default_tile = TileDefinition(id="tile_01", name="Tile 01", filename="tile_01.png", frames=["tile_01.png"], properties={"walkable": True, "color": [180, 180, 180, 255]})
+            self.tile_set.add_or_update_tile(default_tile)
+            self.tile_set.ensure_assets()
+            self.tile_set.save(os.path.join(config.TILESET_DIR, f"{tileset_id}.json"))
+            print(f"Created default tileset at {os.path.join(config.TILESET_DIR, f'{tileset_id}.json')}")
+
+        # Ensure we have at least one tile selected
+        self.current_tile_index = 0 if self.tile_set.tiles else -1
+        self.selected_tile_id = self.tile_set.tiles[0].id if self.tile_set.tiles else None
+        self.current_tile_frame_index = 0
+        self.selected_npc_id = self.tile_set.npcs[0].id if self.tile_set.npcs else None
+        self.current_npc_state = NPC_STATES[0]
+        self.current_npc_angle = NPC_ANGLES[0]
+        self.current_npc_frame_index = 0
+        self.tile_preview_cache = {}
+        self.tile_list_scroll = 0
+        self.npc_list_scroll = 0
+        self.npc_button_rects = []
+        self._load_current_tile_to_canvas()
+
+    def _load_current_tile_to_canvas(self):
+        """Load the currently selected tile image into the editing canvas."""
+        self.tile_canvas.frame.fill((*config.BLACK[:3], 0))
+        tile = self.current_tile()
+        if not tile:
+            return
+        self.tile_set.ensure_assets()
+        if not tile.frames:
+            tile.frames = [tile.filename]
+        if self.current_tile_frame_index >= len(tile.frames):
+            self.current_tile_frame_index = 0
+        path = self.tile_set.tile_image_path(tile, self.current_tile_frame_index)
+        try:
+            loaded = pygame.image.load(path).convert_alpha()
+            if loaded.get_size() != config.NATIVE_SPRITE_RESOLUTION:
+                loaded = pygame.transform.smoothscale(loaded, config.NATIVE_SPRITE_RESOLUTION)
+            self.tile_canvas.frame.blit(loaded, (0, 0))
+        except pygame.error as e:
+            print(f"Error loading tile image {path}: {e}")
+
+    def current_tile(self):
+        if self.tile_set and 0 <= self.current_tile_index < len(self.tile_set.tiles):
+            return self.tile_set.tiles[self.current_tile_index]
+        return None
+
+    def next_tile(self):
+        if self.tile_set and self.tile_set.tiles:
+            self.current_tile_index = (self.current_tile_index + 1) % len(self.tile_set.tiles)
+            self.selected_tile_id = self.tile_set.tiles[self.current_tile_index].id
+            self.current_tile_frame_index = 0
+            self._load_current_tile_to_canvas()
+            print(f"Selected tile: {self.selected_tile_id}")
+
+    def previous_tile(self):
+        if self.tile_set and self.tile_set.tiles:
+            self.current_tile_index = (self.current_tile_index - 1) % len(self.tile_set.tiles)
+            self.selected_tile_id = self.tile_set.tiles[self.current_tile_index].id
+            self.current_tile_frame_index = 0
+            self._load_current_tile_to_canvas()
+            print(f"Selected tile: {self.selected_tile_id}")
+
+    def next_tile_frame(self):
+        tile = self.current_tile()
+        if not tile or not tile.frames:
+            return
+        self.current_tile_frame_index = (self.current_tile_frame_index + 1) % len(tile.frames)
+        self._load_current_tile_to_canvas()
+        print(f"Tile '{tile.id}' frame {self.current_tile_frame_index + 1}/{len(tile.frames)}")
+
+    def previous_tile_frame(self):
+        tile = self.current_tile()
+        if not tile or not tile.frames:
+            return
+        self.current_tile_frame_index = (self.current_tile_frame_index - 1) % len(tile.frames)
+        self._load_current_tile_to_canvas()
+        print(f"Tile '{tile.id}' frame {self.current_tile_frame_index + 1}/{len(tile.frames)}")
+
+    def add_tile_frame(self):
+        tile = self.current_tile()
+        if not tile:
+            print("No tile selected.")
+            return
+        if not tile.frames:
+            tile.frames = [tile.filename]
+        new_index = len(tile.frames) + 1
+        new_frame_name = f"{tile.id}_f{new_index:02d}.png"
+        tile.frames.append(new_frame_name)
+        self.current_tile_frame_index = len(tile.frames) - 1
+        self.tile_canvas.frame.fill((*config.BLACK[:3], 0))
+        self.save_tile()  # save blank frame
+        self.tile_set.ensure_assets()
+        self._refresh_tile_previews()
+        print(f"Added frame {self.current_tile_frame_index + 1} to tile '{tile.id}'")
+
+    # --- NPC Editing ---
+    def current_npc(self):
+        if self.tile_set and self.tile_set.npcs and self.selected_npc_id:
+            for npc in self.tile_set.npcs:
+                if npc.id == self.selected_npc_id:
+                    return npc
+        return self.tile_set.npcs[0] if self.tile_set and self.tile_set.npcs else None
+
+    def _ensure_npc_state_angle(self, npc: NPCSprite):
+        npc.states.setdefault(self.current_npc_state, {})
+        npc.states[self.current_npc_state].setdefault(self.current_npc_angle, [f"{npc.id}_{self.current_npc_state}_{self.current_npc_angle}.png"])
+
+    def _load_current_npc_frame(self):
+        self.tile_canvas.frame.fill((*config.BLACK[:3], 0))
+        if not self.tile_set:
+            return
+        npc = self.current_npc()
+        if not npc:
+            return
+        self._ensure_npc_state_angle(npc)
+        frames = npc.states[self.current_npc_state][self.current_npc_angle]
+        if not frames:
+            frames.append(f"{npc.id}_{self.current_npc_state}_{self.current_npc_angle}.png")
+        if self.current_npc_frame_index >= len(frames):
+            self.current_npc_frame_index = 0
+        path = self.tile_set.npc_image_path(npc, self.current_npc_state, self.current_npc_angle, self.current_npc_frame_index)
+        try:
+            loaded = pygame.image.load(path).convert_alpha()
+            if loaded.get_size() != config.NATIVE_SPRITE_RESOLUTION:
+                loaded = pygame.transform.smoothscale(loaded, config.NATIVE_SPRITE_RESOLUTION)
+            self.tile_canvas.frame.blit(loaded, (0, 0))
+        except pygame.error as e:
+            print(f"Error loading NPC frame {path}: {e}")
+
+    def save_npc_frame(self):
+        npc = self.current_npc()
+        if not npc:
+            print("No NPC selected.")
+            return
+        self._ensure_npc_state_angle(npc)
+        frames = npc.states[self.current_npc_state][self.current_npc_angle]
+        if not frames:
+            frames.append(f"{npc.id}_{self.current_npc_state}_{self.current_npc_angle}.png")
+        if self.current_npc_frame_index >= len(frames):
+            self.current_npc_frame_index = 0
+        path = self.tile_set.npc_image_path(npc, self.current_npc_state, self.current_npc_angle, self.current_npc_frame_index)
+        try:
+            pygame.image.save(self.tile_canvas.frame, path)
+            print(f"Saved NPC '{npc.id}' state {self.current_npc_state} angle {self.current_npc_angle} frame {self.current_npc_frame_index+1}")
+        except pygame.error as e:
+            print(f"Error saving NPC frame: {e}")
+
+    def add_npc_frame(self):
+        npc = self.current_npc()
+        if not npc:
+            print("No NPC selected.")
+            return
+        self._ensure_npc_state_angle(npc)
+        frames = npc.states[self.current_npc_state][self.current_npc_angle]
+        new_index = len(frames) + 1
+        new_name = f"{npc.id}_{self.current_npc_state}_{self.current_npc_angle}_f{new_index:02d}.png"
+        frames.append(new_name)
+        self.current_npc_frame_index = len(frames) - 1
+        self.tile_canvas.frame.fill((*config.BLACK[:3], 0))
+        self.save_npc_frame()
+        print(f"Added NPC frame {self.current_npc_frame_index+1} for {npc.id}")
+
+    def next_npc(self):
+        if not self.tile_set or not self.tile_set.npcs:
+            return
+        ids = [n.id for n in self.tile_set.npcs]
+        if self.selected_npc_id not in ids:
+            self.selected_npc_id = ids[0]
+        else:
+            idx = ids.index(self.selected_npc_id)
+            self.selected_npc_id = ids[(idx + 1) % len(ids)]
+        self.current_npc_frame_index = 0
+        self._load_current_npc_frame()
+        print(f"Selected NPC: {self.selected_npc_id}")
+
+    def previous_npc(self):
+        if not self.tile_set or not self.tile_set.npcs:
+            return
+        ids = [n.id for n in self.tile_set.npcs]
+        if self.selected_npc_id not in ids:
+            self.selected_npc_id = ids[0]
+        else:
+            idx = ids.index(self.selected_npc_id)
+            self.selected_npc_id = ids[(idx - 1) % len(ids)]
+        self.current_npc_frame_index = 0
+        self._load_current_npc_frame()
+        print(f"Selected NPC: {self.selected_npc_id}")
+
+    def next_npc_frame(self):
+        npc = self.current_npc()
+        if not npc:
+            return
+        frames = npc.states.get(self.current_npc_state, {}).get(self.current_npc_angle, [])
+        if not frames:
+            return
+        self.current_npc_frame_index = (self.current_npc_frame_index + 1) % len(frames)
+        self._load_current_npc_frame()
+
+    def previous_npc_frame(self):
+        npc = self.current_npc()
+        if not npc:
+            return
+        frames = npc.states.get(self.current_npc_state, {}).get(self.current_npc_angle, [])
+        if not frames:
+            return
+        self.current_npc_frame_index = (self.current_npc_frame_index - 1) % len(frames)
+        self._load_current_npc_frame()
+
+    def set_npc_state(self, state: str):
+        if state not in NPC_STATES:
+            return
+        self.current_npc_state = state
+        self.current_npc_frame_index = 0
+        self._load_current_npc_frame()
+
+    def set_npc_angle(self, angle: str):
+        if angle not in NPC_ANGLES:
+            return
+        self.current_npc_angle = angle
+        self.current_npc_frame_index = 0
+        self._load_current_npc_frame()
+
+    def start_new_npc_dialog(self):
+        self.dialog_mode = 'input_text'
+        self.dialog_prompt = "Enter new NPC ID:"
+        count = len(self.tile_set.npcs) + 1 if self.tile_set else 1
+        self.dialog_input_text = f"npc_{count:02d}"
+        self.dialog_input_active = True
+        self.dialog_options = [
+            Button(pygame.Rect(0,0, 100, 40), "Create", action=lambda: self._handle_dialog_choice(self.dialog_input_text)),
+            Button(pygame.Rect(0,0, 100, 40), "Cancel", action=lambda: self._handle_dialog_choice(None))
+        ]
+        self.dialog_callback = self._create_npc_from_dialog
+
+    def _create_npc_from_dialog(self, npc_id):
+        if not npc_id:
+            print("NPC creation cancelled.")
+            return
+        npc_id = npc_id.strip()
+        if not npc_id:
+            print("NPC id cannot be empty.")
+            return
+        if any(n.id == npc_id for n in self.tile_set.npcs):
+            print(f"NPC '{npc_id}' already exists.")
+            self.selected_npc_id = npc_id
+            self.dialog_mode = None
+            self.dialog_callback = None
+            self.dialog_options = []
+            return
+        npc = NPCSprite(id=npc_id, name=npc_id, states={
+            "standing": {
+                "south": [f"{npc_id}_standing_south.png"]
+            }
+        })
+        self.tile_set.add_or_update_npc(npc)
+        self.tile_set.ensure_assets()
+        self.selected_npc_id = npc_id
+        self.current_npc_state = "standing"
+        self.current_npc_angle = "south"
+        self.current_npc_frame_index = 0
+        self._load_current_npc_frame()
+        self.buttons = self.create_buttons()
+        self.dialog_mode = None
+        self.dialog_callback = None
+        self.dialog_options = []
+        print(f"Created NPC '{npc_id}'")
+
+    def _ensure_tile_preview(self, tile: TileDefinition):
+        """Cache a small preview surface for the tile manager list."""
+        if tile.id in self.tile_preview_cache:
+            return
+        self.tile_set.ensure_assets()
+        preview_size = 48
+        previews = []
+        frames = tile.frames or [tile.filename]
+        for idx in range(len(frames)):
+            path = self.tile_set.tile_image_path(tile, idx)
+            try:
+                surf = pygame.image.load(path).convert_alpha()
+            except pygame.error:
+                surf = pygame.Surface((self.tile_set.tile_size, self.tile_set.tile_size), pygame.SRCALPHA)
+                surf.fill((*config.RED, 255))
+            previews.append(pygame.transform.scale(surf, (preview_size, preview_size)))
+        self.tile_preview_cache[tile.id] = previews
+
+    def _refresh_tile_previews(self):
+        self.tile_preview_cache = {}
+        if not self.tile_set:
+            return
+        for tile in self.tile_set.tiles:
+            self._ensure_tile_preview(tile)
+
+    def save_tileset(self):
+        if not self.tile_set:
+            print("No tileset loaded.")
+            return
+        path = self.tile_set.save()
+        print(f"Saved tileset to {path}")
+
+    def save_tile(self):
+        tile = self.current_tile()
+        if not tile:
+            print("No tile selected to save.")
+            return
+        self.tile_set.ensure_assets()
+        if not tile.frames:
+            tile.frames = [tile.filename]
+        if self.current_tile_frame_index >= len(tile.frames):
+            self.current_tile_frame_index = 0
+        path = self.tile_set.tile_image_path(tile, self.current_tile_frame_index)
+        try:
+            pygame.image.save(self.tile_canvas.frame, path)
+            print(f"Saved tile '{tile.id}' to {path}")
+            self._ensure_tile_preview(tile)
+        except pygame.error as e:
+            print(f"Error saving tile {tile.id}: {e}")
+
+    def start_new_tile_dialog(self):
+        """Prompt for a new tile id and create the tile."""
+        self.dialog_mode = 'input_text'
+        self.dialog_prompt = "Enter new tile ID:"
+        next_id = len(self.tile_set.tiles) + 1 if self.tile_set else 1
+        self.dialog_input_text = f"tile_{next_id:02d}"
+        self.dialog_input_active = True
+        self.dialog_options = [
+            Button(pygame.Rect(0,0, 100, 40), "Create", action=lambda: self._handle_dialog_choice(self.dialog_input_text)),
+            Button(pygame.Rect(0,0, 100, 40), "Cancel", action=lambda: self._handle_dialog_choice(None))
+        ]
+        self.dialog_callback = self._create_tile_from_dialog
+
+    def _create_tile_from_dialog(self, tile_id):
+        if not tile_id:
+            print("Tile creation cancelled.")
+            return
+        tile_id = tile_id.strip()
+        if not tile_id:
+            print("Tile id cannot be empty.")
+            return
+        if self.tile_set.get_tile(tile_id):
+            print(f"Tile '{tile_id}' already exists. Selecting existing tile.")
+            self.select_tile_by_id(tile_id)
+            self.dialog_mode = None
+            self.dialog_callback = None
+            self.dialog_options = []
+            return
+        filename = f"{tile_id}.png"
+        new_tile = TileDefinition(id=tile_id, name=tile_id, filename=filename, frames=[filename], properties={"walkable": True, "color": [200, 200, 200, 255]})
+        self.tile_set.add_or_update_tile(new_tile)
+        self.tile_set.ensure_assets()
+        self.current_tile_index = len(self.tile_set.tiles) - 1
+        self.selected_tile_id = new_tile.id
+        self.tile_canvas.frame.fill((*config.BLACK[:3], 0))
+        self.save_tile() # Save blank tile so it exists on disk
+        self._refresh_tile_previews()
+        self.buttons = self.create_buttons()
+        self.dialog_mode = None
+        self.dialog_callback = None
+        self.dialog_options = []
+        print(f"Created new tile '{tile_id}'")
+
+    def start_new_tileset_dialog(self):
+        """Prompt for a new tileset id and initialize it."""
+        self.dialog_mode = 'input_text'
+        self.dialog_prompt = "Enter new tileset ID:"
+        self.dialog_input_text = "tileset"
+        self.dialog_input_active = True
+        self.dialog_options = [
+            Button(pygame.Rect(0,0, 100, 40), "Create", action=lambda: self._handle_dialog_choice(self.dialog_input_text)),
+            Button(pygame.Rect(0,0, 100, 40), "Cancel", action=lambda: self._handle_dialog_choice(None))
+        ]
+        self.dialog_callback = self._create_tileset_from_dialog
+
+    def _create_tileset_from_dialog(self, tileset_id):
+        if not tileset_id:
+            print("Tileset creation cancelled.")
+            return
+        tileset_id = tileset_id.strip()
+        if not tileset_id:
+            print("Tileset id cannot be empty.")
+            return
+        self.tile_set = TileSet(tileset_id, tileset_id, config.OVERWORLD_TILE_SIZE)
+        starter_tile = TileDefinition(id="tile_01", name="Tile 01", filename="tile_01.png", frames=["tile_01.png"], properties={"walkable": True, "color": [180, 180, 180, 255]})
+        self.tile_set.add_or_update_tile(starter_tile)
+        self.tile_set.ensure_assets()
+        self.tile_set.save(os.path.join(config.TILESET_DIR, f"{tileset_id}.json"))
+        self.current_tile_index = 0
+        self.selected_tile_id = starter_tile.id
+        self.tile_canvas.frame.fill((*config.BLACK[:3], 0))
+        self.save_tile()
+        self._refresh_tile_previews()
+        self.buttons = self.create_buttons()
+        self.dialog_mode = None
+        self.dialog_callback = None
+        self.dialog_options = []
+        print(f"Created new tileset '{tileset_id}'")
+
+    def toggle_tile_walkable(self):
+        tile = self.current_tile()
+        if not tile:
+            print("No tile selected.")
+            return
+        current = bool(tile.properties.get("walkable", True))
+        tile.properties["walkable"] = not current
+        state = "walkable" if tile.properties["walkable"] else "blocked"
+        print(f"Tile '{tile.id}' marked as {state}.")
+
+    def select_tile_by_id(self, tile_id):
+        if not self.tile_set:
+            return
+        for idx, tile in enumerate(self.tile_set.tiles):
+            if tile.id == tile_id:
+                self.current_tile_index = idx
+                self.selected_tile_id = tile_id
+                self.current_tile_frame_index = 0
+                self._load_current_tile_to_canvas()
+                return
+
+    def draw_tile_panel(self, surface):
+        """Render the tile manager panel with previews."""
+        if not self.tile_set:
+            return
+        panel = self.tile_panel_rect
+        pygame.draw.rect(surface, config.GRAY_LIGHT, panel)
+        pygame.draw.rect(surface, config.BLACK, panel, 1)
+        header_font = pygame.font.Font(config.DEFAULT_FONT, 18)
+        header = header_font.render(self.tile_set.name, True, config.BLACK)
+        surface.blit(header, (panel.x + 8, panel.y + 6))
+
+        start_y = panel.y + 30
+        item_height = 60
+        visible = max(1, panel.height // item_height - 1)
+        total_tiles = len(self.tile_set.tiles)
+        self.tile_list_scroll = max(0, min(self.tile_list_scroll, max(0, total_tiles - visible)))
+        self.tile_button_rects = []
+
+        for row, idx in enumerate(range(self.tile_list_scroll, min(total_tiles, self.tile_list_scroll + visible))):
+            tile = self.tile_set.tiles[idx]
+            self._ensure_tile_preview(tile)
+            item_rect = pygame.Rect(panel.x + 8, start_y + row * item_height, panel.width - 16, item_height - 8)
+            is_selected = tile.id == self.selected_tile_id
+            pygame.draw.rect(surface, config.WHITE if is_selected else config.GRAY_MEDIUM, item_rect)
+            pygame.draw.rect(surface, config.BLACK, item_rect, 1)
+            previews = self.tile_preview_cache.get(tile.id, [])
+            if previews:
+                ticks = pygame.time.get_ticks()
+                frame_idx = (ticks // max(1, tile.frame_duration_ms)) % len(previews)
+                surface.blit(previews[frame_idx], (item_rect.x + 4, item_rect.y + 6))
+            name_surf = self.font.render(tile.name, True, config.BLACK)
+            id_text = tile.id
+            if tile.properties.get("type"):
+                id_text += f" ({tile.properties.get('type')})"
+            id_surf = self.font.render(id_text, True, config.BLUE if is_selected else config.BLACK)
+            surface.blit(name_surf, (item_rect.x + 60, item_rect.y + 8))
+            surface.blit(id_surf, (item_rect.x + 60, item_rect.y + 30))
+            self.tile_button_rects.append((item_rect, tile.id))
+
+    def handle_tile_panel_click(self, pos):
+        if not self.tile_set or not self.tile_panel_rect.collidepoint(pos):
+            return False
+        for rect, tile_id in self.tile_button_rects:
+            if rect.collidepoint(pos):
+                self.select_tile_by_id(tile_id)
+                print(f"Selected tile: {tile_id}")
+                return True
+        # Handle simple scroll if clicked at top/bottom margins
+        margin = 20
+        if pos[1] < self.tile_panel_rect.y + margin and self.tile_list_scroll > 0:
+            self.tile_list_scroll -= 1
+            return True
+        if pos[1] > self.tile_panel_rect.bottom - margin and self.tile_list_scroll < max(0, len(self.tile_set.tiles) - 1):
+            self.tile_list_scroll += 1
+            return True
+        return False
+
+    def draw_npc_panel(self, surface):
+        """Render NPC list and basic info."""
+        if not self.tile_set:
+            return
+        panel = self.tile_panel_rect
+        pygame.draw.rect(surface, config.GRAY_LIGHT, panel)
+        pygame.draw.rect(surface, config.BLACK, panel, 1)
+        header_font = pygame.font.Font(config.DEFAULT_FONT, 18)
+        header = header_font.render("NPC Sprites", True, config.BLACK)
+        surface.blit(header, (panel.x + 8, panel.y + 6))
+
+        start_y = panel.y + 30
+        item_height = 60
+        visible = max(1, panel.height // item_height - 1)
+        total = len(self.tile_set.npcs)
+        self.npc_list_scroll = max(0, min(self.npc_list_scroll, max(0, total - visible)))
+        self.npc_button_rects = []
+
+        for row, idx in enumerate(range(self.npc_list_scroll, min(total, self.npc_list_scroll + visible))):
+            npc = self.tile_set.npcs[idx]
+            item_rect = pygame.Rect(panel.x + 8, start_y + row * item_height, panel.width - 16, item_height - 8)
+            is_selected = npc.id == self.selected_npc_id
+            pygame.draw.rect(surface, config.WHITE if is_selected else config.GRAY_MEDIUM, item_rect)
+            pygame.draw.rect(surface, config.BLACK, item_rect, 1)
+            # preview: load first available frame
+            preview = None
+            for state_dict in npc.states.values():
+                for angle_frames in state_dict.values():
+                    if angle_frames:
+                        path = self.tile_set.npc_image_path(npc, self.current_npc_state if self.current_npc_state in npc.states else list(npc.states.keys())[0],
+                                                            self.current_npc_angle if self.current_npc_angle in state_dict else list(state_dict.keys())[0], 0)
+                        try:
+                            surf = pygame.image.load(path).convert_alpha()
+                            preview = pygame.transform.scale(surf, (48, 48))
+                        except pygame.error:
+                            pass
+                        break
+                if preview:
+                    break
+            if preview:
+                surface.blit(preview, (item_rect.x + 4, item_rect.y + 6))
+            name_surf = self.font.render(npc.name, True, config.BLACK)
+            id_surf = self.font.render(npc.id, True, config.BLUE if is_selected else config.BLACK)
+            surface.blit(name_surf, (item_rect.x + 60, item_rect.y + 8))
+            surface.blit(id_surf, (item_rect.x + 60, item_rect.y + 30))
+            self.npc_button_rects.append((item_rect, npc.id))
+
+    def handle_npc_panel_click(self, pos):
+        if not self.tile_set or not self.tile_panel_rect.collidepoint(pos):
+            return False
+        for rect, npc_id in self.npc_button_rects:
+            if rect.collidepoint(pos):
+                self.selected_npc_id = npc_id
+                self.current_npc_frame_index = 0
+                self._load_current_npc_frame()
+                print(f"Selected NPC: {npc_id}")
+                return True
+        margin = 20
+        if pos[1] < self.tile_panel_rect.y + margin and self.npc_list_scroll > 0:
+            self.npc_list_scroll -= 1
+            return True
+        if pos[1] > self.tile_panel_rect.bottom - margin and self.npc_list_scroll < max(0, len(self.tile_set.npcs) - 1):
+            self.npc_list_scroll += 1
+            return True
+        return False
+
+    def set_asset_edit_target(self, target: str):
+        if target not in ['tile', 'npc']:
+            return
+        if self.asset_edit_target != target:
+            self.asset_edit_target = target
+            if target == 'tile':
+                self._load_current_tile_to_canvas()
+            else:
+                if not self.selected_npc_id and self.tile_set and self.tile_set.npcs:
+                    self.selected_npc_id = self.tile_set.npcs[0].id
+                self._load_current_npc_frame()
+            self.buttons = self.create_buttons()
 
     def _handle_dialog_choice(self, value):
         """Internal handler for dialog button values or direct calls."""
@@ -309,7 +934,7 @@ class Editor:
                  # if hasattr(self, 'dialog_callback'):
                  #     del self.dialog_callback 
                  self.dialog_callback = None # <<< REVERT TO THIS
-                 # Reset input-specific state too
+                # Reset input-specific state too
                  self.dialog_input_text = ""
                  # ... rest of cancel path clearing ...
             else: # Value is not None (Confirm Path)
@@ -350,20 +975,7 @@ class Editor:
         start_x = config.EDITOR_WIDTH - button_width - padding
         start_y = 50
 
-        # Determine the correct save action based on the edit mode
-        save_action = None
-        if self.edit_mode == 'monster':
-            save_action = self.save_current_monster_sprites
-        elif self.edit_mode == 'background':
-            save_action = self.save_background
-        else:
-            # Default or error handling if mode is unexpected during init
-            print(f"Warning: Unknown edit mode '{self.edit_mode}' during button creation. Save button disabled.")
-            save_action = lambda: print("Save disabled.") # No-op action
-
-        all_buttons = [
-            ("Save", save_action), # Use the determined action
-            ("Load", self.trigger_load_background_dialog if self.edit_mode == 'background' else lambda: print("Load BG only in BG mode")),
+        shared_buttons = [
             ("Clear", self.clear_current),
             ("Color Picker", self.open_color_picker),
             ("Eraser", self.toggle_eraser),
@@ -375,31 +987,77 @@ class Editor:
             ("Rotate", self.rotate_selection),
             ("Undo", self.undo),
             ("Redo", self.redo),
-            # Add Reference Image Buttons (only relevant in monster mode?)
-            ("Load Ref Img", self.load_reference_image if self.edit_mode == 'monster' else lambda: print("Ref Img only in Monster mode")),
-            ("Clear Ref Img", self.clear_reference_image if self.edit_mode == 'monster' else lambda: print("Ref Img only in Monster mode")),
         ]
 
+        mode_buttons = []
         if self.edit_mode == 'monster':
-            all_buttons += [
+            mode_buttons = [
+                ("Save Sprites", self.save_current_monster_sprites),
                 ("Prev Monster", self.previous_monster),
                 ("Next Monster", self.next_monster),
                 ("Switch Sprite", self.switch_sprite),
+                ("Load Ref Img", self.load_reference_image),
+                ("Clear Ref Img", self.clear_reference_image),
             ]
         elif self.edit_mode == 'background':
-            all_buttons += [
+            mode_buttons = [
+                ("Save BG", self.save_background),
+                ("Load BG", self.trigger_load_background_dialog),
                 ("Zoom In", self.zoom_in),
                 ("Zoom Out", self.zoom_out),
                 ("Brush +", self.increase_brush_size),
                 ("Brush -", self.decrease_brush_size),
                 ("Prev BG", self.previous_background),
                 ("Next BG", self.next_background),
-                # Add Panning Buttons
                 ("Pan Up", self.pan_up),
                 ("Pan Down", self.pan_down),
                 ("Pan Left", self.pan_left),
                 ("Pan Right", self.pan_right),
             ]
+        elif self.edit_mode == 'tile':
+            switch_buttons = [
+                ("Edit Tiles", lambda: self.set_asset_edit_target('tile')),
+                ("Edit NPCs", lambda: self.set_asset_edit_target('npc')),
+            ]
+            if self.asset_edit_target == 'tile':
+                mode_buttons = [
+                    ("Save Tile", self.save_tile),
+                    ("Save Tileset", self.save_tileset),
+                    ("Load Tileset", self.trigger_load_tileset_dialog),
+                    ("New Tile", self.start_new_tile_dialog),
+                    ("New Tileset", self.start_new_tileset_dialog),
+                    ("Toggle Walk", self.toggle_tile_walkable),
+                    ("Brush +", self.increase_brush_size),
+                    ("Brush -", self.decrease_brush_size),
+                    ("Prev Tile", self.previous_tile),
+                    ("Next Tile", self.next_tile),
+                    ("Prev Frame", self.previous_tile_frame),
+                    ("Next Frame", self.next_tile_frame),
+                    ("Add Frame", self.add_tile_frame),
+                ]
+            else:
+                mode_buttons = [
+                    ("Save Tileset", self.save_tileset),
+                    ("Save NPC", self.save_npc_frame),
+                    ("Load Tileset", self.trigger_load_tileset_dialog),
+                    ("New NPC", self.start_new_npc_dialog),
+                    ("Prev NPC", self.previous_npc),
+                    ("Next NPC", self.next_npc),
+                    ("State Stand", lambda: self.set_npc_state("standing")),
+                    ("State Walk", lambda: self.set_npc_state("walking")),
+                    ("Angle S", lambda: self.set_npc_angle("south")),
+                    ("Angle W", lambda: self.set_npc_angle("west")),
+                    ("Angle E", lambda: self.set_npc_angle("east")),
+                    ("Angle N", lambda: self.set_npc_angle("north")),
+                    ("Prev Frame", self.previous_npc_frame),
+                    ("Next Frame", self.next_npc_frame),
+                    ("Add Frame", self.add_npc_frame),
+                ]
+            mode_buttons = switch_buttons + mode_buttons
+        else:
+            mode_buttons = [("Save", lambda: print("Save disabled."))]
+
+        all_buttons = mode_buttons + shared_buttons
 
         for i, (text, action) in enumerate(all_buttons):
             rect = (start_x, start_y + i * (button_height + padding), button_width, button_height)
@@ -449,6 +1107,9 @@ class Editor:
                 print("Cleared current background.")
             else:
                 print("Error: No current background loaded to clear.")
+        elif self.edit_mode == 'tile':
+            self.tile_canvas.frame.fill((*config.BLACK[:3], 0))
+            print("Cleared current tile.")
         else:
             print(f"Warning: Unknown edit mode '{self.edit_mode}' for clear operation.")
 
@@ -513,7 +1174,7 @@ class Editor:
         """Copy the selected pixels to the buffer."""
         if self.mode == 'select' and self.selection.active:
             # Get the currently active sprite editor
-            sprite_editor = self.sprites.get(self.current_sprite)
+            sprite_editor = self.get_active_canvas()
             if not sprite_editor:
                  print("Copy failed: Cannot find active sprite editor.")
                  return
@@ -551,7 +1212,7 @@ class Editor:
             print("Mirror failed: Make an active selection first.")
             return
 
-        sprite_editor = self.sprites.get(self.current_sprite)
+        sprite_editor = self.get_active_canvas()
         if not sprite_editor:
             print("Mirror failed: Active sprite editor not found.")
             return
@@ -582,7 +1243,7 @@ class Editor:
             print("Rotate failed: Make an active selection first.")
             return
 
-        sprite_editor = self.sprites.get(self.current_sprite)
+        sprite_editor = self.get_active_canvas()
         if not sprite_editor:
             print("Rotate failed: Active sprite editor not found.")
             return
@@ -684,12 +1345,16 @@ class Editor:
             # Message already printed by _ensure_tkinter_root
             return
 
+        tk_root = self._ensure_tkinter_root()
+        if not tk_root:
+             return # Exit if root is still None
+
         # Convert current color to Tkinter format (hex string)
         initial_color_hex = "#{:02x}{:02x}{:02x}".format(*self.current_color[:3])
 
         # Open the dialog, passing the global root as parent
         try:
-             # Use the global tk_root directly
+             # Use the fetched tk_root directly
              chosen_color = colorchooser.askcolor(parent=tk_root, color=initial_color_hex, title="Select Color")
         except tk.TclError as e:
              print(f"Error opening native color picker: {e}")
@@ -1043,6 +1708,105 @@ class Editor:
             print(f"Warning: Background directory {config.BACKGROUND_DIR} not found.")
             return []
 
+    def _get_reference_files(self, directory):
+        """Helper to get image files from a directory."""
+        image_exts = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
+        file_paths = []
+        try:
+            for name in os.listdir(directory):
+                path = os.path.join(directory, name)
+                if os.path.isfile(path) and name.lower().endswith(image_exts):
+                    file_paths.append(path)
+        except FileNotFoundError:
+            return []
+        return file_paths
+
+    def _set_dialog_directory(self, directory):
+        """Update dialog list to show images from the given directory."""
+        if not directory:
+            return
+        self.dialog_current_dir = directory
+        files = self._get_reference_files(directory)
+        if self.dialog_sort_recent:
+            files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        else:
+            files.sort(key=lambda p: os.path.basename(p).lower())
+        self.dialog_file_list = files
+        self.dialog_file_labels = [os.path.basename(path) for path in files]
+        self.dialog_file_scroll_offset = 0
+        self.dialog_selected_file_index = 0 if files else -1
+
+    def _update_scrollbar_from_offset(self):
+        if not self.dialog_file_scrollbar_rect:
+            return
+        total = len(self.dialog_file_list)
+        visible = max(1, self.dialog_file_page_size)
+        if total <= visible:
+            self.dialog_file_scroll_thumb_rect = pygame.Rect(
+                self.dialog_file_scrollbar_rect.x,
+                self.dialog_file_scrollbar_rect.y,
+                self.dialog_file_scrollbar_rect.width,
+                self.dialog_file_scrollbar_rect.height,
+            )
+            return
+        ratio = visible / total
+        thumb_height = max(20, int(self.dialog_file_scrollbar_rect.height * ratio))
+        max_offset = total - visible
+        top = self.dialog_file_scrollbar_rect.y
+        if max_offset > 0:
+            top += int((self.dialog_file_scroll_offset / max_offset) * (self.dialog_file_scrollbar_rect.height - thumb_height))
+        self.dialog_file_scroll_thumb_rect = pygame.Rect(
+            self.dialog_file_scrollbar_rect.x,
+            top,
+            self.dialog_file_scrollbar_rect.width,
+            thumb_height,
+        )
+
+    def _set_scroll_offset_from_thumb(self, thumb_center_y):
+        total = len(self.dialog_file_list)
+        visible = max(1, self.dialog_file_page_size)
+        if total <= visible or not self.dialog_file_scrollbar_rect:
+            return
+        max_offset = total - visible
+        track_height = self.dialog_file_scrollbar_rect.height
+        thumb_height = self.dialog_file_scroll_thumb_rect.height if self.dialog_file_scroll_thumb_rect else 20
+        usable = max(1, track_height - thumb_height)
+        relative = thumb_center_y - self.dialog_file_scrollbar_rect.y - (thumb_height // 2)
+        relative = max(0, min(relative, usable))
+        self.dialog_file_scroll_offset = int(round((relative / usable) * max_offset))
+
+    def _ensure_dialog_scroll(self):
+        """Keep selected file in view when using file list dialogs."""
+        if self.dialog_file_page_size <= 0:
+            return
+        if self.dialog_selected_file_index < self.dialog_file_scroll_offset:
+            self.dialog_file_scroll_offset = self.dialog_selected_file_index
+        elif self.dialog_selected_file_index >= self.dialog_file_scroll_offset + self.dialog_file_page_size:
+            self.dialog_file_scroll_offset = self.dialog_selected_file_index - self.dialog_file_page_size + 1
+
+    def trigger_load_tileset_dialog(self):
+        """Initiates the dialog for loading a tileset file."""
+        if self.edit_mode != 'tile':
+            print("Tileset loading only available in tile edit mode.")
+            return
+
+        self.dialog_mode = 'load_tileset'
+        self.dialog_prompt = "Select Tileset to Load:"
+        self.dialog_file_list = list_tileset_files()
+        self.dialog_file_scroll_offset = 0
+        self.dialog_selected_file_index = -1
+        self.dialog_file_labels = [os.path.basename(path) for path in self.dialog_file_list]
+        self.dialog_quick_dirs = []
+        self.dialog_quick_dir_rects = []
+
+        self.dialog_options = [
+            Button(pygame.Rect(0, 0, 100, 40), "Load", action=lambda: self._handle_dialog_choice(
+                self.dialog_file_list[self.dialog_selected_file_index] if 0 <= self.dialog_selected_file_index < len(self.dialog_file_list) else None
+            )),
+            Button(pygame.Rect(0, 0, 100, 40), "Cancel", action=lambda: self._handle_dialog_choice(None))
+        ]
+        self.dialog_callback = self._load_selected_tileset_callback
+
     def trigger_load_background_dialog(self):
         """Initiates the dialog for loading a background file."""
         # Ensure we are in background mode, otherwise this button shouldn't be active/visible
@@ -1055,6 +1819,9 @@ class Editor:
         self.dialog_file_list = self._get_background_files() # Get the list of files
         self.dialog_file_scroll_offset = 0
         self.dialog_selected_file_index = -1
+        self.dialog_file_labels = list(self.dialog_file_list)
+        self.dialog_quick_dirs = []
+        self.dialog_quick_dir_rects = []
 
         # Define buttons for the dialog (Load and Cancel)
         # Actions will call _handle_dialog_choice with filename or None
@@ -1066,6 +1833,91 @@ class Editor:
             Button(pygame.Rect(0, 0, 100, 40), "Cancel", action=lambda: self._handle_dialog_choice(None))
         ]
         self.dialog_callback = self._load_selected_background_callback
+
+    def trigger_load_reference_dialog(self):
+        """Initiates the dialog for loading a reference image."""
+        if self.edit_mode != 'monster':
+            print("Reference images only available in monster edit mode.")
+            return
+
+        self.dialog_mode = 'load_ref'
+        self.dialog_prompt = "Select Reference Image:"
+        self.dialog_file_scroll_offset = 0
+        self.dialog_selected_file_index = -1
+        self.dialog_sort_recent = True
+        self.dialog_quick_dirs = []
+        home_dir = os.path.expanduser("~")
+        desktop_dir = os.path.join(home_dir, "Desktop")
+        downloads_dir = os.path.join(home_dir, "Downloads")
+        for label, path in [
+            ("Desktop", desktop_dir),
+            ("Downloads", downloads_dir),
+            ("References", config.REFERENCE_IMAGE_DIR),
+            ("Sprites", config.SPRITE_DIR),
+            ("Backgrounds", config.BACKGROUND_DIR),
+        ]:
+            if os.path.isdir(path):
+                self.dialog_quick_dirs.append((label, path))
+
+        default_dir = config.REFERENCE_IMAGE_DIR
+        if not os.path.isdir(default_dir) and self.dialog_quick_dirs:
+            default_dir = self.dialog_quick_dirs[0][1]
+        self._set_dialog_directory(default_dir)
+
+        self.dialog_options = [
+            Button(pygame.Rect(0, 0, 100, 40), "Load", action=lambda: self._handle_dialog_choice(
+                self.dialog_file_list[self.dialog_selected_file_index] if 0 <= self.dialog_selected_file_index < len(self.dialog_file_list) else None
+            )),
+            Button(pygame.Rect(0, 0, 100, 40), "Cancel", action=lambda: self._handle_dialog_choice(None))
+        ]
+        self.dialog_callback = self._load_selected_reference_callback
+
+    def _load_selected_reference_callback(self, file_path):
+        """Callback after selecting a reference file to load."""
+        if file_path:
+            if not os.path.exists(file_path):
+                print(f"Error: Reference file {file_path} not found.")
+                return
+            try:
+                self.reference_image = pygame.image.load(file_path).convert_alpha()
+                self.reference_image_path = file_path
+                print(f"Loaded reference image: {file_path}")
+                self._scale_reference_image()
+                self.apply_reference_alpha()
+            except pygame.error as e:
+                print(f"Error loading reference image {file_path}: {e}")
+                self.reference_image = None
+                self.reference_image_path = None
+                self.scaled_reference_image = None
+            except Exception as e:
+                print(f"An unexpected error occurred during reference image loading: {e}")
+                self.reference_image = None
+                self.reference_image_path = None
+                self.scaled_reference_image = None
+            self.dialog_mode = None
+            self.dialog_prompt = ""
+            self.dialog_options = []
+            self.dialog_callback = None
+        else:
+            print("Reference image load cancelled.")
+
+    def _load_selected_tileset_callback(self, filename_or_path):
+        """Callback after selecting a tileset file to load."""
+        if filename_or_path:
+            path = filename_or_path
+            if not os.path.isabs(path):
+                path = os.path.join(config.TILESET_DIR, filename_or_path)
+            if not os.path.exists(path):
+                print(f"Tileset file {path} not found.")
+            else:
+                self.load_tileset(path)
+                self.buttons = self.create_buttons()
+            self.dialog_mode = None
+            self.dialog_prompt = ""
+            self.dialog_options = []
+            self.dialog_callback = None
+        else:
+            print("Tileset load cancelled.")
 
     def _load_selected_background_callback(self, filename):
         """Callback after selecting a background file to load."""
@@ -1127,6 +1979,11 @@ class Editor:
         elif self.edit_mode == 'background':
             if self.current_background:
                 current_state = ('background', self.current_background_index, self.current_background.copy())
+        elif self.edit_mode == 'tile':
+            if self.asset_edit_target == 'tile' and self.current_tile():
+                current_state = ('tile', self.current_tile().id, self.tile_canvas.frame.copy(), self.current_tile_frame_index)
+            elif self.asset_edit_target == 'npc' and self.current_npc():
+                current_state = ('npc', self.current_npc().id, self.tile_canvas.frame.copy(), (self.current_npc_state, self.current_npc_angle, self.current_npc_frame_index))
 
         if current_state:
             self.undo_stack.append(current_state)
@@ -1143,7 +2000,11 @@ class Editor:
 
         # Get the state to restore
         state_to_restore = self.undo_stack.pop()
-        state_type, state_id, state_surface = state_to_restore
+        if len(state_to_restore) == 4:
+            state_type, state_id, state_surface, state_meta = state_to_restore
+        else:
+            state_type, state_id, state_surface = state_to_restore
+            state_meta = None
 
         # Save current state to redo stack BEFORE restoring
         current_state_for_redo = None
@@ -1154,6 +2015,11 @@ class Editor:
         elif self.edit_mode == 'background':
              if self.current_background:
                   current_state_for_redo = ('background', self.current_background_index, self.current_background.copy())
+        elif self.edit_mode == 'tile':
+             if self.asset_edit_target == 'tile' and self.current_tile():
+                  current_state_for_redo = ('tile', self.current_tile().id, self.tile_canvas.frame.copy(), self.current_tile_frame_index)
+             elif self.asset_edit_target == 'npc' and self.current_npc():
+                  current_state_for_redo = ('npc', self.current_npc().id, self.tile_canvas.frame.copy(), (self.current_npc_state, self.current_npc_angle, self.current_npc_frame_index))
         
         if current_state_for_redo:
              self.redo_stack.append(current_state_for_redo)
@@ -1178,6 +2044,23 @@ class Editor:
             self.current_background_index = state_id # Restore index too
             self.edit_mode = 'background' # Ensure mode is correct
             print(f"Undid action for background index: {state_id}")
+        elif state_type == 'tile':
+            self.edit_mode = 'tile'
+            self.asset_edit_target = 'tile'
+            self.tile_canvas.frame = state_surface.copy()
+            if self.tile_set:
+                self.select_tile_by_id(state_id)
+            if state_meta is not None:
+                self.current_tile_frame_index = state_meta
+            print(f"Undid action for tile: {state_id}")
+        elif state_type == 'npc':
+            self.edit_mode = 'tile'
+            self.asset_edit_target = 'npc'
+            self.selected_npc_id = state_id
+            if state_meta:
+                self.current_npc_state, self.current_npc_angle, self.current_npc_frame_index = state_meta
+            self.tile_canvas.frame = state_surface.copy()
+            print(f"Undid action for npc: {state_id}")
         else:
             print("Undo failed: Unknown state type in stack.")
             self.undo_stack.append(state_to_restore) # Re-add
@@ -1194,7 +2077,11 @@ class Editor:
 
         # Get the state to restore from redo stack
         state_to_restore = self.redo_stack.pop()
-        state_type, state_id, state_surface = state_to_restore
+        if len(state_to_restore) == 4:
+            state_type, state_id, state_surface, state_meta = state_to_restore
+        else:
+            state_type, state_id, state_surface = state_to_restore
+            state_meta = None
 
         # Save current state to undo stack BEFORE restoring
         current_state_for_undo = None
@@ -1205,6 +2092,11 @@ class Editor:
         elif self.edit_mode == 'background':
              if self.current_background:
                   current_state_for_undo = ('background', self.current_background_index, self.current_background.copy())
+        elif self.edit_mode == 'tile':
+             if self.asset_edit_target == 'tile' and self.current_tile():
+                  current_state_for_undo = ('tile', self.current_tile().id, self.tile_canvas.frame.copy(), self.current_tile_frame_index)
+             elif self.asset_edit_target == 'npc' and self.current_npc():
+                  current_state_for_undo = ('npc', self.current_npc().id, self.tile_canvas.frame.copy(), (self.current_npc_state, self.current_npc_angle, self.current_npc_frame_index))
 
         if current_state_for_undo:
              self.undo_stack.append(current_state_for_undo)
@@ -1226,6 +2118,23 @@ class Editor:
             self.current_background_index = state_id
             self.edit_mode = 'background'
             print(f"Redid action for background index: {state_id}")
+        elif state_type == 'tile':
+            self.edit_mode = 'tile'
+            self.asset_edit_target = 'tile'
+            self.tile_canvas.frame = state_surface.copy()
+            if self.tile_set:
+                self.select_tile_by_id(state_id)
+            if state_meta is not None:
+                self.current_tile_frame_index = state_meta
+            print(f"Redid action for tile: {state_id}")
+        elif state_type == 'npc':
+            self.edit_mode = 'tile'
+            self.asset_edit_target = 'npc'
+            self.selected_npc_id = state_id
+            if state_meta:
+                self.current_npc_state, self.current_npc_angle, self.current_npc_frame_index = state_meta
+            self.tile_canvas.frame = state_surface.copy()
+            print(f"Redid action for npc: {state_id}")
         else:
             print("Redo failed: Unknown state type in stack.")
             self.redo_stack.append(state_to_restore) # Re-add
@@ -1234,6 +2143,14 @@ class Editor:
         # Update buttons if mode changed
         self.buttons = self.create_buttons()
 
+    def get_active_canvas(self):
+        """Return the active sprite-like editor for the current mode."""
+        if self.edit_mode == 'monster':
+            return self.sprites.get(self.current_sprite)
+        if self.edit_mode == 'tile':
+            return self.tile_canvas
+        return None
+
     def _get_sprite_editor_at_pos(self, pos):
         """Return the SpriteEditor instance at the given screen position, or None."""
         if self.edit_mode == 'monster':
@@ -1241,6 +2158,10 @@ class Editor:
                 editor_rect = pygame.Rect(sprite_editor.position, (sprite_editor.display_width, sprite_editor.display_height))
                 if editor_rect.collidepoint(pos):
                     return sprite_editor
+        elif self.edit_mode == 'tile':
+            editor_rect = pygame.Rect(self.tile_canvas.position, (self.tile_canvas.display_width, self.tile_canvas.display_height))
+            if editor_rect.collidepoint(pos):
+                return self.tile_canvas
         return None
 
     def handle_event(self, event):
@@ -1249,48 +2170,7 @@ class Editor:
 
     def load_reference_image(self):
         """Opens a dialog to select a reference image, loads and scales it."""
-        if not self._ensure_tkinter_root():
-            # Message already printed by _ensure_tkinter_root
-            return
-
-        try:
-            # Use the global tk_root directly
-            file_path = filedialog.askopenfilename(
-                parent=tk_root, # Explicitly set parent
-                title="Select Reference Image",
-                filetypes=[("Image Files", "*.png *.jpg *.jpeg *.bmp *.gif"), ("All Files", "*.*")]
-            )
-        except tk.TclError as e:
-            print(f"Error opening file dialog: {e}")
-            file_path = None
-        except Exception as e: # Catch other potential errors
-             print(f"Unexpected error during file dialog: {e}")
-             file_path = None
-
-        # Bring Pygame window back to focus might be needed here too if dialog issues persist
-
-        if file_path and os.path.exists(file_path):
-            try:
-                self.reference_image = pygame.image.load(file_path).convert_alpha()
-                self.reference_image_path = file_path
-                print(f"Loaded reference image: {file_path}")
-                self._scale_reference_image() 
-                self.apply_reference_alpha() 
-            except pygame.error as e:
-                print(f"Error loading image {file_path}: {e}")
-                self.reference_image = None
-                self.reference_image_path = None
-                self.scaled_reference_image = None
-            except Exception as e: 
-                print(f"An unexpected error occurred during reference image loading: {e}")
-                self.reference_image = None
-                self.reference_image_path = None
-                self.scaled_reference_image = None
-        else:
-            # Only print cancel message if file_path was initially valid but selection was cancelled
-            # Avoids printing cancel if the dialog itself failed to open
-            if file_path is not None:
-                 print("Reference image loading cancelled or file not found.")
+        self.trigger_load_reference_dialog()
 
     def _scale_reference_image(self):
         """Scales the loaded reference image using Aspect Fit, then applies
@@ -1435,157 +2315,133 @@ class Editor:
     def draw_ui(self):
         """Draw the entire editor UI onto the screen."""
         screen.fill(config.EDITOR_BG_COLOR)
-        # print(f"DEBUG: draw_ui start. self.dialog_mode = {self.dialog_mode}") # REMOVE EXCESSIVE PRINT
+        # print(f"DEBUG: draw_ui start. self.dialog_mode = {self.dialog_mode}") 
 
         # --- Draw Dialog FIRST if active --- 
         if self.dialog_mode:
             self.draw_dialog(screen)
-            # Don't draw the rest of the UI while a dialog is fully obscuring it
-            # (Except maybe a background blur/tint, already handled by draw_dialog overlay)
             return # Stop drawing here if a dialog is active
 
         # --- Draw Main UI (Only if no dialog active and mode is set) ---
         if self.edit_mode is None:
-             # This state should ideally not persist after the initial dialog
-             # If we reach here, something might be wrong with dialog flow
-             # Maybe draw a "Loading..." or error message?
              loading_font = pygame.font.Font(config.DEFAULT_FONT, 30)
              loading_surf = loading_font.render("Waiting for mode selection...", True, config.BLACK)
              loading_rect = loading_surf.get_rect(center=screen.get_rect().center)
              screen.blit(loading_surf, loading_rect)
-             return # Don't draw buttons etc. if mode not set
+             return
 
         # Draw based on mode
         if self.edit_mode == 'monster':
-            # 1. Draw Editor Backgrounds (Checkerboards) for BOTH editors
+            # Draw monster-specific UI
             for sprite_editor in self.sprites.values():
                 sprite_editor.draw_background(screen)
-
-            # 2. Draw Reference Image (if active) behind the ACTIVE editor
             if self.scaled_reference_image:
                 active_sprite_editor = self.sprites.get(self.current_sprite)
                 if active_sprite_editor:
                     screen.blit(self.scaled_reference_image, active_sprite_editor.position)
-
-            # 3. Draw Sprite Pixels for BOTH editors (on top of checkerboard and ref image)
             for name, sprite_editor in self.sprites.items():
-                # --- Apply Subject Alpha --- 
-                # Create a temporary surface with the subject alpha applied
-                display_surface = sprite_editor.frame.copy() # Get the native sprite data
-                # Scale it up first for display
+                display_surface = sprite_editor.frame.copy()
                 scaled_display_frame = pygame.transform.scale(display_surface, (sprite_editor.display_width, sprite_editor.display_height))
-                # Apply the subject alpha to the scaled surface
-                scaled_display_frame.set_alpha(self.subject_alpha) 
-                # Blit the alpha-modified scaled surface
+                scaled_display_frame.set_alpha(self.subject_alpha)
                 screen.blit(scaled_display_frame, sprite_editor.position)
-                # --- End Apply Subject Alpha ---
-            
-            # 4. Draw Highlight for the ACTIVE editor
             active_sprite_editor = self.sprites.get(self.current_sprite)
             if active_sprite_editor:
-                active_sprite_editor.draw_highlight(screen, self.current_sprite) # Pass current_sprite
-
-            # Draw Palette & Info Text (Existing)
-            self.palette.draw(screen, self.current_color) # Pass current_color
+                active_sprite_editor.draw_highlight(screen, self.current_sprite)
             monster_name = config.monsters[self.current_monster_index].get('name', 'Unknown')
-            info_text = f"Editing: {monster_name} ({self.current_sprite})" 
+            info_text = f"Editing: {monster_name} ({self.current_sprite})"
             info_surf = self.font.render(info_text, True, config.BLACK)
             screen.blit(info_surf, (50, 50))
+            if self.mode == 'select':
+                 active_sprite_editor = self.sprites.get(self.current_sprite)
+                 if active_sprite_editor:
+                     self.selection.draw(screen, active_sprite_editor.position)
 
         elif self.edit_mode == 'background':
-            # Draw background canvas with zoom and pan
-            if self.current_background:
-                # 1. Calculate the scaled size of the full background image
+            # Draw background-specific UI
+            if self.current_background and self.canvas_rect:
                 scaled_width = int(self.current_background.get_width() * self.editor_zoom)
                 scaled_height = int(self.current_background.get_height() * self.editor_zoom)
-                
-                # Prevent scaling to zero size
-                if scaled_width <= 0 or scaled_height <= 0:
-                    print("Warning: Invalid zoom level resulting in zero size.")
-                else:
-                    # 2. Scale the original background to the zoomed size (consider performance for large images)
-                    # Using pygame.transform.smoothscale might be slow; regular scale is faster for pixel art feel if needed.
+                if scaled_width > 0 and scaled_height > 0:
                     zoomed_bg = pygame.transform.scale(self.current_background, (scaled_width, scaled_height))
-                    
-                    # 3. Define the source rect (area from zoomed_bg to display)
-                    # Clamp view_offset to prevent scrolling beyond image boundaries
                     max_offset_x = max(0, scaled_width - self.canvas_rect.width)
                     max_offset_y = max(0, scaled_height - self.canvas_rect.height)
-                    self.view_offset_x = max(0, min(self.view_offset_x, max_offset_x))
-                    self.view_offset_y = max(0, min(self.view_offset_y, max_offset_y))
-                    
-                    source_rect = pygame.Rect(self.view_offset_x, self.view_offset_y, 
-                                            self.canvas_rect.width, self.canvas_rect.height)
-                                            
-                    # 4. Blit the visible portion (source_rect) to the canvas destination rect
+                    clamped_offset_x = max(0, min(self.view_offset_x, max_offset_x))
+                    clamped_offset_y = max(0, min(self.view_offset_y, max_offset_y))
+                    source_rect = pygame.Rect(clamped_offset_x, clamped_offset_y, self.canvas_rect.width, self.canvas_rect.height)
                     screen.blit(zoomed_bg, self.canvas_rect.topleft, source_rect)
-            
-            # Draw border around the canvas view area
-            pygame.draw.rect(screen, config.BLACK, self.canvas_rect, 1) 
-            
-            # Draw Palette
-            self.palette.draw(screen, self.current_color)
-            # Draw Info Text
+                pygame.draw.rect(screen, config.BLACK, self.canvas_rect, 1)
             bg_name = self.backgrounds[self.current_background_index][0] if self.current_background_index != -1 else "New BG"
             info_text = f"Editing BG: {bg_name} | Brush: {self.brush_size} | Zoom: {self.editor_zoom:.2f}x"
             info_surf = self.font.render(info_text, True, config.BLACK)
             screen.blit(info_surf, (50, 50))
+        elif self.edit_mode == 'tile':
+            self.tile_canvas.draw_background(screen)
+            display_surface = self.tile_canvas.frame.copy()
+            scaled_display = pygame.transform.scale(display_surface, (self.tile_canvas.display_width, self.tile_canvas.display_height))
+            screen.blit(scaled_display, self.tile_canvas.position)
+            pygame.draw.rect(screen, config.SELECTION_HIGHLIGHT_COLOR, pygame.Rect(self.tile_canvas.position, (self.tile_canvas.display_width, self.tile_canvas.display_height)), 3)
+            tileset_name = self.tile_set.name if self.tile_set else "Tiles"
+            if self.asset_edit_target == 'tile':
+                tile = self.current_tile()
+                walkable_state = tile.properties.get("walkable", True) if tile else True
+                tile_label = f"{tile.id} ({tile.name})" if tile else "No Tile"
+                walkable_text = "Walkable" if walkable_state else "Blocked"
+                frame_info = ""
+                if tile and tile.frames:
+                    frame_info = f" | Frame {self.current_tile_frame_index + 1}/{len(tile.frames)} @ {tile.frame_duration_ms}ms"
+                info_text = f"Tileset: {tileset_name} | Tile: {tile_label} | {walkable_text}{frame_info}"
+                info_surf = self.font.render(info_text, True, config.BLACK)
+                screen.blit(info_surf, (50, 50))
+                if self.mode == 'select':
+                    self.selection.draw(screen, self.tile_canvas.position)
+                self.draw_tile_panel(screen)
+            else:
+                npc = self.current_npc()
+                npc_label = npc.id if npc else "No NPC"
+                frame_info = ""
+                if npc:
+                    frames = npc.states.get(self.current_npc_state, {}).get(self.current_npc_angle, [])
+                    frame_info = f" | Frame {self.current_npc_frame_index + 1}/{len(frames) if frames else 1} @ {npc.frame_duration_ms}ms"
+                info_text = f"Tileset: {tileset_name} | NPC: {npc_label} | State: {self.current_npc_state} | Angle: {self.current_npc_angle}{frame_info}"
+                info_surf = self.font.render(info_text, True, config.BLACK)
+                screen.blit(info_surf, (50, 50))
+                if self.mode == 'select':
+                    self.selection.draw(screen, self.tile_canvas.position)
+                self.draw_npc_panel(screen)
 
-        # Draw common elements (Buttons, Selection, Slider)
+        # Draw Common Elements
+        self.palette.draw(screen, self.current_color)
         if hasattr(self, 'buttons') and self.buttons:
-             for button in self.buttons:
-                  button.draw(screen)
-        else:
-             print("Warning: edit_mode is set but self.buttons not found in draw_ui")
-
-        # Only draw selection if in monster mode and select mode is active
-        if self.edit_mode == 'monster' and self.mode == 'select':
-            active_sprite_editor = self.sprites.get(self.current_sprite)
-            if active_sprite_editor: # Ensure we have the editor
-                self.selection.draw(screen, active_sprite_editor.position)
-            # else: # Optional: Handle case where current_sprite is somehow invalid
-            #     print(f"Warning: Cannot draw selection, invalid current_sprite: {self.current_sprite}")
-
-        # Draw Brush Size Slider (Existing)
+            for button in self.buttons:
+                button.draw(screen)
+        # Brush Slider
         pygame.draw.rect(screen, config.GRAY_LIGHT, self.brush_slider)
         pygame.draw.rect(screen, config.BLACK, self.brush_slider, 1)
-        # Draw brush size knob/indicator (if needed)
-        # Add Label for Brush Slider <<<<<< NEW
         brush_text = f"Brush: {self.brush_size}"
         brush_surf = self.font.render(brush_text, True, config.BLACK)
         brush_rect = brush_surf.get_rect(midleft=(self.brush_slider.right + 10, self.brush_slider.centery))
         screen.blit(brush_surf, brush_rect)
-
-        # --- Draw Reference Alpha Slider --- (Existing)
-        # Draw slider track
+        # Ref Alpha Slider
         pygame.draw.rect(screen, config.GRAY_LIGHT, self.ref_alpha_slider_rect)
         pygame.draw.rect(screen, config.BLACK, self.ref_alpha_slider_rect, 1)
-        # Draw slider knob
-        pygame.draw.rect(screen, config.BLUE, self.ref_alpha_knob_rect) # Use a distinct color for knob
-        # Draw alpha value text near slider
+        pygame.draw.rect(screen, config.BLUE, self.ref_alpha_knob_rect)
         alpha_text = f"Ref Alpha: {self.reference_alpha}"
         alpha_surf = self.font.render(alpha_text, True, config.BLACK)
         alpha_rect = alpha_surf.get_rect(midleft=(self.ref_alpha_slider_rect.right + 10, self.ref_alpha_slider_rect.centery))
         screen.blit(alpha_surf, alpha_rect)
-
-        # --- Draw Subject Alpha Slider (only in monster mode) --- 
+        # Subject Alpha Slider (Monster Mode Only)
         if self.edit_mode == 'monster':
-            # Draw slider track
             pygame.draw.rect(screen, config.GRAY_LIGHT, self.subj_alpha_slider_rect)
             pygame.draw.rect(screen, config.BLACK, self.subj_alpha_slider_rect, 1)
-            # Draw slider knob
-            pygame.draw.rect(screen, config.RED, self.subj_alpha_knob_rect) # Use a different color? Red for now
-            # Draw alpha value text near slider
+            pygame.draw.rect(screen, config.RED, self.subj_alpha_knob_rect)
             subj_alpha_text = f"Subj Alpha: {self.subject_alpha}"
             subj_alpha_surf = self.font.render(subj_alpha_text, True, config.BLACK)
             subj_alpha_rect = subj_alpha_surf.get_rect(midleft=(self.subj_alpha_slider_rect.right + 10, self.subj_alpha_slider_rect.centery))
             screen.blit(subj_alpha_surf, subj_alpha_rect)
-        
-        # ... (draw dialog) ...
+    # <<< End Restore draw_ui >>>
 
     def draw_dialog(self, surface):
         """Draws the current dialog box overlay."""
-        # Placeholder - needs full implementation for different dialog types
         # Basic semi-transparent overlay
         overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
         overlay.fill((*config.BLACK[:3], 180))
@@ -1603,14 +2459,92 @@ class Editor:
         prompt_rect = prompt_surf.get_rect(midtop=(dialog_rect.centerx, dialog_rect.top + 20))
         surface.blit(prompt_surf, prompt_rect)
 
-        # Draw options (buttons) - needs proper layout
+        list_top = prompt_rect.bottom + 10
+        list_height = 150
         button_y = prompt_rect.bottom + 30
+        if self.dialog_mode in ['load_bg', 'load_ref', 'load_tileset']:
+            list_rect = pygame.Rect(
+                dialog_rect.x + 20,
+                list_top,
+                dialog_rect.width - 40,
+                list_height,
+            )
+            self.dialog_file_list_rect = list_rect
+            pygame.draw.rect(surface, config.GRAY_LIGHT, list_rect)
+            pygame.draw.rect(surface, config.BLACK, list_rect, 1)
+
+            line_height = self.font.get_linesize()
+            self.dialog_file_page_size = max(1, list_rect.height // line_height)
+            scrollbar_width = 12
+            self.dialog_file_scrollbar_rect = pygame.Rect(
+                list_rect.right - scrollbar_width,
+                list_rect.y,
+                scrollbar_width,
+                list_rect.height,
+            )
+            pygame.draw.rect(surface, config.GRAY_MEDIUM, self.dialog_file_scrollbar_rect)
+            end_index = min(
+                self.dialog_file_scroll_offset + self.dialog_file_page_size,
+                len(self.dialog_file_list),
+            )
+            for row, index in enumerate(range(self.dialog_file_scroll_offset, end_index)):
+                label = (
+                    self.dialog_file_labels[index]
+                    if index < len(self.dialog_file_labels)
+                    else str(self.dialog_file_list[index])
+                )
+                text_color = config.WHITE if index == self.dialog_selected_file_index else config.BLACK
+                if index == self.dialog_selected_file_index:
+                    highlight_rect = pygame.Rect(
+                        list_rect.x,
+                        list_rect.y + row * line_height,
+                        list_rect.width,
+                        line_height,
+                    )
+                    pygame.draw.rect(surface, config.BLUE, highlight_rect)
+                text_surf = self.font.render(label, True, text_color)
+                surface.blit(text_surf, (list_rect.x + 6, list_rect.y + row * line_height))
+
+            quick_y = list_rect.bottom + 10
+            quick_x = list_rect.x
+            quick_padding = 8
+            self.dialog_quick_dir_rects = []
+            for label, path in self.dialog_quick_dirs:
+                quick_surf = self.font.render(label, True, config.BLACK)
+                quick_rect = quick_surf.get_rect()
+                quick_rect.topleft = (quick_x, quick_y)
+                pygame.draw.rect(surface, config.GRAY_LIGHT, quick_rect.inflate(8, 6))
+                pygame.draw.rect(surface, config.BLACK, quick_rect.inflate(8, 6), 1)
+                surface.blit(quick_surf, quick_rect)
+                self.dialog_quick_dir_rects.append((quick_rect.inflate(8, 6), path))
+                quick_x += quick_rect.width + quick_padding + 8
+
+            self._update_scrollbar_from_offset()
+            if self.dialog_file_scroll_thumb_rect:
+                pygame.draw.rect(surface, config.GRAY_DARK, self.dialog_file_scroll_thumb_rect)
+
+            button_y = list_rect.bottom + 50
+        else:
+            self.dialog_file_list_rect = None
+            self.dialog_file_page_size = 0
+            self.dialog_file_scrollbar_rect = None
+            self.dialog_file_scroll_thumb_rect = None
+            if self.dialog_mode == 'input_text':
+                input_rect = pygame.Rect(dialog_rect.x + 40, prompt_rect.bottom + 20, dialog_rect.width - 80, 40)
+                pygame.draw.rect(surface, config.WHITE, input_rect)
+                pygame.draw.rect(surface, config.BLACK, input_rect, 1)
+                text_surf = self.font.render(self.dialog_input_text, True, config.BLACK)
+                surface.blit(text_surf, (input_rect.x + 8, input_rect.y + 8))
+                button_y = input_rect.bottom + 20
+
+        # Draw options (buttons) - needs proper layout
         for i, option in enumerate(self.dialog_options):
-             if isinstance(option, Button):
-                  # REMOVED incorrect re-centering. Buttons have correct Rects already.
-                  # option.rect.center = (dialog_rect.centerx, button_y + i * (option.rect.height + 10))
-                  option.draw(surface) # Draw using the button's own Rect
-        # Add rendering for other dialog elements (text input, file list, color picker)
+            if isinstance(option, Button):
+                option.rect.centerx = dialog_rect.centerx
+                option.rect.top = button_y + i * (option.rect.height + 10)
+                option.draw(surface)
+        # TODO: Add rendering for other dialog elements (text input, color picker)
+    # <<< End Restore draw_dialog >>>
 
     def run(self):
         """Main application loop."""
@@ -1666,16 +2600,16 @@ class Editor:
 
 # Main execution block
 if __name__ == "__main__":
-    # --- Initialize Tkinter Root HERE --- 
-    try:
-        print("Attempting to initialize tk.Tk() for main execution...")
-        tk_root = tk.Tk()
-        tk_root.withdraw() # Hide the main window
-        print("Main execution tk.Tk() initialized successfully.")
-    except Exception as e:
-        print(f"ERROR: Main execution Tkinter initialization failed: {e}")
-        tkinter_error = e
-    # --- End Tkinter Init --- 
+    # --- Remove explicit Tkinter init call from here ---
+    # It's handled globally at the top now
+    # print("Attempting Tkinter global initialization...")
+    # if not _initialize_tkinter_globally():
+    #      print("Warning: Tkinter initialization failed. File/Color dialogs may not work.")
+    
+    # --- Remove explicit Pygame init call from here ---
+    # It's also handled globally at the top now
+    # print("Initializing Pygame...")
+    # pygame.init()
 
     # Set up necessary directories if they don't exist
     # ... (directory setup code remains the same) ...

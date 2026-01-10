@@ -1,0 +1,103 @@
+{
+  "id": "basic_overworld",
+  "name": "Basic Overworld Tiles",
+  "version": "1.0.0",
+  "tileSize": 32,
+  "tiles": [
+    {
+      "id": "grass",
+      "name": "Grass",
+      "filename": "grass.png",
+      "frames": [
+        "grass.png"
+      ],
+      "frameDurationMs": 200,
+      "properties": {
+        "walkable": true,
+        "color": [
+          102,
+          187,
+          106,
+          255
+        ]
+      }
+    },
+    {
+      "id": "path",
+      "name": "Path",
+      "filename": "path.png",
+      "frames": [
+        "path.png"
+      ],
+      "frameDurationMs": 200,
+      "properties": {
+        "walkable": true,
+        "color": [
+          200,
+          170,
+          120,
+          255
+        ]
+      }
+    },
+    {
+      "id": "wall",
+      "name": "Wall",
+      "filename": "wall.png",
+      "frames": [
+        "wall.png"
+      ],
+      "frameDurationMs": 200,
+      "properties": {
+        "walkable": false,
+        "interaction": "A sturdy wall blocks the way.",
+        "color": [
+          70,
+          70,
+          70,
+          255
+        ]
+      }
+    },
+    {
+      "id": "water",
+      "name": "Water",
+      "filename": "water.png",
+      "frames": [
+        "water.png",
+        "water_wave.png"
+      ],
+      "frameDurationMs": 250,
+      "properties": {
+        "walkable": false,
+        "interaction": "The water looks too deep to cross.",
+        "color": [
+          70,
+          110,
+          190,
+          255
+        ]
+      }
+    }
+  ],
+  "npcs": [
+    {
+      "id": "npc_guide",
+      "name": "Guide",
+      "frameDurationMs": 200,
+      "states": {
+        "standing": {
+          "south": [
+            "npc_guide_standing_south.png"
+          ]
+        },
+        "walking": {
+          "south": [
+            "npc_guide_walking_south_01.png",
+            "npc_guide_walking_south_02.png"
+          ]
+        }
+      }
+    }
+  ]
+}

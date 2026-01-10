@@ -11,7 +11,14 @@ sys.path.insert(0, project_root)
 # Now import the necessary modules
 from src.core import config
 # Assuming editor_ui contains Button, Palette, PALETTE
-from src.editor.editor_ui import Palette, PALETTE, Button 
+from src.editor.editor_ui import Palette, PALETTE, Button # <<< Remove EditorUI
+# Need Editor for type hinting and mocking structure
+# from src.editor.pixle_art_editor import Editor 
+# <<< Remove global initializer import >>>
+# from src.editor.pixle_art_editor import _initialize_tkinter_globally 
+# <<< Remove tkinter import >>>
+# import tkinter
+from src.editor.sprite_editor import SpriteEditor
 
 class TestPalette(unittest.TestCase):
 
@@ -123,6 +130,24 @@ class TestPalette(unittest.TestCase):
             # mock_draw_line might be called for transparent colors
             # mock_surface.blit.assert_called() # For labels/arrows
 
+
+# --- Add TestEditorUI Class ---
+# <<< REMOVE TestEditorUI Class >>>
+# @patch('pygame.draw.rect')
+# @patch('pygame.draw.line')
+# @patch('pygame.transform.scale')
+# class TestEditorUI(unittest.TestCase):
+#     @classmethod
+#     @patch('tkinter.Tk') # <<< Patch tkinter.Tk for the whole class setup
+#     def setUpClass(cls, mock_tk):
+#         ...
+#     @classmethod
+#     def tearDownClass(cls):
+#         ...
+#     def setUp(self):
+#         ...
+#     ...
+# <<< End Removal >>>
 
 if __name__ == '__main__':
     unittest.main() 

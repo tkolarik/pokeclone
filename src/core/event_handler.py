@@ -105,6 +105,28 @@ class EventHandler:
                                 # print(f"DEBUG: Button has action '{option.action.__name__}', calling action...") # REMOVED
                                 option.action()
                                 return True
+             if editor.dialog_mode in ['load_bg', 'load_ref', 'load_tileset'] and isinstance(getattr(editor, 'dialog_file_list_rect', None), pygame.Rect):
+                  if editor.dialog_file_list_rect.collidepoint(event.pos):
+                       line_height = editor.font.get_linesize()
+                       relative_y = event.pos[1] - editor.dialog_file_list_rect.y
+                       clicked_index = editor.dialog_file_scroll_offset + (relative_y // line_height)
+                       if 0 <= clicked_index < len(editor.dialog_file_list):
+                            editor.dialog_selected_file_index = clicked_index
+                            if hasattr(editor, '_ensure_dialog_scroll'):
+                                editor._ensure_dialog_scroll()
+                       return True
+                  if isinstance(getattr(editor, 'dialog_file_scrollbar_rect', None), pygame.Rect):
+                       if editor.dialog_file_scrollbar_rect.collidepoint(event.pos):
+                            editor.dialog_file_dragging_scrollbar = True
+                            if hasattr(editor, '_set_scroll_offset_from_thumb'):
+                                editor._set_scroll_offset_from_thumb(event.pos[1])
+                            return True
+             if editor.dialog_mode in ['load_bg', 'load_ref', 'load_tileset']:
+                  for rect, path in getattr(editor, 'dialog_quick_dir_rects', []):
+                       if rect.collidepoint(event.pos):
+                            if hasattr(editor, '_set_dialog_directory'):
+                                editor._set_dialog_directory(path)
+                            return True
              # TODO: Handle clicks/drags within specific dialog types (color picker, file list scroll)
             # e.g., if editor.dialog_mode == 'color_picker': handle_color_picker_click/drag
             # e.g., if editor.dialog_mode == 'load_bg': handle_file_list_click/scroll
@@ -138,27 +160,31 @@ class EventHandler:
                   return True # Consume key event for text input
 
              # Handle key navigation for file list dialog
-             elif editor.dialog_mode == 'load_bg':
+             elif editor.dialog_mode in ['load_bg', 'load_ref', 'load_tileset']:
                   if event.key == K_UP:
                        if editor.dialog_selected_file_index > 0:
                             editor.dialog_selected_file_index -= 1
+                            if hasattr(editor, '_ensure_dialog_scroll'):
+                                editor._ensure_dialog_scroll()
                        # TODO: Add scroll logic if file list exceeds display area
                        return True
                   elif event.key == K_DOWN:
                        if editor.dialog_selected_file_index < len(editor.dialog_file_list) - 1:
                             editor.dialog_selected_file_index += 1
+                            if hasattr(editor, '_ensure_dialog_scroll'):
+                                editor._ensure_dialog_scroll()
                        # TODO: Add scroll logic
                        return True
                   elif event.key == K_RETURN:
                        if 0 <= editor.dialog_selected_file_index < len(editor.dialog_file_list):
-                           # Find the 'Load' button's value/action if possible,
-                           # otherwise assume selected file index implies load action
-                           load_value = editor.dialog_file_list[editor.dialog_selected_file_index]
-                           for btn in editor.dialog_options:
-                               if isinstance(btn, Button) and btn.text.lower() == "load": # Use imported Button
+                            # Find the 'Load' button's value/action if possible,
+                            # otherwise assume selected file index implies load action
+                            load_value = editor.dialog_file_list[editor.dialog_selected_file_index]
+                            for btn in editor.dialog_options:
+                                if isinstance(btn, Button) and btn.text.lower() == "load": # Use imported Button
                                     load_value = btn.value if hasattr(btn, 'value') else load_value
                                     break
-                           editor._handle_dialog_choice(load_value)
+                            editor._handle_dialog_choice(load_value)
                        return True
                   elif event.key == K_ESCAPE:
                        # Find the 'Cancel' button's value/action
@@ -175,6 +201,25 @@ class EventHandler:
                  if editor.dialog_mode in ['choose_edit_mode', 'choose_bg_action']:
                       editor._handle_dialog_choice(None) # Assuming None means cancel
                  return True
+        elif event.type == MOUSEMOTION:
+             if editor.dialog_mode in ['load_bg', 'load_ref', 'load_tileset'] and getattr(editor, 'dialog_file_dragging_scrollbar', False):
+                  if hasattr(editor, '_set_scroll_offset_from_thumb'):
+                       editor._set_scroll_offset_from_thumb(event.pos[1])
+                  return True
+        elif event.type == MOUSEBUTTONUP and event.button == 1:
+             if editor.dialog_mode in ['load_bg', 'load_ref', 'load_tileset']:
+                  editor.dialog_file_dragging_scrollbar = False
+        elif event.type == pygame.MOUSEWHEEL:
+             if editor.dialog_mode in ['load_bg', 'load_ref', 'load_tileset']:
+                  if len(editor.dialog_file_list) > editor.dialog_file_page_size:
+                       editor.dialog_file_scroll_offset = max(
+                            0,
+                            min(
+                                editor.dialog_file_scroll_offset - event.y,
+                                len(editor.dialog_file_list) - editor.dialog_file_page_size,
+                            ),
+                       )
+                  return True
 
         return True # Consume other unhandled events while dialog is open
 
@@ -223,6 +268,15 @@ class EventHandler:
             if palette_rect.collidepoint(event.pos):
                 editor.palette.handle_click(event.pos, editor) # <<< Pass editor instance
                 return True # <<< CRITICAL: Ensure palette click consumes the event
+
+            # 2b. Tile/NPC panel click
+            if editor.edit_mode == 'tile':
+                if editor.asset_edit_target == 'tile':
+                    if editor.handle_tile_panel_click(event.pos):
+                        return True
+                else:
+                    if editor.handle_npc_panel_click(event.pos):
+                        return True
 
             # 3. Check Canvas Click (Sprite or Background)
             clicked_sprite_editor = editor._get_sprite_editor_at_pos(event.pos)
@@ -392,7 +446,9 @@ class EventHandler:
                 # end_selection might use the last known end_pos. This needs selection_manager logic check.
                 # For now, assume end_selection handles release position correctly.
                 # We might need to store which editor the selection started on if it matters.
-                editor.selection.end_selection(event.pos, clicked_sprite_editor if clicked_sprite_editor else editor.sprites[editor.current_sprite]) # Pass editor instance, fallback to current if released outside
+                target_editor = clicked_sprite_editor if clicked_sprite_editor else editor.get_active_canvas()
+                if target_editor:
+                    editor.selection.end_selection(event.pos, target_editor) # Pass editor instance, fallback to current if released outside
                 editor.selection.selecting = False # Turn off selecting flag
                 # Keep editor.selection.active True
                 return True

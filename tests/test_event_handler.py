@@ -17,6 +17,8 @@ from src.editor.tool_manager import ToolManager
 from src.editor.sprite_editor import SpriteEditor
 
 
+# Use a class decorator to patch pygame.key.get_mods for all tests in this class
+# @patch('pygame.key.get_mods', return_value=0) # Mock get_mods to return 0 (no mods pressed)
 class TestEventHandlerPaletteInteraction(unittest.TestCase):
 
     @classmethod
@@ -83,6 +85,8 @@ class TestEventHandlerPaletteInteraction(unittest.TestCase):
 
 # TODO: Add more tests for EventHandler logic (button clicks, canvas clicks, key presses etc.)
 
+# Use a class decorator to patch pygame.key.get_mods for all tests in this class
+# @patch('pygame.key.get_mods', return_value=0) # Mock get_mods to return 0 (no mods pressed)
 class TestEventHandlerOtherInteractions(unittest.TestCase):
     # Separate class for different setup/focus
 

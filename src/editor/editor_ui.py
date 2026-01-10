@@ -2,6 +2,10 @@ import pygame
 # from ..core import config # Relative import
 from src.core import config # Absolute import
 import colorsys # <<< Add import for palette generation
+# <<< Add forward type hint for Editor to avoid circular import
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .pixle_art_editor import Editor # Use relative import for type checking
 
 class Button:
     """
@@ -251,9 +255,7 @@ class Palette:
             if rect.collidepoint(x, y):
                 # Call the select_color method on the passed editor instance
                 editor.select_color(color) 
-                # --- Manually add this line below ---
                 editor.paste_mode = False 
-                # --- End of line to add ---
                 if editor.mode == 'select':
                     editor.mode = 'draw'
                     editor.selection.selecting = False
