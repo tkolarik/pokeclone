@@ -306,7 +306,7 @@
 
 ## In Progress
 
-* **[POKE-10] Refactor Pixel Art Editor for Modularity**
+* **[POKE-10] Refactor Pixel Art Editor for Modularity (Completed)**
     * **Type:** Task / Improvement
     * **Priority:** Medium
     * **Description:** The main file for the pixel art editor, `pixle_art_editor.py`, has grown very large... (previous description remains) ...Refactor the `Editor` class and `handle_event` method to delegate responsibilities to these new components.
@@ -323,19 +323,7 @@
 ***
 ##### POKE-10 Sub-Tasks:
 
-*   **[POKE-10.4] Refactor UI Drawing (`draw_ui`)**
-    *   **Type:** Refactoring Task
-    *   **Priority:** Medium
-    *   **Description:** Simplify the `Editor.draw_ui` method by extracting UI drawing responsibilities. Move drawing logic for specific components (sprite editors view, background canvas view, palette, sliders, info text) into separate functions or methods, potentially within an `UIManager` or `EditorUI` class (using `ui_manager.py` or `editor_ui.py`). `Editor.draw_ui` should become primarily an orchestrator.
-    *   **Acceptance Criteria:**
-        *   The `Editor.draw_ui` method is significantly shorter and delegates drawing tasks.
-        *   Drawing logic for distinct UI areas is encapsulated in separate functions/methods/classes.
-        *   The overall UI appearance and layout remain unchanged.
-        *   Relevant integration tests are **written and pass** to verify that `draw_ui` invokes sub-drawing routines correctly (may require surface mocking).
-        *   Manual regression testing confirms the UI renders correctly in all modes.
-    *   **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`, `ui`, `drawing`, `testing`
-
-*   **[POKE-10.5] Refactor State Management**
+*   **[POKE-10.5] Refactor State Management (Completed)**
     *   **Type:** Refactoring Task
     *   **Priority:** Medium
     *   **Description:** Centralize or better encapsulate the editor's state management. Aspects like `current_color`, `mode`, `edit_mode`, `brush_size`, `editor_zoom`, `view_offset`, undo/redo stacks, etc., could be grouped into a dedicated state object/class. Access to and modification of state should be managed through clearer interfaces.
@@ -348,7 +336,7 @@
         *   Manual regression testing confirms no state-related regressions.
     *   **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`, `state-management`, `testing`
 
-*   **[POKE-10.6] Refactor File I/O and Dialogs**
+*   **[POKE-10.6] Refactor File I/O and Dialogs (Completed)**
     *   **Type:** Refactoring Task
     *   **Priority:** Medium-Low
     *   **Description:** Extract file loading/saving logic (monsters, sprites, backgrounds, reference images) and dialog interactions (including the Pygame-based dialog system and any remaining Tkinter calls) from the `Editor` class. This logic could reside in dedicated file I/O modules and a `DialogManager` (using `dialog_manager.py`).
@@ -417,6 +405,18 @@
         *   Relevant unit/integration tests are **written and pass** for each extracted tool's logic, verifying correct pixel manipulation on a mock canvas or `SpriteEditor` frame.
         *   Manual regression testing confirms all tools work as expected.
     *   **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`, `tools`, `event-handling`, `testing`
+
+*   **[POKE-10.4] Refactor UI Drawing (`draw_ui`)**
+    *   **Type:** Refactoring Task
+    *   **Priority:** Medium
+    *   **Description:** Simplify the `Editor.draw_ui` method by extracting UI drawing responsibilities. Move drawing logic for specific components (sprite editors view, background canvas view, palette, sliders, info text) into separate functions or methods, potentially within an `UIManager` or `EditorUI` class (using `ui_manager.py` or `editor_ui.py`). `Editor.draw_ui` should become primarily an orchestrator.
+    *   **Acceptance Criteria:**
+        *   The `Editor.draw_ui` method is significantly shorter and delegates drawing tasks.
+        *   Drawing logic for distinct UI areas is encapsulated in separate functions/methods/classes.
+        *   The overall UI appearance and layout remain unchanged.
+        *   Relevant integration tests are **written and pass** to verify that `draw_ui` invokes sub-drawing routines correctly (may require surface mocking).
+        *   Manual regression testing confirms the UI renders correctly in all modes.
+    *   **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`, `ui`, `drawing`, `testing`
 
 *   **[POKE-10.1] Extract `SpriteEditor` Class**
     *   **Type:** Refactoring Task

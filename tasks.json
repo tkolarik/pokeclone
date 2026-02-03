@@ -314,7 +314,7 @@
   {
     "id": "POKE-10",
     "title": "Refactor Pixel Art Editor for Modularity",
-    "status": "In Progress",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
@@ -346,7 +346,7 @@
   {
     "id": "POKE-10.5",
     "title": "Refactor State Management",
-    "status": "In Progress",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
@@ -363,7 +363,7 @@
   {
     "id": "POKE-10.6",
     "title": "Refactor File I/O and Dialogs",
-    "status": "In Progress",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],

@@ -4,9 +4,6 @@ import tkinter as tk
 from tkinter import filedialog, colorchooser
 import sys
 import os
-import json
-import copy
-import colorsys
 from typing import Optional
 
 # Import the centralized config
@@ -16,9 +13,13 @@ from src.core.tileset import TileDefinition, TileSet, list_tileset_files, NPCSpr
 # Import newly created modules
 from src.core.event_handler import EventHandler
 from src.editor.editor_ui import Button, Palette, PALETTE
+from src.editor.editor_state import EditorState
+from src.editor.dialog_manager import DialogManager
+from src.editor.file_io import FileIOManager, load_monsters
 from src.editor.selection_manager import SelectionTool
 from src.editor.sprite_editor import SpriteEditor
 from src.editor.tool_manager import ToolManager
+from src.editor.undo_redo_manager import UndoRedoManager
 
 NPC_STATES = ["standing", "walking"]
 NPC_ANGLES = ["south", "west", "east", "north"]
@@ -69,36 +70,6 @@ pygame.display.set_caption("Advanced Pixel Art Sprite Editor with Enhanced Featu
 clock = pygame.time.Clock()
 
 # Load monster data
-def load_monsters():
-    """
-    Load monster data from the 'monsters.json' file.
-
-    This function reads the 'monsters.json' file, which contains information about
-    various monsters, including their names, types, max HP, and moves. The data
-    is used to populate the editor with monster sprites and their attributes.
-
-    Returns:
-        list: A list of dictionaries, each representing a monster with its attributes.
-    """
-    # Use path from config
-    monsters_file = os.path.join(config.DATA_DIR, "monsters.json")
-
-    try:
-        with open(monsters_file, "r") as f:
-            monsters = json.load(f)
-        if not isinstance(monsters, list):
-            raise ValueError("monsters.json should contain a list of monsters.")
-        return monsters
-    except FileNotFoundError:
-        print(f"Error: Could not find monsters.json in {os.path.dirname(monsters_file)}")
-        print("Make sure you've created the data directory and added the monsters.json file.")
-        pygame.quit()
-        sys.exit(1)
-    except (json.JSONDecodeError, ValueError) as e:
-        print(f"Error: {e}")
-        pygame.quit()
-        sys.exit(1)
-
 monsters = load_monsters()
 
 # Editor Class with Enhanced Features
@@ -137,10 +108,34 @@ class Editor:
         # ... (other methods)
     """
 
+    def __getattr__(self, name):
+        state = self.__dict__.get("state")
+        if state is not None and hasattr(state, name):
+            return getattr(state, name)
+        dialog_manager = self.__dict__.get("dialog_manager")
+        if dialog_manager is not None and hasattr(dialog_manager.state, name):
+            return getattr(dialog_manager.state, name)
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    def __setattr__(self, name, value):
+        state = self.__dict__.get("state")
+        if state is not None and hasattr(state, name):
+            setattr(state, name, value)
+            return
+        dialog_manager = self.__dict__.get("dialog_manager")
+        if dialog_manager is not None and hasattr(dialog_manager.state, name):
+            setattr(dialog_manager.state, name, value)
+            return
+        object.__setattr__(self, name, value)
+
     def __init__(self):
         """
         Initialize a new Editor instance.
         """
+        self.state = EditorState()
+        self.file_io = FileIOManager(self)
+        self.undo_redo = UndoRedoManager(self)
+        self.dialog_manager = DialogManager(self)
         self.current_color = PALETTE[0] # <<< Uses imported PALETTE
         self.current_monster_index = 0
         self.eraser_mode = False # Keep temporarily? DrawTool uses it.
@@ -157,7 +152,7 @@ class Editor:
         self.selection = SelectionTool(self) # SelectionTool might become a tool in ToolManager later
         self.copy_buffer = None
         self.mode = 'draw'  # Keep? Or manage via ToolManager? Keep for 'select' vs other tools for now.
-        self.backgrounds = self.load_backgrounds()
+        self.backgrounds = self.file_io.load_backgrounds()
         self.current_background_index = 0 if self.backgrounds else -1
         self.edit_mode = None
         self.editor_zoom = 1.0
@@ -218,10 +213,6 @@ class Editor:
         self.current_background = None
         self.canvas_rect = None
 
-        # Undo/Redo stacks
-        self.undo_stack = []
-        self.redo_stack = []
-
         self.buttons = [] # Start with empty buttons
 
         self.font = pygame.font.Font(config.DEFAULT_FONT, config.EDITOR_INFO_FONT_SIZE)
@@ -263,38 +254,10 @@ class Editor:
         initial_subj_knob_x = self.subj_alpha_slider_rect.x + int((self.subject_alpha / 255) * subj_knob_slider_width)
         self.subj_alpha_knob_rect = pygame.Rect(initial_subj_knob_x, subj_slider_y, 10, subj_slider_height)
 
-        # --- Dialog State ---
-        self.dialog_mode = None # e.g., 'choose_edit_mode', 'choose_bg_action', 'save_bg', 'load_bg', 'color_picker', 'input_text'
-        self.dialog_prompt = ""
-        self.dialog_options = [] # List of tuples: (text, value) or Button objects
-        self.dialog_callback = None # Function to call with the chosen value
-        self.dialog_input_text = "" # For text input dialogs
-        self.dialog_input_active = False # Is the text input active?
-        self.dialog_input_rect = None # Rect for the input field
-        self.dialog_input_max_length = 50 # Max chars for filename
-        self.dialog_file_list = [] # List of files for file browser dialog
-        self.dialog_file_scroll_offset = 0 # Scroll offset for file list
-        self.dialog_selected_file_index = -1 # Index of selected file in list
-        self.dialog_file_labels = [] # Display labels for file list
-        self.dialog_file_list_rect = None # Rect for file list area
-        self.dialog_file_page_size = 0 # Visible rows in file list
-        self.dialog_file_scrollbar_rect = None
-        self.dialog_file_scroll_thumb_rect = None
-        self.dialog_file_dragging_scrollbar = False
-        self.dialog_quick_dirs = []
-        self.dialog_quick_dir_rects = []
-        self.dialog_current_dir = ""
-        self.dialog_sort_recent = True
-        self.dialog_color_picker_hue = 0 # Hue for HSV color picker
-        self.dialog_color_picker_sat = 1 # Saturation for HSV
-        self.dialog_color_picker_val = 1 # Value for HSV
-        self.dialog_color_picker_rects = {} # Rects for color picker elements
-        # --- End Dialog State ---
-
         self.tk_root = None # Initialize instance variable for Tkinter root
 
         # <<< --- ADD THE CALL HERE --- >>>
-        self.choose_edit_mode() # Setup the initial dialog state AFTER resetting dialog attrs
+        self.dialog_manager.choose_edit_mode() # Setup the initial dialog state
 
     def _ensure_tkinter_root(self):
         """Return a Tkinter root if available, otherwise None."""
@@ -311,35 +274,12 @@ class Editor:
         Returns:
             None: Sets the initial dialog state instead of returning the mode directly.
         """
-        self.dialog_mode = 'choose_edit_mode'
-        self.dialog_prompt = "Choose Edit Mode:"
-
-        # Calculate positions for vertically stacked buttons centered
-        dialog_center_x = config.EDITOR_WIDTH // 2
-        dialog_center_y = config.EDITOR_HEIGHT // 2
-        button_width = 150
-        button_height = 40
-        button_padding = 10
-        monster_button_y = dialog_center_y - button_height - button_padding
-        tile_button_y = dialog_center_y
-        background_button_y = dialog_center_y + button_height + button_padding
-        button_x = dialog_center_x - button_width // 2
-
-        self.dialog_options = [
-            Button(pygame.Rect(button_x, monster_button_y, button_width, button_height), "Monster", value="monster"), # No action, store value
-            Button(pygame.Rect(button_x, tile_button_y, button_width, button_height), "Tiles", value="tile"),
-            Button(pygame.Rect(button_x, background_button_y, button_width, button_height), "Background", value="background"), # No action, store value
-        ]
-        self.dialog_callback = self._set_edit_mode_and_continue
-        # print(f"DEBUG: choose_edit_mode finished. self.dialog_mode = {self.dialog_mode}") # DEBUG
-
-        # <<< --- REMOVE THIS RETURN --- >>>
-        # return "monster" # Default to monster initially
+        self.dialog_manager.choose_edit_mode()
 
     def _set_edit_mode_and_continue(self, mode):
         """Callback after choosing edit mode."""
         # print(f"DEBUG: Start _set_edit_mode_and_continue(mode='{mode}')") # DEBUG 4 - REMOVE
-        self.edit_mode = mode # Set mode FIRST
+        self.state.set_edit_mode(mode) # Set mode FIRST
         if mode == 'background':
             # --- Setup for Background Mode --- 
             self.canvas_rect = pygame.Rect(50, 100, config.DEFAULT_BACKGROUND_WIDTH, config.DEFAULT_BACKGROUND_HEIGHT)
@@ -1255,32 +1195,7 @@ class Editor:
 
     def _handle_dialog_choice(self, value):
         """Internal handler for dialog button values or direct calls."""
-        # print(f"DEBUG: Start _handle_dialog_choice(value={repr(value)})") # DEBUG 1 - REMOVE
-        callback_to_call = self.dialog_callback # Store before potential modification
-        if callback_to_call:
-            if value is None: # Cancel Path
-                 print("Dialog action cancelled by user.")
-                 self.dialog_mode = None
-                 self.dialog_prompt = ""
-                 self.dialog_options = []
-                 # Set back to None
-                 # if hasattr(self, 'dialog_callback'):
-                 #     del self.dialog_callback 
-                 self.dialog_callback = None # <<< REVERT TO THIS
-                # Reset input-specific state too
-                 self.dialog_input_text = ""
-                 # ... rest of cancel path clearing ...
-            else: # Value is not None (Confirm Path)
-                 try:
-                     # print(f"DEBUG: Before calling callback {getattr(callback_to_call, '__name__', 'unknown')}") # DEBUG 2 - REMOVE
-                     callback_to_call(value)
-                     # Callback handles its own state transitions now
-                 except Exception as e:
-                     print(f"ERROR during dialog callback {getattr(callback_to_call, '__name__', 'unknown')}: {e}")
-                     # Clear dialog on error
-                     self.dialog_mode = None
-                     # ... clear other stuff ...
-        # print(f"DEBUG: End _handle_dialog_choice. dialog_mode={self.dialog_mode}") # DEBUG 3 - REMOVE
+        self.dialog_manager._handle_dialog_choice(value)
 
     def refocus_pygame_window(self):
         """
@@ -1726,7 +1641,7 @@ class Editor:
             color (tuple): The RGBA color tuple to select.
         """
         if color is not None:
-            self.current_color = color
+            self.state.set_color(color)
             self.eraser_mode = False # Keep? DrawTool uses this
             self.fill_mode = False   # Keep? FillTool might need later?
             self.paste_mode = False  # Explicitly set paste mode flag off
@@ -1800,19 +1715,7 @@ class Editor:
         Returns:
             list: A list of tuples, each containing a filename and a Pygame Surface.
         """
-        backgrounds = []
-        # config should ensure BACKGROUND_DIR exists
-        # if not os.path.exists(config.BACKGROUND_DIR):
-        #     os.makedirs(config.BACKGROUND_DIR)
-        for filename in os.listdir(config.BACKGROUND_DIR):
-            if filename.endswith('.png'):
-                path = os.path.join(config.BACKGROUND_DIR, filename)
-                try:
-                    bg = pygame.image.load(path).convert_alpha()
-                    backgrounds.append((filename, bg))
-                except pygame.error as e:
-                    print(f"Failed to load background {filename}: {e}")
-        return backgrounds
+        return self.file_io.load_backgrounds()
 
     def show_edit_mode_dialog(self):
         """
@@ -1834,182 +1737,32 @@ class Editor:
         """
         Handle background-specific actions (new or edit) using dialog state.
         """
-        # print(f"DEBUG: Start choose_background_action()") # DEBUG 7 - REMOVE
-        if not self.backgrounds:
-            print("No existing backgrounds. Creating a new one.")
-            # print(f"DEBUG: Before calling create_new_background()") # DEBUG 8 - REMOVE
-            self.create_new_background()
-        else:
-            self.dialog_mode = 'choose_bg_action'
-            self.dialog_prompt = "Choose Background Action:"
-            # --- Calculate positions --- Needed if creating buttons here
-            dialog_center_x = config.EDITOR_WIDTH // 2
-            dialog_center_y = config.EDITOR_HEIGHT // 2
-            button_width = 150
-            button_height = 40
-            button_padding = 10
-            new_button_y = dialog_center_y - button_height - button_padding // 2
-            edit_button_y = dialog_center_y + button_padding // 2
-            button_x = dialog_center_x - button_width // 2
-            # --- UNCOMMENT AND SETUP DIALOG OPTIONS --- 
-            self.dialog_options = [
-                Button(pygame.Rect(button_x, new_button_y, button_width, button_height), "New", value="new"),
-                Button(pygame.Rect(button_x, edit_button_y, button_width, button_height), "Edit Existing", value="edit")
-            ]
-            self.dialog_callback = self._handle_background_action_choice
-        # print(f"DEBUG: End choose_background_action. dialog_mode={self.dialog_mode}") # DEBUG 9 - REMOVE
+        self.dialog_manager.choose_background_action()
 
     def _handle_background_action_choice(self, action):
         """Callback after choosing background action."""
-        print(f"Background action chosen: {action}")
-        if action == 'new':
-            self.create_new_background() # This sets dialog_mode = 'input_text'
-            # Don't clear dialog state here, let the next step handle it
-        elif action == 'edit' and self.backgrounds:
-            self.current_background_index = 0
-            self.current_background = self.backgrounds[self.current_background_index][1].copy()
-            print(f"Editing background: {self.backgrounds[self.current_background_index][0]}")
-            self.buttons = self.create_buttons() # Recreate buttons for the correct mode
-            # --- ADD CLEARING LOGIC FOR EDIT BACKGROUND --- 
-            self.dialog_mode = None 
-            self.dialog_prompt = ""
-            self.dialog_options = []
-            self.dialog_callback = None
-        else:
-            print("Invalid action or no backgrounds to edit. Creating new.")
-            self.create_new_background() # This sets dialog_mode = 'input_text'
-            # Don't clear dialog state here
+        self.dialog_manager._handle_background_action_choice(action)
 
     def create_new_background(self):
         """
         Create a new background image.
         """
-        # print(f"DEBUG: Start create_new_background()") # DEBUG 10 - REMOVE
-        self.dialog_mode = 'input_text'
-        # print(f"DEBUG: Set dialog_mode='{self.dialog_mode}' in create_new_background") # DEBUG 11 - REMOVE
-        self.dialog_prompt = "Enter filename for new background (.png):"
-        self.dialog_input_text = "new_background.png" # Default text
-        self.dialog_input_active = True
-        self.dialog_options = [
-            Button(pygame.Rect(0,0, 100, 40), "Save", action=lambda: self._handle_dialog_choice(self.dialog_input_text)),
-            Button(pygame.Rect(0,0, 100, 40), "Cancel", action=lambda: self._handle_dialog_choice(None))
-        ]
-        self.dialog_callback = self._create_new_background_callback
-        # print(f"DEBUG: End create_new_background. dialog_mode={self.dialog_mode}") # DEBUG 12 - REMOVE
+        self.dialog_manager.create_new_background()
 
     def _create_new_background_callback(self, filename):
         """Callback after getting filename for new background."""
-        # We don't clear dialog state here immediately, as _handle_dialog_choice handles cancel
-        if filename:
-            if not filename.endswith('.png'):
-                filename += '.png'
-            # Ensure filename is just the base name, save to BACKGROUND_DIR
-            base_filename = os.path.basename(filename)
-            full_path = os.path.join(config.BACKGROUND_DIR, base_filename)
-
-            self.current_background = pygame.Surface((config.DEFAULT_BACKGROUND_WIDTH, config.DEFAULT_BACKGROUND_HEIGHT), pygame.SRCALPHA)
-            self.current_background.fill((*config.WHITE, 255))  # Set to white with full opacity
-            try:
-                pygame.image.save(self.current_background, full_path)
-                print(f"Saved background as {full_path}")
-            except pygame.error as e:
-                 print(f"Error saving new background {full_path}: {e}")
-                 # Handle error, maybe show message? For now, just print.
-
-            # Reload backgrounds to include the new one
-            self.backgrounds = self.load_backgrounds()
-            self.current_background_index = next(
-                (i for i, (name, _) in enumerate(self.backgrounds) if name == base_filename),
-                -1 # Should find it if save succeeded
-            )
-            # Ensure buttons are created/updated for the correct mode
-            self.buttons = self.create_buttons()
-            # --- ADD CLEARING LOGIC ON SUCCESS --- 
-            self.dialog_mode = None 
-            self.dialog_prompt = ""
-            self.dialog_options = []
-            self.dialog_callback = None
-        else:
-            print("New background creation cancelled.")
-            # If cancellation happened during initial setup, decide what to do.
-            # Maybe default to the first existing background or quit?
-            # For now, just print. If edit_mode wasn't fully set, it might be unstable.
-            if self.edit_mode == 'background' and self.current_background_index == -1:
-                 print("Warning: No background loaded after cancellation.")
-                 # Optionally load a default or the first available one
-                 if self.backgrounds:
-                      self.current_background_index = 0
-                      self.current_background = self.backgrounds[0][1].copy()
-                      self.buttons = self.create_buttons()
-                 else:
-                      # Handle case with absolutely no backgrounds - maybe quit or show error message
-                      pass
+        self.dialog_manager._create_new_background_callback(filename)
 
     def save_background(self, filename=None):
         """
         Save the current background image.
         Uses Pygame input dialog if no filename provided or saving new.
         """
-        current_filename = None
-        # Corrected Indentation:
-        if self.current_background_index >= 0 and self.backgrounds:
-            current_filename = self.backgrounds[self.current_background_index][0]
-
-        if not filename:
-            # Use current filename if available, otherwise prompt
-            filename_to_save = current_filename
-            if not filename_to_save:
-                 # Trigger input dialog for saving a potentially new file
-                 self.dialog_mode = 'input_text'
-                 self.dialog_prompt = "Enter filename to save background (.png):"
-                 self.dialog_input_text = "background.png"
-                 self.dialog_input_active = True
-                 self.dialog_options = [
-                     Button(pygame.Rect(0,0, 100, 40), "Save", action=lambda: self._handle_dialog_choice(self.dialog_input_text)),
-                     Button(pygame.Rect(0,0, 100, 40), "Cancel", action=lambda: self._handle_dialog_choice(None))
-                 ]
-                 self.dialog_callback = self._save_background_callback
-                 return # Exit function, wait for dialog callback
-            else:
-                 # If we have a current filename, save directly without dialog
-                 self._save_background_callback(filename_to_save)
-        else:
-             # If a specific filename is passed (e.g., for "Save As"), use it
-             # This might also need a dialog in a full implementation, but for now save directly
-             print(f"Warning: Direct saving to specified filename '{filename}' without dialog.")
-             self._save_background_callback(filename)
+        self.dialog_manager.save_background(filename=filename)
 
     def _save_background_callback(self, filename):
         """Callback after getting filename for saving background."""
-        # We don't clear dialog state here immediately
-        if filename:
-            if not filename.endswith('.png'):
-                filename += '.png'
-            # Ensure filename is just the base name, save to BACKGROUND_DIR
-            base_filename = os.path.basename(filename)
-            full_path = os.path.join(config.BACKGROUND_DIR, base_filename)
-            try:
-                 pygame.image.save(self.current_background, full_path)
-                 print(f"Saved background as {full_path}")
-            except pygame.error as e:
-                 print(f"Error saving background {full_path}: {e}")
-                 return # Don't update index if save failed
-                 
-            # Reload and find index only after successful save
-            self.backgrounds = self.load_backgrounds()
-            self.current_background_index = next(
-                (i for i, (name, _) in enumerate(self.backgrounds) if name == base_filename),
-                -1 # Should be found
-            )
-            # Update buttons if needed (though likely already correct)
-            self.buttons = self.create_buttons()
-            # --- ADD CLEARING LOGIC ON SUCCESS --- 
-            self.dialog_mode = None 
-            self.dialog_prompt = ""
-            self.dialog_options = []
-            self.dialog_callback = None
-        else:
-            print("Background save cancelled.")
+        self.dialog_manager._save_background_callback(filename)
 
     def load_monster(self):
         """
@@ -2083,87 +1836,25 @@ class Editor:
 
     def _get_background_files(self):
         """Helper to get list of .png files in background directory."""
-        try:
-            return [f for f in os.listdir(config.BACKGROUND_DIR) if f.endswith('.png')]
-        except FileNotFoundError:
-            print(f"Warning: Background directory {config.BACKGROUND_DIR} not found.")
-            return []
+        return self.dialog_manager._get_background_files()
 
     def _get_reference_files(self, directory):
         """Helper to get image files from a directory."""
-        image_exts = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
-        file_paths = []
-        try:
-            for name in os.listdir(directory):
-                path = os.path.join(directory, name)
-                if os.path.isfile(path) and name.lower().endswith(image_exts):
-                    file_paths.append(path)
-        except FileNotFoundError:
-            return []
-        return file_paths
+        return self.dialog_manager._get_reference_files(directory)
 
     def _set_dialog_directory(self, directory):
         """Update dialog list to show images from the given directory."""
-        if not directory:
-            return
-        self.dialog_current_dir = directory
-        files = self._get_reference_files(directory)
-        if self.dialog_sort_recent:
-            files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
-        else:
-            files.sort(key=lambda p: os.path.basename(p).lower())
-        self.dialog_file_list = files
-        self.dialog_file_labels = [os.path.basename(path) for path in files]
-        self.dialog_file_scroll_offset = 0
-        self.dialog_selected_file_index = 0 if files else -1
+        self.dialog_manager._set_dialog_directory(directory)
 
     def _update_scrollbar_from_offset(self):
-        if not self.dialog_file_scrollbar_rect:
-            return
-        total = len(self.dialog_file_list)
-        visible = max(1, self.dialog_file_page_size)
-        if total <= visible:
-            self.dialog_file_scroll_thumb_rect = pygame.Rect(
-                self.dialog_file_scrollbar_rect.x,
-                self.dialog_file_scrollbar_rect.y,
-                self.dialog_file_scrollbar_rect.width,
-                self.dialog_file_scrollbar_rect.height,
-            )
-            return
-        ratio = visible / total
-        thumb_height = max(20, int(self.dialog_file_scrollbar_rect.height * ratio))
-        max_offset = total - visible
-        top = self.dialog_file_scrollbar_rect.y
-        if max_offset > 0:
-            top += int((self.dialog_file_scroll_offset / max_offset) * (self.dialog_file_scrollbar_rect.height - thumb_height))
-        self.dialog_file_scroll_thumb_rect = pygame.Rect(
-            self.dialog_file_scrollbar_rect.x,
-            top,
-            self.dialog_file_scrollbar_rect.width,
-            thumb_height,
-        )
+        self.dialog_manager._update_scrollbar_from_offset()
 
     def _set_scroll_offset_from_thumb(self, thumb_center_y):
-        total = len(self.dialog_file_list)
-        visible = max(1, self.dialog_file_page_size)
-        if total <= visible or not self.dialog_file_scrollbar_rect:
-            return
-        max_offset = total - visible
-        track_height = self.dialog_file_scrollbar_rect.height
-        thumb_height = self.dialog_file_scroll_thumb_rect.height if self.dialog_file_scroll_thumb_rect else 20
-        usable = max(1, track_height - thumb_height)
-        relative = thumb_center_y - self.dialog_file_scrollbar_rect.y - (thumb_height // 2)
-        relative = max(0, min(relative, usable))
-        self.dialog_file_scroll_offset = int(round((relative / usable) * max_offset))
+        self.dialog_manager._set_scroll_offset_from_thumb(thumb_center_y)
 
     def _ensure_dialog_scroll(self):
         """Keep selected file in view when using file list dialogs."""
-        if self.dialog_file_page_size <= 0:
-            return
-        if self.dialog_selected_file_index < self.dialog_file_scroll_offset:
-            self.dialog_file_scroll_offset = self.dialog_selected_file_index
-        elif self.dialog_selected_file_index >= self.dialog_file_scroll_offset + self.dialog_file_page_size:
-            self.dialog_file_scroll_offset = self.dialog_selected_file_index - self.dialog_file_page_size + 1
+        self.dialog_manager._ensure_dialog_scroll()
 
     def _make_tray_scrollbar(self, tray_rect, content_top, total, visible, scroll_offset):
         """Return scrollbar and thumb rects for a tray if overflow exists."""
@@ -2195,362 +1886,39 @@ class Editor:
 
     def trigger_load_tileset_dialog(self):
         """Initiates the dialog for loading a tileset file."""
-        if self.edit_mode != 'tile':
-            print("Tileset loading only available in tile edit mode.")
-            return
-
-        self.dialog_mode = 'load_tileset'
-        self.dialog_prompt = "Select Tileset to Load:"
-        self.dialog_file_list = list_tileset_files()
-        self.dialog_file_scroll_offset = 0
-        self.dialog_selected_file_index = -1
-        self.dialog_file_labels = [os.path.basename(path) for path in self.dialog_file_list]
-        self.dialog_quick_dirs = []
-        self.dialog_quick_dir_rects = []
-
-        self.dialog_options = [
-            Button(pygame.Rect(0, 0, 100, 40), "Load", action=lambda: self._handle_dialog_choice(
-                self.dialog_file_list[self.dialog_selected_file_index] if 0 <= self.dialog_selected_file_index < len(self.dialog_file_list) else None
-            )),
-            Button(pygame.Rect(0, 0, 100, 40), "Cancel", action=lambda: self._handle_dialog_choice(None))
-        ]
-        self.dialog_callback = self._load_selected_tileset_callback
+        self.dialog_manager.trigger_load_tileset_dialog()
 
     def trigger_load_background_dialog(self):
         """Initiates the dialog for loading a background file."""
-        # Ensure we are in background mode, otherwise this button shouldn't be active/visible
-        if self.edit_mode != 'background':
-            print("Load background only available in background edit mode.")
-            return
-
-        self.dialog_mode = 'load_bg'
-        self.dialog_prompt = "Select Background to Load:"
-        self.dialog_file_list = self._get_background_files() # Get the list of files
-        self.dialog_file_scroll_offset = 0
-        self.dialog_selected_file_index = -1
-        self.dialog_file_labels = list(self.dialog_file_list)
-        self.dialog_quick_dirs = []
-        self.dialog_quick_dir_rects = []
-
-        # Define buttons for the dialog (Load and Cancel)
-        # Actions will call _handle_dialog_choice with filename or None
-        self.dialog_options = [
-            # Buttons are positioned dynamically in draw_dialog
-            Button(pygame.Rect(0, 0, 100, 40), "Load", action=lambda: self._handle_dialog_choice(
-                self.dialog_file_list[self.dialog_selected_file_index] if 0 <= self.dialog_selected_file_index < len(self.dialog_file_list) else None
-            )),
-            Button(pygame.Rect(0, 0, 100, 40), "Cancel", action=lambda: self._handle_dialog_choice(None))
-        ]
-        self.dialog_callback = self._load_selected_background_callback
+        self.dialog_manager.trigger_load_background_dialog()
 
     def trigger_load_reference_dialog(self):
         """Initiates the dialog for loading a reference image."""
-        if self.edit_mode not in ['monster', 'tile']:
-            print("Reference images only available in monster or tile edit mode.")
-            return
-
-        self.dialog_mode = 'load_ref'
-        self.dialog_prompt = "Select Reference Image:"
-        self.dialog_file_scroll_offset = 0
-        self.dialog_selected_file_index = -1
-        self.dialog_sort_recent = True
-        self.dialog_quick_dirs = []
-        home_dir = os.path.expanduser("~")
-        desktop_dir = os.path.join(home_dir, "Desktop")
-        downloads_dir = os.path.join(home_dir, "Downloads")
-        for label, path in [
-            ("Desktop", desktop_dir),
-            ("Downloads", downloads_dir),
-            ("References", config.REFERENCE_IMAGE_DIR),
-            ("Sprites", config.SPRITE_DIR),
-            ("Backgrounds", config.BACKGROUND_DIR),
-        ]:
-            if os.path.isdir(path):
-                self.dialog_quick_dirs.append((label, path))
-
-        default_dir = config.REFERENCE_IMAGE_DIR
-        if not os.path.isdir(default_dir) and self.dialog_quick_dirs:
-            default_dir = self.dialog_quick_dirs[0][1]
-        self._set_dialog_directory(default_dir)
-
-        self.dialog_options = [
-            Button(pygame.Rect(0, 0, 100, 40), "Load", action=lambda: self._handle_dialog_choice(
-                self.dialog_file_list[self.dialog_selected_file_index] if 0 <= self.dialog_selected_file_index < len(self.dialog_file_list) else None
-            )),
-            Button(pygame.Rect(0, 0, 100, 40), "Cancel", action=lambda: self._handle_dialog_choice(None))
-        ]
-        self.dialog_callback = self._load_selected_reference_callback
+        self.dialog_manager.trigger_load_reference_dialog()
 
     def _load_selected_reference_callback(self, file_path):
         """Callback after selecting a reference file to load."""
-        if file_path:
-            if not os.path.exists(file_path):
-                print(f"Error: Reference file {file_path} not found.")
-                return
-            try:
-                self.reference_image = pygame.image.load(file_path).convert_alpha()
-                self.reference_image_path = file_path
-                print(f"Loaded reference image: {file_path}")
-                self._scale_reference_image()
-                self.apply_reference_alpha()
-            except pygame.error as e:
-                print(f"Error loading reference image {file_path}: {e}")
-                self.reference_image = None
-                self.reference_image_path = None
-                self.scaled_reference_image = None
-            except Exception as e:
-                print(f"An unexpected error occurred during reference image loading: {e}")
-                self.reference_image = None
-                self.reference_image_path = None
-                self.scaled_reference_image = None
-            self.dialog_mode = None
-            self.dialog_prompt = ""
-            self.dialog_options = []
-            self.dialog_callback = None
-        else:
-            print("Reference image load cancelled.")
+        self.dialog_manager._load_selected_reference_callback(file_path)
 
     def _load_selected_tileset_callback(self, filename_or_path):
         """Callback after selecting a tileset file to load."""
-        if filename_or_path:
-            path = filename_or_path
-            if not os.path.isabs(path):
-                path = os.path.join(config.TILESET_DIR, filename_or_path)
-            if not os.path.exists(path):
-                print(f"Tileset file {path} not found.")
-            else:
-                self.load_tileset(path)
-                self.buttons = self.create_buttons()
-            self.dialog_mode = None
-            self.dialog_prompt = ""
-            self.dialog_options = []
-            self.dialog_callback = None
-        else:
-            print("Tileset load cancelled.")
+        self.dialog_manager._load_selected_tileset_callback(filename_or_path)
 
     def _load_selected_background_callback(self, filename):
         """Callback after selecting a background file to load."""
-        # We don't clear dialog state here immediately
-        if filename:
-            full_path = os.path.join(config.BACKGROUND_DIR, filename)
-            try:
-                loaded_bg = pygame.image.load(full_path).convert_alpha()
-                # Find the index in the self.backgrounds list (which contains Surfaces)
-                found_index = -1
-                for i, (name, _) in enumerate(self.backgrounds):
-                    if name == filename:
-                        found_index = i
-                        break
-                
-                if found_index != -1:
-                    self.current_background_index = found_index
-                    self.current_background = self.backgrounds[found_index][1].copy() # Load from pre-loaded list
-                    print(f"Loaded background: {filename}")
-                else:
-                    # If not found in pre-loaded list (shouldn't happen if list is up-to-date)
-                    # Load it directly and add it (or maybe just load directly?)
-                    self.current_background = loaded_bg
-                    # Add to list if desired, or just use the directly loaded one
-                    # For simplicity, let's just use the loaded one and reset index
-                    self.backgrounds.append((filename, loaded_bg))
-                    self.current_background_index = len(self.backgrounds) - 1
-                    print(f"Loaded background {filename} directly.")
-                
-                # Reset undo/redo for the new background
-                self.undo_stack = []
-                self.redo_stack = []
-                # Potentially save initial state for undo here if desired
-
-            except pygame.error as e:
-                print(f"Error loading background {full_path}: {e}")
-            except FileNotFoundError:
-                print(f"Error: Background file {full_path} not found.")
-            # --- ADD CLEARING LOGIC ON SUCCESS --- 
-            self.dialog_mode = None 
-            self.dialog_prompt = ""
-            self.dialog_options = []
-            self.dialog_callback = None
-        else:
-            print("Background load cancelled.")
+        self.dialog_manager._load_selected_background_callback(filename)
 
     def save_state(self):
         """Save the current state of the active canvas to the undo stack."""
-        # Limit stack size if desired (optional)
-        # if len(self.undo_stack) > MAX_UNDO_STEPS:
-        #     self.undo_stack.pop(0)
-
-        current_state = None
-        if self.edit_mode == 'monster':
-            sprite = self.sprites.get(self.current_sprite)
-            if sprite:
-                # Store a copy of the frame and which sprite it belongs to
-                current_state = ('monster', self.current_sprite, sprite.frame.copy())
-        elif self.edit_mode == 'background':
-            if self.current_background:
-                current_state = ('background', self.current_background_index, self.current_background.copy())
-        elif self.edit_mode == 'tile':
-            if self.asset_edit_target == 'tile' and self.current_tile():
-                current_state = ('tile', self.current_tile().id, self.tile_canvas.frame.copy(), self.current_tile_frame_index)
-            elif self.asset_edit_target == 'npc' and self.current_npc():
-                current_state = ('npc', self.current_npc().id, self.tile_canvas.frame.copy(), (self.current_npc_state, self.current_npc_angle, self.current_npc_frame_index))
-
-        if current_state:
-            self.undo_stack.append(current_state)
-            self.redo_stack.clear() # Clear redo stack on new action
-            # print(f"State saved. Undo stack size: {len(self.undo_stack)}") # Debug
-        # else: # Debug
-            # print("Save state failed: No valid state to save.")
+        self.undo_redo.save_state()
 
     def undo(self):
         """Revert to the previous state from the undo stack."""
-        if not self.undo_stack:
-            print("Nothing to undo.")
-            return
-
-        # Get the state to restore
-        state_to_restore = self.undo_stack.pop()
-        if len(state_to_restore) == 4:
-            state_type, state_id, state_surface, state_meta = state_to_restore
-        else:
-            state_type, state_id, state_surface = state_to_restore
-            state_meta = None
-
-        # Save current state to redo stack BEFORE restoring
-        current_state_for_redo = None
-        if self.edit_mode == 'monster':
-            sprite = self.sprites.get(self.current_sprite)
-            if sprite:
-                 current_state_for_redo = ('monster', self.current_sprite, sprite.frame.copy())
-        elif self.edit_mode == 'background':
-             if self.current_background:
-                  current_state_for_redo = ('background', self.current_background_index, self.current_background.copy())
-        elif self.edit_mode == 'tile':
-             if self.asset_edit_target == 'tile' and self.current_tile():
-                  current_state_for_redo = ('tile', self.current_tile().id, self.tile_canvas.frame.copy(), self.current_tile_frame_index)
-             elif self.asset_edit_target == 'npc' and self.current_npc():
-                  current_state_for_redo = ('npc', self.current_npc().id, self.tile_canvas.frame.copy(), (self.current_npc_state, self.current_npc_angle, self.current_npc_frame_index))
-        
-        if current_state_for_redo:
-             self.redo_stack.append(current_state_for_redo)
-
-        # Restore the popped state
-        if state_type == 'monster':
-            sprite = self.sprites.get(state_id)
-            if sprite:
-                sprite.frame = state_surface.copy() # Use copy to avoid issues
-                # Ensure the editor is focused on the restored sprite if it changed
-                self.current_sprite = state_id 
-                self.edit_mode = 'monster' # Ensure mode is correct
-                print(f"Undid action for sprite: {state_id}")
-            else: # Corrected indent for this else
-                 print(f"Undo failed: Could not find sprite editor '{state_id}' to restore state.")
-                 # Put the state back on the undo stack? Or discard?
-                 self.undo_stack.append(state_to_restore) # Re-add for now
-                 # Check if redo_stack is not empty before popping
-                 if self.redo_stack: self.redo_stack.pop() # Remove the state we just added
-        elif state_type == 'background':
-            self.current_background = state_surface.copy() # Use copy
-            self.current_background_index = state_id # Restore index too
-            self.edit_mode = 'background' # Ensure mode is correct
-            print(f"Undid action for background index: {state_id}")
-        elif state_type == 'tile':
-            self.edit_mode = 'tile'
-            self.asset_edit_target = 'tile'
-            self.tile_canvas.frame = state_surface.copy()
-            if self.tile_set:
-                self.select_tile_by_id(state_id)
-            if state_meta is not None:
-                self.current_tile_frame_index = state_meta
-            print(f"Undid action for tile: {state_id}")
-        elif state_type == 'npc':
-            self.edit_mode = 'tile'
-            self.asset_edit_target = 'npc'
-            self.selected_npc_id = state_id
-            if state_meta:
-                self.current_npc_state, self.current_npc_angle, self.current_npc_frame_index = state_meta
-            self.tile_canvas.frame = state_surface.copy()
-            print(f"Undid action for npc: {state_id}")
-        else:
-            print("Undo failed: Unknown state type in stack.")
-            self.undo_stack.append(state_to_restore) # Re-add
-            if self.redo_stack: self.redo_stack.pop() # Remove corresponding redo
-
-        # Update buttons if mode changed
-        self.buttons = self.create_buttons()
+        self.undo_redo.undo()
 
     def redo(self):
         """Reapply the last undone action from the redo stack."""
-        if not self.redo_stack:
-            print("Nothing to redo.")
-            return
-
-        # Get the state to restore from redo stack
-        state_to_restore = self.redo_stack.pop()
-        if len(state_to_restore) == 4:
-            state_type, state_id, state_surface, state_meta = state_to_restore
-        else:
-            state_type, state_id, state_surface = state_to_restore
-            state_meta = None
-
-        # Save current state to undo stack BEFORE restoring
-        current_state_for_undo = None
-        if self.edit_mode == 'monster':
-             sprite = self.sprites.get(self.current_sprite)
-             if sprite:
-                  current_state_for_undo = ('monster', self.current_sprite, sprite.frame.copy())
-        elif self.edit_mode == 'background':
-             if self.current_background:
-                  current_state_for_undo = ('background', self.current_background_index, self.current_background.copy())
-        elif self.edit_mode == 'tile':
-             if self.asset_edit_target == 'tile' and self.current_tile():
-                  current_state_for_undo = ('tile', self.current_tile().id, self.tile_canvas.frame.copy(), self.current_tile_frame_index)
-             elif self.asset_edit_target == 'npc' and self.current_npc():
-                  current_state_for_undo = ('npc', self.current_npc().id, self.tile_canvas.frame.copy(), (self.current_npc_state, self.current_npc_angle, self.current_npc_frame_index))
-
-        if current_state_for_undo:
-             self.undo_stack.append(current_state_for_undo)
-
-        # Restore the popped state from redo stack
-        if state_type == 'monster':
-            sprite = self.sprites.get(state_id)
-            if sprite:
-                sprite.frame = state_surface.copy()
-                self.current_sprite = state_id
-                self.edit_mode = 'monster'
-                print(f"Redid action for sprite: {state_id}")
-            else:
-                 print(f"Redo failed: Could not find sprite editor '{state_id}' to restore state.")
-                 self.redo_stack.append(state_to_restore) # Re-add
-                 self.undo_stack.pop() # Remove corresponding undo
-        elif state_type == 'background':
-            self.current_background = state_surface.copy()
-            self.current_background_index = state_id
-            self.edit_mode = 'background'
-            print(f"Redid action for background index: {state_id}")
-        elif state_type == 'tile':
-            self.edit_mode = 'tile'
-            self.asset_edit_target = 'tile'
-            self.tile_canvas.frame = state_surface.copy()
-            if self.tile_set:
-                self.select_tile_by_id(state_id)
-            if state_meta is not None:
-                self.current_tile_frame_index = state_meta
-            print(f"Redid action for tile: {state_id}")
-        elif state_type == 'npc':
-            self.edit_mode = 'tile'
-            self.asset_edit_target = 'npc'
-            self.selected_npc_id = state_id
-            if state_meta:
-                self.current_npc_state, self.current_npc_angle, self.current_npc_frame_index = state_meta
-            self.tile_canvas.frame = state_surface.copy()
-            print(f"Redid action for npc: {state_id}")
-        else:
-            print("Redo failed: Unknown state type in stack.")
-            self.redo_stack.append(state_to_restore) # Re-add
-            if self.undo_stack: self.undo_stack.pop() # Remove corresponding undo
-
-        # Update buttons if mode changed
-        self.buttons = self.create_buttons()
+        self.undo_redo.redo()
 
     def get_active_canvas(self):
         """Return the active sprite-like editor for the current mode."""
@@ -2928,108 +2296,7 @@ class Editor:
 
     def draw_dialog(self, surface):
         """Draws the current dialog box overlay."""
-        # Basic semi-transparent overlay
-        overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        overlay.fill((*config.BLACK[:3], 180))
-        surface.blit(overlay, (0, 0))
-
-        # Simple box and prompt
-        dialog_width = 400
-        dialog_height = 300
-        dialog_rect = pygame.Rect(0, 0, dialog_width, dialog_height)
-        dialog_rect.center = surface.get_rect().center
-        pygame.draw.rect(surface, config.WHITE, dialog_rect, border_radius=5)
-        pygame.draw.rect(surface, config.BLACK, dialog_rect, 2, border_radius=5)
-
-        prompt_surf = self.font.render(self.dialog_prompt, True, config.BLACK)
-        prompt_rect = prompt_surf.get_rect(midtop=(dialog_rect.centerx, dialog_rect.top + 20))
-        surface.blit(prompt_surf, prompt_rect)
-
-        list_top = prompt_rect.bottom + 10
-        list_height = 150
-        button_y = prompt_rect.bottom + 30
-        if self.dialog_mode in ['load_bg', 'load_ref', 'load_tileset']:
-            list_rect = pygame.Rect(
-                dialog_rect.x + 20,
-                list_top,
-                dialog_rect.width - 40,
-                list_height,
-            )
-            self.dialog_file_list_rect = list_rect
-            pygame.draw.rect(surface, config.GRAY_LIGHT, list_rect)
-            pygame.draw.rect(surface, config.BLACK, list_rect, 1)
-
-            line_height = self.font.get_linesize()
-            self.dialog_file_page_size = max(1, list_rect.height // line_height)
-            scrollbar_width = 12
-            self.dialog_file_scrollbar_rect = pygame.Rect(
-                list_rect.right - scrollbar_width,
-                list_rect.y,
-                scrollbar_width,
-                list_rect.height,
-            )
-            pygame.draw.rect(surface, config.GRAY_MEDIUM, self.dialog_file_scrollbar_rect)
-            end_index = min(
-                self.dialog_file_scroll_offset + self.dialog_file_page_size,
-                len(self.dialog_file_list),
-            )
-            for row, index in enumerate(range(self.dialog_file_scroll_offset, end_index)):
-                label = (
-                    self.dialog_file_labels[index]
-                    if index < len(self.dialog_file_labels)
-                    else str(self.dialog_file_list[index])
-                )
-                text_color = config.WHITE if index == self.dialog_selected_file_index else config.BLACK
-                if index == self.dialog_selected_file_index:
-                    highlight_rect = pygame.Rect(
-                        list_rect.x,
-                        list_rect.y + row * line_height,
-                        list_rect.width,
-                        line_height,
-                    )
-                    pygame.draw.rect(surface, config.BLUE, highlight_rect)
-                text_surf = self.font.render(label, True, text_color)
-                surface.blit(text_surf, (list_rect.x + 6, list_rect.y + row * line_height))
-
-            quick_y = list_rect.bottom + 10
-            quick_x = list_rect.x
-            quick_padding = 8
-            self.dialog_quick_dir_rects = []
-            for label, path in self.dialog_quick_dirs:
-                quick_surf = self.font.render(label, True, config.BLACK)
-                quick_rect = quick_surf.get_rect()
-                quick_rect.topleft = (quick_x, quick_y)
-                pygame.draw.rect(surface, config.GRAY_LIGHT, quick_rect.inflate(8, 6))
-                pygame.draw.rect(surface, config.BLACK, quick_rect.inflate(8, 6), 1)
-                surface.blit(quick_surf, quick_rect)
-                self.dialog_quick_dir_rects.append((quick_rect.inflate(8, 6), path))
-                quick_x += quick_rect.width + quick_padding + 8
-
-            self._update_scrollbar_from_offset()
-            if self.dialog_file_scroll_thumb_rect:
-                pygame.draw.rect(surface, config.GRAY_DARK, self.dialog_file_scroll_thumb_rect)
-
-            button_y = list_rect.bottom + 50
-        else:
-            self.dialog_file_list_rect = None
-            self.dialog_file_page_size = 0
-            self.dialog_file_scrollbar_rect = None
-            self.dialog_file_scroll_thumb_rect = None
-            if self.dialog_mode == 'input_text':
-                input_rect = pygame.Rect(dialog_rect.x + 40, prompt_rect.bottom + 20, dialog_rect.width - 80, 40)
-                pygame.draw.rect(surface, config.WHITE, input_rect)
-                pygame.draw.rect(surface, config.BLACK, input_rect, 1)
-                text_surf = self.font.render(self.dialog_input_text, True, config.BLACK)
-                surface.blit(text_surf, (input_rect.x + 8, input_rect.y + 8))
-                button_y = input_rect.bottom + 20
-
-        # Draw options (buttons) - needs proper layout
-        for i, option in enumerate(self.dialog_options):
-            if isinstance(option, Button):
-                option.rect.centerx = dialog_rect.centerx
-                option.rect.top = button_y + i * (option.rect.height + 10)
-                option.draw(surface)
-        # TODO: Add rendering for other dialog elements (text input, color picker)
+        self.dialog_manager.draw_dialog(surface)
     # <<< End Restore draw_dialog >>>
 
     def run(self):
