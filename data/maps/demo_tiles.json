@@ -1,9 +1,13 @@
 {
   "id": "demo_tiles",
   "name": "Demo Tiles Map",
-  "tilesetId": "basic_overworld",
+  "version": "1.0.0",
   "tileSize": 32,
-  "spawn": { "x": 2, "y": 2 },
+  "dimensions": {
+    "width": 20,
+    "height": 15
+  },
+  "tilesetId": "basic_overworld",
   "layers": [
     {
       "name": "ground",
@@ -160,7 +164,7 @@
           "grass",
           "grass",
           "grass",
-          "wall"
+          "grass"
         ],
         [
           "wall",
@@ -182,7 +186,7 @@
           "grass",
           "grass",
           "grass",
-          "wall"
+          "grass"
         ],
         [
           "wall",
@@ -325,10 +329,10 @@
           "wall",
           "wall",
           "wall",
-          "wall",
-          "wall",
-          "wall",
-          "wall",
+          "grass",
+          "grass",
+          "grass",
+          "grass",
           "wall",
           "wall",
           "wall",
@@ -339,12 +343,476 @@
           "wall"
         ]
       ]
+    },
+    {
+      "name": "overlay",
+      "tiles": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ]
     }
   ],
+  "connections": [
+    {
+      "id": "conn_1",
+      "type": "edge",
+      "from": "right",
+      "to": {
+        "mapId": "demo_tiles_new",
+        "spawn": {
+          "x": 0,
+          "y": 20
+        },
+        "facing": "east"
+      }
+    },
+    {
+      "id": "auto_down_demo_tiles_new_8",
+      "type": "edge",
+      "from": "down",
+      "to": {
+        "mapId": "demo_tiles_new",
+        "spawn": {
+          "x": 30,
+          "y": 0
+        },
+        "facing": "down"
+      },
+      "auto": "world"
+    },
+    {
+      "id": "auto_down_demo_tiles_new_9",
+      "type": "edge",
+      "from": "down",
+      "to": {
+        "mapId": "demo_tiles_new",
+        "spawn": {
+          "x": 31,
+          "y": 0
+        },
+        "facing": "down"
+      },
+      "auto": "world"
+    },
+    {
+      "id": "auto_down_demo_tiles_new_10",
+      "type": "edge",
+      "from": "down",
+      "to": {
+        "mapId": "demo_tiles_new",
+        "spawn": {
+          "x": 32,
+          "y": 0
+        },
+        "facing": "down"
+      },
+      "auto": "world"
+    },
+    {
+      "id": "auto_down_demo_tiles_new_11",
+      "type": "edge",
+      "from": "down",
+      "to": {
+        "mapId": "demo_tiles_new",
+        "spawn": {
+          "x": 33,
+          "y": 0
+        },
+        "facing": "down"
+      },
+      "auto": "world"
+    }
+  ],
+  "entities": [
+    {
+      "id": "test",
+      "type": "npc",
+      "name": "test",
+      "spriteId": "npc",
+      "position": {
+        "x": 14,
+        "y": 3
+      },
+      "facing": "down",
+      "collision": true,
+      "dialog": [
+        "Hello",
+        " this is a test dialog",
+        "And this is a second test dialog"
+      ],
+      "dialogId": null,
+      "actions": [],
+      "conditions": {},
+      "properties": {},
+      "hidden": false
+    },
+    {
+      "id": "npc_2",
+      "type": "npc",
+      "name": "npc_2",
+      "spriteId": "npc_guide",
+      "position": {
+        "x": 10,
+        "y": 4
+      },
+      "facing": "down",
+      "collision": true,
+      "dialog": null,
+      "dialogId": null,
+      "actions": [],
+      "conditions": {},
+      "properties": {},
+      "hidden": false
+    }
+  ],
+  "triggers": [],
+  "overrides": {},
+  "spawn": {
+    "x": 2,
+    "y": 2
+  },
   "behaviors": {
-    "wall": { "walkable": false, "interaction": "A sturdy wall blocks the way." },
-    "water": { "walkable": false, "interaction": "The water looks too deep to cross." },
-    "path": { "walkable": true },
-    "grass": { "walkable": true }
+    "wall": {
+      "walkable": false,
+      "interaction": "A sturdy wall blocks the way."
+    },
+    "water": {
+      "walkable": false,
+      "interaction": "The water looks too deep to cross."
+    },
+    "path": {
+      "walkable": true
+    },
+    "grass": {
+      "walkable": true
+    }
   }
 }

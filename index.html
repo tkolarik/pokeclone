@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PokeClone Kanban</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f5f7; margin: 0; padding: 20px; }
+        h1 { color: #172b4d; }
+        .board { display: flex; gap: 20px; overflow-x: auto; align-items: flex-start; height: calc(100vh - 100px); }
+        .column { background-color: #ebecf0; border-radius: 3px; width: 300px; min-width: 300px; display: flex; flex-direction: column; max-height: 100%; }
+        .column-header { padding: 10px 10px 5px; font-weight: 600; color: #172b4d; display: flex; justify-content: space-between; }
+        .task-list { padding: 0 8px 8px; flex-grow: 1; overflow-y: auto; min-height: 50px; }
+        .task-card { background-color: #fff; border-radius: 3px; box-shadow: 0 1px 0 rgba(9,30,66,.25); padding: 10px; margin-bottom: 8px; cursor: grab; transition: background-color 0.2s; }
+        .task-card:hover { background-color: #f4f5f7; }
+        .task-id { font-size: 0.75em; color: #5e6c84; margin-bottom: 4px; display: block; }
+        .task-title { font-size: 0.95em; color: #172b4d; margin-bottom: 6px; line-height: 1.4; }
+        .task-meta { display: flex; gap: 5px; flex-wrap: wrap; }
+        .badge { font-size: 0.7em; padding: 2px 4px; border-radius: 3px; font-weight: 600; }
+        .badge-priority-highest { background-color: #ff5630; color: white; }
+        .badge-priority-high { background-color: #ffab00; color: white; }
+        .badge-priority-medium { background-color: #0065ff; color: white; }
+        .badge-priority-low { background-color: #36b37e; color: white; }
+        .badge-type { background-color: #dfe1e6; color: #172b4d; }
+        .badge-field { background-color: #f1f2f4; color: #42526e; }
+        .badge-count { background-color: #6554c0; color: white; }
+        .badge-label { background-color: #00b8d9; color: white; }
+        
+        /* Drag and Drop styles */
+        .task-card.dragging { opacity: 0.5; }
+        .column.drag-over { background-color: #dfe1e6; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 4px; width: 400px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9em; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #dfe1e6; border-radius: 3px; }
+        .field-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-bottom: 8px; }
+        .field-row input { margin: 0; }
+        .field-row button { padding: 6px 10px; }
+        .inline-actions { display: flex; gap: 8px; align-items: center; }
+        .comment-list { max-height: 160px; overflow-y: auto; margin: 0; padding-left: 18px; }
+        .comment-list li { margin-bottom: 6px; }
+        .comment-meta { color: #5e6c84; font-size: 0.75em; margin-left: 6px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 3px; cursor: pointer; font-weight: 600; }
+        .btn-primary { background-color: #0052cc; color: white; }
+        .btn-secondary { background-color: rgba(9,30,66,.04); color: #172b4d; margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1>PokeClone Tasks</h1>
+        <button class="btn btn-primary" onclick="openAddModal()">+ Add Task</button>
+    </div>
+    
+    <div class="board" id="board">
+        <!-- Columns will be injected here -->
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Add Task</h2>
+            <input type="hidden" id="taskId">
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="taskTitle" required>
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select id="taskStatus">
+                    <option value="To Do">To Do</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="On Hold">On Hold</option>
+                    <option value="Done">Done</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Priority</label>
+                <select id="taskPriority">
+                    <option value="Highest">Highest</option>
+                    <option value="High">High</option>
+                    <option value="Medium" selected>Medium</option>
+                    <option value="Low">Low</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Type</label>
+                <input type="text" id="taskType" value="Task">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="taskDescription" rows="4" placeholder="Add details for this task"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Labels</label>
+                <input type="text" id="taskLabels" placeholder="e.g. overworld, gameplay, feature">
+            </div>
+            <div class="form-group">
+                <label>Depends On</label>
+                <input type="text" id="taskDependsOn" placeholder="e.g. POKE-10, TEST-1">
+            </div>
+            <div class="form-group">
+                <label>Acceptance Criteria</label>
+                <textarea id="taskAcceptance" rows="4" placeholder="List acceptance criteria, one per line"></textarea>
+                <div style="margin-top:10px; color:#5e6c84; font-size:0.85em;">Optional: add more fields</div>
+                <div id="fieldsContainer" style="margin-top:8px;"></div>
+                <div class="inline-actions" style="margin-top:4px;">
+                    <button class="btn btn-secondary" type="button" onclick="addFieldRow()">+ Add field</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Comments</label>
+                <ul id="commentList" class="comment-list"></ul>
+                <div class="inline-actions" style="margin-top: 8px;">
+                    <input type="text" id="newCommentText" placeholder="Add a comment">
+                    <button class="btn btn-secondary" type="button" onclick="addComment()">Add</button>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveTask()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const COLUMNS = ["To Do", "In Progress", "On Hold", "Done"];
+        let tasks = [];
+        let editingComments = [];
+
+        async function fetchTasks() {
+            const res = await fetch('/api/tasks');
+            tasks = await res.json();
+            renderBoard();
+        }
+
+        function renderBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+
+            COLUMNS.forEach(status => {
+                const col = document.createElement('div');
+                col.className = 'column';
+                col.innerHTML = `<div class="column-header">${status} <span style="color:#5e6c84; font-size:0.8em;">${tasks.filter(t => t.status === status).length}</span></div>`;
+                
+                const list = document.createElement('div');
+                list.className = 'task-list';
+                list.dataset.status = status;
+                list.ondragover = e => { e.preventDefault(); list.parentElement.classList.add('drag-over'); };
+                list.ondragleave = e => list.parentElement.classList.remove('drag-over');
+                list.ondrop = handleDrop;
+
+                tasks.filter(t => t.status === status).forEach(task => {
+                    const card = document.createElement('div');
+                    card.className = 'task-card';
+                    card.draggable = true;
+                    card.ondragstart = e => e.dataTransfer.setData('text/plain', task.id);
+                    card.onclick = () => openEditModal(task);
+                    
+                    const priorityClass = `badge-priority-${task.priority ? task.priority.toLowerCase() : 'medium'}`;
+                    
+                    card.innerHTML = `
+                        <span class="task-id">${task.id}</span>
+                        <div class="task-title">${task.title}</div>
+                        ${task.description ? renderDescription(task.description) : ''}
+                        <div class="task-meta">
+                            <span class="badge ${priorityClass}">${task.priority || 'Medium'}</span>
+                            <span class="badge badge-type">${task.type || 'Task'}</span>
+                            ${renderLabelBadges(task.labels)}
+                            ${renderFieldBadges(task.fields)}
+                            ${renderCommentBadge(task.comments)}
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+                col.appendChild(list);
+                board.appendChild(col);
+            });
+        }
+
+        async function handleDrop(e) {
+            e.preventDefault();
+            e.target.closest('.column').classList.remove('drag-over');
+            const taskId = e.dataTransfer.getData('text/plain');
+            const newStatus = e.currentTarget.dataset.status;
+            
+            const task = tasks.find(t => t.id === taskId);
+            if (task && task.status !== newStatus) {
+                task.status = newStatus;
+                renderBoard(); // Optimistic update
+                await fetch(`/api/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+            }
+        }
+
+        function openAddModal() {
+            document.getElementById('modalTitle').innerText = 'Add Task';
+            document.getElementById('taskId').value = '';
+            document.getElementById('taskTitle').value = '';
+            document.getElementById('taskStatus').value = 'To Do';
+            document.getElementById('taskPriority').value = 'Medium';
+            document.getElementById('taskType').value = 'Task';
+            document.getElementById('taskDescription').value = '';
+            document.getElementById('taskLabels').value = '';
+            document.getElementById('taskDependsOn').value = '';
+            document.getElementById('taskAcceptance').value = '';
+            setFields([]);
+            setComments([]);
+            document.getElementById('taskModal').style.display = 'flex';
+        }
+
+        function openEditModal(task) {
+            document.getElementById('modalTitle').innerText = 'Edit Task';
+            document.getElementById('taskId').value = task.id;
+            document.getElementById('taskTitle').value = task.title;
+            document.getElementById('taskStatus').value = task.status;
+            document.getElementById('taskPriority').value = task.priority || 'Medium';
+            document.getElementById('taskType').value = task.type || 'Task';
+            document.getElementById('taskDescription').value = task.description || '';
+            document.getElementById('taskLabels').value = (task.labels || []).join(', ');
+            document.getElementById('taskDependsOn').value = (task.dependsOn || []).join(', ');
+            document.getElementById('taskAcceptance').value = (task.acceptanceCriteria || []).join('\\n');
+            setFields(task.fields || []);
+            setComments(task.comments || []);
+            document.getElementById('taskModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('taskModal').style.display = 'none';
+        }
+
+        async function saveTask() {
+            const id = document.getElementById('taskId').value;
+            const data = {
+                title: document.getElementById('taskTitle').value,
+                status: document.getElementById('taskStatus').value,
+                priority: document.getElementById('taskPriority').value,
+                type: document.getElementById('taskType').value,
+                description: document.getElementById('taskDescription').value.trim(),
+                labels: splitListField(document.getElementById('taskLabels').value),
+                dependsOn: splitListField(document.getElementById('taskDependsOn').value),
+                acceptanceCriteria: splitLinesField(document.getElementById('taskAcceptance').value),
+                fields: collectFields(),
+                comments: editingComments
+            };
+
+            if (id) {
+                await fetch(`/api/tasks/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            } else {
+                await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            }
+            closeModal();
+            fetchTasks();
+        }
+
+        function renderDescription(description) {
+            if (!description) return '';
+            const snippet = description.length > 80 ? `${description.slice(0, 77)}...` : description;
+            return `<div style="color:#5e6c84; font-size:0.85em; margin-bottom:6px;">${escapeHtml(snippet)}</div>`;
+        }
+
+        function renderFieldBadges(fields) {
+            if (!fields || !fields.length) return '';
+            return fields
+                .filter(field => field.key && field.value)
+                .slice(0, 3)
+                .map(field => `<span class="badge badge-field">${escapeHtml(field.key)}: ${escapeHtml(field.value)}</span>`)
+                .join('');
+        }
+
+        function renderCommentBadge(comments) {
+            const count = comments ? comments.length : 0;
+            if (!count) return '';
+            return `<span class="badge badge-count">${count} comment${count === 1 ? '' : 's'}</span>`;
+        }
+
+        function renderLabelBadges(labels) {
+            if (!labels || !labels.length) return '';
+            return labels
+                .slice(0, 3)
+                .map(label => `<span class="badge badge-label">${escapeHtml(label)}</span>`)
+                .join('');
+        }
+
+        function addFieldRow(field = { key: '', value: '' }) {
+            const container = document.getElementById('fieldsContainer');
+            const row = document.createElement('div');
+            row.className = 'field-row';
+            row.innerHTML = `
+                <input type="text" placeholder="Field name" value="${escapeHtml(field.key || '')}">
+                <input type="text" placeholder="Value" value="${escapeHtml(field.value || '')}">
+                <button class="btn btn-secondary" type="button">Remove</button>
+            `;
+            row.querySelector('button').onclick = () => row.remove();
+            container.appendChild(row);
+        }
+
+        function setFields(fields) {
+            const container = document.getElementById('fieldsContainer');
+            container.innerHTML = '';
+            (fields || []).forEach(field => addFieldRow(field));
+        }
+
+        function collectFields() {
+            const rows = Array.from(document.querySelectorAll('#fieldsContainer .field-row'));
+            return rows
+                .map(row => {
+                    const inputs = row.querySelectorAll('input');
+                    return { key: inputs[0].value.trim(), value: inputs[1].value.trim() };
+                })
+                .filter(field => field.key || field.value);
+        }
+
+        function splitListField(value) {
+            return String(value || '')
+                .split(',')
+                .map(part => part.trim())
+                .filter(Boolean);
+        }
+
+        function splitLinesField(value) {
+            return String(value || '')
+                .split(/\\r?\\n/)
+                .map(part => part.trim())
+                .filter(Boolean);
+        }
+
+        function setComments(comments) {
+            editingComments = (comments || []).map(comment => ({ text: comment.text, createdAt: comment.createdAt }));
+            renderComments();
+        }
+
+        function addComment() {
+            const input = document.getElementById('newCommentText');
+            const text = input.value.trim();
+            if (!text) return;
+            editingComments.push({ text, createdAt: new Date().toISOString() });
+            input.value = '';
+            renderComments();
+        }
+
+        function removeComment(index) {
+            editingComments.splice(index, 1);
+            renderComments();
+        }
+
+        function renderComments() {
+            const list = document.getElementById('commentList');
+            list.innerHTML = '';
+            editingComments.forEach((comment, index) => {
+                const item = document.createElement('li');
+                const dateText = comment.createdAt ? new Date(comment.createdAt).toLocaleString() : 'just now';
+                item.innerHTML = `
+                    <span>${escapeHtml(comment.text)}</span>
+                    <span class="comment-meta">${escapeHtml(dateText)}</span>
+                    <button class="btn btn-secondary" type="button" style="margin-left:8px;">Remove</button>
+                `;
+                item.querySelector('button').onclick = () => removeComment(index);
+                list.appendChild(item);
+            });
+        }
+
+        function escapeHtml(text) {
+            return String(text || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        fetchTasks();
+    </script>
+</body>
+</html>

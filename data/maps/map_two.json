@@ -1,0 +1,62 @@
+{
+  "id": "map_two",
+  "name": "map_two",
+  "version": "1.0.0",
+  "tileSize": 32,
+  "dimensions": {
+    "width": 3,
+    "height": 3
+  },
+  "tilesetId": "test",
+  "layers": [
+    {
+      "name": "ground",
+      "tiles": [
+        [
+          "floor",
+          "floor",
+          "floor"
+        ],
+        [
+          "floor",
+          "floor",
+          "floor"
+        ],
+        [
+          "floor",
+          "floor",
+          "floor"
+        ]
+      ]
+    },
+    {
+      "name": "overlay",
+      "tiles": [
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null
+        ]
+      ]
+    }
+  ],
+  "connections": [],
+  "entities": [],
+  "triggers": [],
+  "overrides": {},
+  "musicId": "song2",
+  "spawn": {
+    "x": 1,
+    "y": 1
+  }
+}

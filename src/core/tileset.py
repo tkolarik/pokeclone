@@ -55,11 +55,21 @@ class NPCSprite:
 
     @classmethod
     def from_dict(cls, data: Dict[str, object]) -> "NPCSprite":
+        states = data.get("states", {}) or {}
+        # Normalize legacy angle keys to canonical names used by the editor.
+        angle_map = {"down": "south", "up": "north", "left": "west", "right": "east"}
+        normalized_states: Dict[str, Dict[str, List[str]]] = {}
+        for state, angles in states.items():
+            normalized_states[state] = {}
+            for angle, frames in (angles or {}).items():
+                normalized_angle = angle_map.get(angle, angle)
+                normalized_states[state].setdefault(normalized_angle, [])
+                normalized_states[state][normalized_angle].extend(frames or [])
         return cls(
             id=data.get("id", ""),
             name=data.get("name", "") or data.get("id", ""),
             frame_duration_ms=data.get("frameDurationMs", 200),
-            states=data.get("states", {}) or {},
+            states=normalized_states,
         )
 
     def to_dict(self) -> Dict[str, object]:

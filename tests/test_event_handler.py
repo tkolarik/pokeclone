@@ -24,16 +24,28 @@ class TestEventHandlerPaletteInteraction(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Minimal Pygame setup needed for Rect/Event/Font
+        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+        pygame.display.init()
         pygame.font.init() 
 
     @classmethod
     def tearDownClass(cls):
+        pygame.display.quit()
         pygame.font.quit()
 
     def setUp(self):
+        self.get_mods_patcher = patch("pygame.key.get_mods", return_value=0)
+        self.get_mods_patcher.start()
         # Mock the Editor
         self.mock_editor = MagicMock()
         self.mock_editor.dialog_mode = None # Ensure no dialog is active
+        self.mock_editor.buttons = []
+        self.mock_editor.adjusting_alpha = False
+        self.mock_editor.adjusting_subject_alpha = False
+        self.mock_editor.tile_frame_dragging_scrollbar = False
+        self.mock_editor.npc_state_dragging_scrollbar = False
+        self.mock_editor.npc_angle_dragging_scrollbar = False
+        self.mock_editor.panning = False
 
         # --- Mock Palette --- 
         self.mock_editor.palette = MagicMock(spec=Palette)
@@ -60,6 +72,9 @@ class TestEventHandlerPaletteInteraction(unittest.TestCase):
 
         # Create the real EventHandler instance with the mock Editor
         self.event_handler = EventHandler(self.mock_editor)
+
+    def tearDown(self):
+        self.get_mods_patcher.stop()
 
     def test_handle_mouse_down_calls_palette_click_correctly(self):
         """Verify EventHandler calls Palette.handle_click with correct args on palette click."""
@@ -92,19 +107,25 @@ class TestEventHandlerOtherInteractions(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+        pygame.display.init()
         pygame.font.init()
 
     @classmethod
     def tearDownClass(cls):
+        pygame.display.quit()
         pygame.font.quit()
 
     def setUp(self):
+        self.get_mods_patcher = patch("pygame.key.get_mods", return_value=0)
+        self.get_mods_patcher.start()
         self.mock_editor = MagicMock()
         self.mock_editor.dialog_mode = None
         self.mock_editor.edit_mode = 'monster' # Default to monster
 
         # Mock ToolManager
         self.mock_editor.tool_manager = MagicMock(spec=ToolManager)
+        self.mock_editor.tool_manager.active_tool_name = "draw"
 
         # Mock Buttons (list of mock buttons)
         self.mock_button_action = MagicMock() # Action for the button
@@ -138,6 +159,10 @@ class TestEventHandlerOtherInteractions(unittest.TestCase):
         self.mock_editor.subj_alpha_slider_rect.width = 150 # Provide a width
         self.mock_editor.adjusting_alpha = False # <<< Add mock attribute
         self.mock_editor.adjusting_subject_alpha = False # <<< Add mock attribute
+        self.mock_editor.tile_frame_dragging_scrollbar = False
+        self.mock_editor.npc_state_dragging_scrollbar = False
+        self.mock_editor.npc_angle_dragging_scrollbar = False
+        self.mock_editor.panning = False
 
         # Mock Palette interaction to prevent interference
         self.mock_editor.palette = MagicMock(spec=Palette)
@@ -149,6 +174,9 @@ class TestEventHandlerOtherInteractions(unittest.TestCase):
         
         # Create EventHandler
         self.event_handler = EventHandler(self.mock_editor)
+
+    def tearDown(self):
+        self.get_mods_patcher.stop()
 
     def test_button_click_calls_action(self):
         """Verify clicking a button calls its action."""

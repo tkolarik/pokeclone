@@ -1,0 +1,76 @@
+{
+  "id": "map_one",
+  "name": "map_one",
+  "version": "1.0.0",
+  "tileSize": 32,
+  "dimensions": {
+    "width": 3,
+    "height": 3
+  },
+  "tilesetId": "test",
+  "layers": [
+    {
+      "name": "ground",
+      "tiles": [
+        [
+          "floor",
+          "floor",
+          "floor"
+        ],
+        [
+          "floor",
+          "floor",
+          "floor"
+        ],
+        [
+          "floor",
+          "floor",
+          "floor"
+        ]
+      ]
+    },
+    {
+      "name": "overlay",
+      "tiles": [
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null
+        ]
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "north_exit",
+      "type": "edge",
+      "from": "up",
+      "to": {
+        "mapId": "map_two",
+        "spawn": {
+          "x": 1,
+          "y": 2
+        },
+        "facing": "south"
+      }
+    }
+  ],
+  "entities": [],
+  "triggers": [],
+  "overrides": {},
+  "musicId": "song1",
+  "spawn": {
+    "x": 1,
+    "y": 1
+  }
+}

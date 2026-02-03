@@ -5,21 +5,21 @@
 - Establish stable formats and IDs so future features (tile manager, per-map music) plug in without data migrations.
 
 ## Goals
-- Fast tile painting with common tools and a preview of the selected tile.
-- Visible and editable connections between maps (edges and explicit portals) with spawn position and facing.
-- Entity and trigger authoring with dialog/text support that the overworld can render.
-- Per-cell property overrides (walkable, encounter flags, water/slow/warp, etc.).
-- Save/load maps in a versioned, schema-validated format.
-- undo/redo
-- state based triggers conditional logic simple actions should allow for features on a similar level as pokemon crystal. check for flags to determine entity dialog, environmental puzzles to make parts of environment appear/disappear or lock and unlock.
-- colision UI with capbility to add override 
-- preview adjcent maps (helps with aligning paths for example)
-- connection with tile editor (planned feature) launch pixle art editor with selected already active, ability to write placeholder single color tiles directly to tile path for later editing.
-- NPCs can be battleable or non, with predefined teams, editable a team editor pop up which can be opened from map editor.
-- Tiles can be rotated natively without requiring multiple images saved
-- Tiles and entities support animations.
-- Maps include NPC entities as special "tile" types
-- Global Player spawn on new game - special tile
+- Fast tile painting with common tools and a preview of the selected tile. (Complete)
+- Visible and editable connections between maps (edges and explicit portals) with spawn position and facing. (Complete)
+- Entity and trigger authoring with dialog/text support that the overworld can render. (Complete)
+- Per-cell property overrides (walkable, encounter flags, water/slow/warp, etc.). (Complete)
+- Save/load maps in a versioned, schema-validated format. (Complete)
+- undo/redo (Complete)
+- state based triggers conditional logic simple actions should allow for features on a similar level as pokemon crystal. check for flags to determine entity dialog, environmental puzzles to make parts of environment appear/disappear or lock and unlock. (In Progress)
+- colision UI with capbility to add override (Complete)
+- preview adjcent maps (helps with aligning paths for example) (Complete)
+- connection with tile editor (planned feature) launch pixle art editor with selected already active, ability to write placeholder single color tiles directly to tile path for later editing. (Complete)
+- NPCs can be battleable or non, with predefined teams, editable a team editor pop up which can be opened from map editor. (To Do)
+- Tiles can be rotated natively without requiring multiple images saved (To Do)
+- Tiles and entities support animations. (Complete)
+- Maps include NPC entities as special "tile" types (Complete)
+- Global Player spawn on new game - special tile (Complete)
 
 ## Non-goals (for now)
 - Scripting beyond dialog/text triggers (note in data model for future expansion).

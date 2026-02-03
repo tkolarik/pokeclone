@@ -66,6 +66,11 @@ REFERENCE_IMAGE_DIR = os.path.join(PROJECT_ROOT, "references")
 
 # Battle Mechanics
 STAT_CHANGE_MULTIPLIER = 0.66
+MIN_MONSTER_LEVEL = 1
+MAX_MONSTER_LEVEL = 100
+DEFAULT_MONSTER_LEVEL = 25
+LEVEL_STAT_GROWTH = 0.02
+MAX_BATTLE_MOVES = 4
 
 # UI Elements Fonts (Using None uses default pygame font)
 DEFAULT_FONT = None # Pygame default

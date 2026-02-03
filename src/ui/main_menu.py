@@ -8,6 +8,8 @@ MENU_OPTIONS = [
     ("Overworld", "src.overworld.overworld"),
     ("Battle Simulator", "src.battle.battle_simulator"),
     ("Pixel Art Editor", "src.editor.pixle_art_editor"),
+    ("Monster Editor", "src.editor.monster_editor"),
+    ("Map Editor", "src.overworld.map_editor"),
     ("Quit", None),
 ]
 

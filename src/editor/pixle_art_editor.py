@@ -7,6 +7,7 @@ import os
 import json
 import copy
 import colorsys
+from typing import Optional
 
 # Import the centralized config
 from src.core import config
@@ -21,6 +22,8 @@ from src.editor.tool_manager import ToolManager
 
 NPC_STATES = ["standing", "walking"]
 NPC_ANGLES = ["south", "west", "east", "north"]
+PLAYER_NPC_ID = "player"
+PLAYER_NPC_NAME = "Player"
 
 # Tkinter root is initialized lazily to avoid crashes on launch in some setups.
 _tk_root_instance = None
@@ -174,6 +177,13 @@ class Editor:
         self.tile_panel_rect = pygame.Rect(panel_x, 50, panel_width, config.EDITOR_HEIGHT - 100)
         self.tile_button_rects = []
         self.current_tile_frame_index = 0
+        self.tile_frame_scroll = 0
+        self.tile_frame_button_rects = []
+        self.tile_frame_tray_rect = None
+        self.tile_frame_scrollbar_rect = None
+        self.tile_frame_scroll_thumb_rect = None
+        self.tile_frame_dragging_scrollbar = False
+        self.tile_frame_visible = 0
         self.asset_edit_target = 'tile'  # 'tile' or 'npc'
         self.tile_anim_last_tick = 0
 
@@ -184,6 +194,20 @@ class Editor:
         self.current_npc_state = "standing"
         self.current_npc_angle = "south"
         self.current_npc_frame_index = 0
+        self.npc_state_scroll = 0
+        self.npc_angle_scroll = 0
+        self.npc_state_button_rects = []
+        self.npc_angle_button_rects = []
+        self.npc_state_tray_rect = None
+        self.npc_angle_tray_rect = None
+        self.npc_state_scrollbar_rect = None
+        self.npc_state_scroll_thumb_rect = None
+        self.npc_state_dragging_scrollbar = False
+        self.npc_state_visible = 0
+        self.npc_angle_scrollbar_rect = None
+        self.npc_angle_scroll_thumb_rect = None
+        self.npc_angle_dragging_scrollbar = False
+        self.npc_angle_visible = 0
 
         # Instantiate the EventHandler
         self.event_handler = EventHandler(self)
@@ -201,6 +225,7 @@ class Editor:
         self.buttons = [] # Start with empty buttons
 
         self.font = pygame.font.Font(config.DEFAULT_FONT, config.EDITOR_INFO_FONT_SIZE)
+        self.font_small = pygame.font.Font(config.DEFAULT_FONT, 12)
 
         self.brush_slider = pygame.Rect(50, config.EDITOR_HEIGHT - 40, 200, 20)
 
@@ -333,6 +358,8 @@ class Editor:
             self.current_background = None
             self.load_monster() # Ensure monster is loaded if chosen
             self.buttons = self.create_buttons() # Recreate buttons for the correct mode
+            if self.reference_image:
+                self._scale_reference_image()
             # --- ADD CLEARING LOGIC FOR MONSTER MODE --- 
             self.dialog_mode = None 
             self.dialog_prompt = ""
@@ -346,6 +373,8 @@ class Editor:
         self.load_tileset(default_path if os.path.exists(default_path) else None)
         self.asset_edit_target = 'tile'
         self.buttons = self.create_buttons()
+        if self.reference_image:
+            self._scale_reference_image()
         self.dialog_mode = None
         self.dialog_prompt = ""
         self.dialog_options = []
@@ -473,6 +502,42 @@ class Editor:
     def _ensure_npc_state_angle(self, npc: NPCSprite):
         npc.states.setdefault(self.current_npc_state, {})
         npc.states[self.current_npc_state].setdefault(self.current_npc_angle, [f"{npc.id}_{self.current_npc_state}_{self.current_npc_angle}.png"])
+
+    def _ensure_player_npc(self) -> Optional[NPCSprite]:
+        if not self.tile_set:
+            print("No tileset loaded.")
+            return None
+        player_npc = None
+        for npc in self.tile_set.npcs:
+            if npc.id == PLAYER_NPC_ID:
+                player_npc = npc
+                break
+        if not player_npc:
+            player_npc = NPCSprite(id=PLAYER_NPC_ID, name=PLAYER_NPC_NAME, states={})
+            # Keep player at the top of the list for quick access.
+            self.tile_set.npcs.insert(0, player_npc)
+        if not player_npc.name:
+            player_npc.name = PLAYER_NPC_NAME
+        for state in NPC_STATES:
+            player_npc.states.setdefault(state, {})
+            for angle in NPC_ANGLES:
+                player_npc.states[state].setdefault(
+                    angle,
+                    [f"{PLAYER_NPC_ID}_{state}_{angle}.png"],
+                )
+        self.tile_set.ensure_assets()
+        return player_npc
+
+    def edit_player_sprite(self):
+        player_npc = self._ensure_player_npc()
+        if not player_npc:
+            return
+        self.selected_npc_id = player_npc.id
+        self.current_npc_state = NPC_STATES[0]
+        self.current_npc_angle = NPC_ANGLES[0]
+        self.current_npc_frame_index = 0
+        self._load_current_npc_frame()
+        print("Selected player sprite for editing.")
 
     def _load_current_npc_frame(self):
         self.tile_canvas.frame.fill((*config.BLACK[:3], 0))
@@ -796,8 +861,10 @@ class Editor:
         surface.blit(header, (panel.x + 8, panel.y + 6))
 
         start_y = panel.y + 30
+        tray_height = 110
+        list_height = panel.height - tray_height - 20
         item_height = 60
-        visible = max(1, panel.height // item_height - 1)
+        visible = max(1, list_height // item_height)
         total_tiles = len(self.tile_set.tiles)
         self.tile_list_scroll = max(0, min(self.tile_list_scroll, max(0, total_tiles - visible)))
         self.tile_button_rects = []
@@ -823,9 +890,39 @@ class Editor:
             surface.blit(id_surf, (item_rect.x + 60, item_rect.y + 30))
             self.tile_button_rects.append((item_rect, tile.id))
 
+        self._draw_tile_frame_tray(surface, pygame.Rect(panel.x + 8, panel.bottom - tray_height, panel.width - 16, tray_height - 8))
+
     def handle_tile_panel_click(self, pos):
         if not self.tile_set or not self.tile_panel_rect.collidepoint(pos):
             return False
+        if self.tile_frame_tray_rect and self.tile_frame_tray_rect.collidepoint(pos):
+            if self.tile_frame_scrollbar_rect and self.tile_frame_scrollbar_rect.collidepoint(pos):
+                frames = self.current_tile().frames if self.current_tile() else []
+                if self.tile_frame_scroll_thumb_rect and self.tile_frame_scroll_thumb_rect.collidepoint(pos):
+                    self.tile_frame_dragging_scrollbar = True
+                thumb_height = self.tile_frame_scroll_thumb_rect.height if self.tile_frame_scroll_thumb_rect else 20
+                self.tile_frame_scroll = self._set_tray_scroll_from_thumb(
+                    pos[1],
+                    len(frames),
+                    self.tile_frame_visible,
+                    self.tile_frame_scrollbar_rect,
+                    thumb_height,
+                )
+                return True
+            margin = 10
+            if pos[1] < self.tile_frame_tray_rect.y + margin and self.tile_frame_scroll > 0:
+                self.tile_frame_scroll -= 1
+                return True
+            frames = self.current_tile().frames if self.current_tile() else []
+            if pos[1] > self.tile_frame_tray_rect.bottom - margin and self.tile_frame_scroll < max(0, len(frames) - 1):
+                self.tile_frame_scroll += 1
+                return True
+        # frame tray click
+        for rect, frame_index in self.tile_frame_button_rects:
+            if rect.collidepoint(pos):
+                self.current_tile_frame_index = frame_index
+                self._load_current_tile_to_canvas()
+                return True
         for rect, tile_id in self.tile_button_rects:
             if rect.collidepoint(pos):
                 self.select_tile_by_id(tile_id)
@@ -853,8 +950,10 @@ class Editor:
         surface.blit(header, (panel.x + 8, panel.y + 6))
 
         start_y = panel.y + 30
+        tray_height = 160
+        list_height = panel.height - tray_height - 20
         item_height = 60
-        visible = max(1, panel.height // item_height - 1)
+        visible = max(1, list_height // item_height)
         total = len(self.tile_set.npcs)
         self.npc_list_scroll = max(0, min(self.npc_list_scroll, max(0, total - visible)))
         self.npc_button_rects = []
@@ -888,9 +987,67 @@ class Editor:
             surface.blit(id_surf, (item_rect.x + 60, item_rect.y + 30))
             self.npc_button_rects.append((item_rect, npc.id))
 
+        tray_top = panel.bottom - tray_height
+        state_rect = pygame.Rect(panel.x + 8, tray_top, panel.width - 16, 70)
+        angle_rect = pygame.Rect(panel.x + 8, tray_top + 80, panel.width - 16, 70)
+        self._draw_npc_state_tray(surface, state_rect)
+        self._draw_npc_angle_tray(surface, angle_rect)
+
     def handle_npc_panel_click(self, pos):
         if not self.tile_set or not self.tile_panel_rect.collidepoint(pos):
             return False
+        if self.npc_state_tray_rect and self.npc_state_tray_rect.collidepoint(pos):
+            if self.npc_state_scrollbar_rect and self.npc_state_scrollbar_rect.collidepoint(pos):
+                states = list(self.current_npc().states.keys()) if self.current_npc() else []
+                if self.npc_state_scroll_thumb_rect and self.npc_state_scroll_thumb_rect.collidepoint(pos):
+                    self.npc_state_dragging_scrollbar = True
+                thumb_height = self.npc_state_scroll_thumb_rect.height if self.npc_state_scroll_thumb_rect else 20
+                self.npc_state_scroll = self._set_tray_scroll_from_thumb(
+                    pos[1],
+                    len(states),
+                    self.npc_state_visible,
+                    self.npc_state_scrollbar_rect,
+                    thumb_height,
+                )
+                return True
+            margin = 10
+            states = list(self.current_npc().states.keys()) if self.current_npc() else []
+            if pos[1] < self.npc_state_tray_rect.y + margin and self.npc_state_scroll > 0:
+                self.npc_state_scroll -= 1
+                return True
+            if pos[1] > self.npc_state_tray_rect.bottom - margin and self.npc_state_scroll < max(0, len(states) - 1):
+                self.npc_state_scroll += 1
+                return True
+        if self.npc_angle_tray_rect and self.npc_angle_tray_rect.collidepoint(pos):
+            if self.npc_angle_scrollbar_rect and self.npc_angle_scrollbar_rect.collidepoint(pos):
+                angles = list(self.current_npc().states.get(self.current_npc_state, {}).keys()) if self.current_npc() else []
+                if self.npc_angle_scroll_thumb_rect and self.npc_angle_scroll_thumb_rect.collidepoint(pos):
+                    self.npc_angle_dragging_scrollbar = True
+                thumb_height = self.npc_angle_scroll_thumb_rect.height if self.npc_angle_scroll_thumb_rect else 20
+                self.npc_angle_scroll = self._set_tray_scroll_from_thumb(
+                    pos[1],
+                    len(angles),
+                    self.npc_angle_visible,
+                    self.npc_angle_scrollbar_rect,
+                    thumb_height,
+                )
+                return True
+            margin = 10
+            angles = list(self.current_npc().states.get(self.current_npc_state, {}).keys()) if self.current_npc() else []
+            if pos[1] < self.npc_angle_tray_rect.y + margin and self.npc_angle_scroll > 0:
+                self.npc_angle_scroll -= 1
+                return True
+            if pos[1] > self.npc_angle_tray_rect.bottom - margin and self.npc_angle_scroll < max(0, len(angles) - 1):
+                self.npc_angle_scroll += 1
+                return True
+        for rect, state_name in self.npc_state_button_rects:
+            if rect.collidepoint(pos):
+                self.set_npc_state(state_name)
+                return True
+        for rect, angle_name in self.npc_angle_button_rects:
+            if rect.collidepoint(pos):
+                self.set_npc_angle(angle_name)
+                return True
         for rect, npc_id in self.npc_button_rects:
             if rect.collidepoint(pos):
                 self.selected_npc_id = npc_id
@@ -906,6 +1063,182 @@ class Editor:
             self.npc_list_scroll += 1
             return True
         return False
+
+    def _draw_tile_frame_tray(self, surface, tray_rect):
+        tile = self.current_tile()
+        self.tile_frame_button_rects = []
+        self.tile_frame_tray_rect = tray_rect
+        self.tile_frame_scrollbar_rect = None
+        self.tile_frame_scroll_thumb_rect = None
+        self.tile_frame_visible = 0
+        if not tile:
+            return
+        pygame.draw.rect(surface, config.GRAY_DARK, tray_rect)
+        pygame.draw.rect(surface, config.BLACK, tray_rect, 1)
+        label = self.font.render("Frames", True, config.WHITE)
+        surface.blit(label, (tray_rect.x + 6, tray_rect.y + 4))
+        frames = tile.frames or []
+        if not frames:
+            return
+        item_size = 48
+        padding = 6
+        start_x = tray_rect.x + 6
+        start_y = tray_rect.y + 24
+        usable_width = tray_rect.width - 12
+        cols = max(1, usable_width // (item_size + padding))
+        rows_visible = max(1, (tray_rect.height - 30) // (item_size + padding))
+        visible = cols * rows_visible
+        if len(frames) > visible:
+            scrollbar_width = 8
+            usable_width = max(1, usable_width - scrollbar_width - padding)
+            cols = max(1, usable_width // (item_size + padding))
+            visible = cols * rows_visible
+        self.tile_frame_visible = visible
+        self.tile_frame_scroll = max(0, min(self.tile_frame_scroll, max(0, len(frames) - visible)))
+        for idx in range(self.tile_frame_scroll, min(len(frames), self.tile_frame_scroll + visible)):
+            row = (idx - self.tile_frame_scroll) // cols
+            col = (idx - self.tile_frame_scroll) % cols
+            rect = pygame.Rect(
+                start_x + col * (item_size + padding),
+                start_y + row * (item_size + padding),
+                item_size,
+                item_size,
+            )
+            is_selected = idx == self.current_tile_frame_index
+            pygame.draw.rect(surface, config.WHITE if is_selected else config.GRAY_MEDIUM, rect)
+            pygame.draw.rect(surface, config.BLACK, rect, 1)
+            try:
+                path = self.tile_set.tile_image_path(tile, idx)
+                preview = pygame.image.load(path).convert_alpha()
+                preview = pygame.transform.scale(preview, (item_size - 6, item_size - 6))
+                surface.blit(preview, (rect.x + 3, rect.y + 3))
+            except pygame.error:
+                pass
+            self.tile_frame_button_rects.append((rect, idx))
+        content_top = tray_rect.y + 24
+        self.tile_frame_scrollbar_rect, self.tile_frame_scroll_thumb_rect = self._make_tray_scrollbar(
+            tray_rect,
+            content_top,
+            len(frames),
+            visible,
+            self.tile_frame_scroll,
+        )
+        if self.tile_frame_scrollbar_rect:
+            pygame.draw.rect(surface, config.GRAY_MEDIUM, self.tile_frame_scrollbar_rect)
+            if self.tile_frame_scroll_thumb_rect:
+                pygame.draw.rect(surface, config.GRAY_DARK, self.tile_frame_scroll_thumb_rect)
+
+    def _draw_npc_state_tray(self, surface, tray_rect):
+        npc = self.current_npc()
+        self.npc_state_button_rects = []
+        self.npc_state_tray_rect = tray_rect
+        self.npc_state_scrollbar_rect = None
+        self.npc_state_scroll_thumb_rect = None
+        self.npc_state_visible = 0
+        if not npc:
+            return
+        pygame.draw.rect(surface, config.GRAY_DARK, tray_rect)
+        pygame.draw.rect(surface, config.BLACK, tray_rect, 1)
+        label = self.font.render("States", True, config.WHITE)
+        surface.blit(label, (tray_rect.x + 6, tray_rect.y + 4))
+        states = list(npc.states.keys())
+        if not states:
+            return
+        item_height = 28
+        start_y = tray_rect.y + 24
+        visible = max(1, (tray_rect.height - 24) // item_height)
+        if len(states) > visible:
+            visible_width = tray_rect.width - 12 - 8
+        else:
+            visible_width = tray_rect.width - 12
+        self.npc_state_visible = visible
+        self.npc_state_scroll = max(0, min(self.npc_state_scroll, max(0, len(states) - visible)))
+        for row, idx in enumerate(range(self.npc_state_scroll, min(len(states), self.npc_state_scroll + visible))):
+            state = states[idx]
+            rect = pygame.Rect(tray_rect.x + 6, start_y + row * item_height, visible_width, item_height - 4)
+            is_selected = state == self.current_npc_state
+            pygame.draw.rect(surface, config.WHITE if is_selected else config.GRAY_MEDIUM, rect)
+            pygame.draw.rect(surface, config.BLACK, rect, 1)
+            text = self.font.render(state, True, config.BLUE if is_selected else config.BLACK)
+            surface.blit(text, (rect.x + 6, rect.y + 4))
+            self.npc_state_button_rects.append((rect, state))
+        content_top = tray_rect.y + 24
+        self.npc_state_scrollbar_rect, self.npc_state_scroll_thumb_rect = self._make_tray_scrollbar(
+            tray_rect,
+            content_top,
+            len(states),
+            visible,
+            self.npc_state_scroll,
+        )
+        if self.npc_state_scrollbar_rect:
+            pygame.draw.rect(surface, config.GRAY_MEDIUM, self.npc_state_scrollbar_rect)
+            if self.npc_state_scroll_thumb_rect:
+                pygame.draw.rect(surface, config.GRAY_DARK, self.npc_state_scroll_thumb_rect)
+
+    def _draw_npc_angle_tray(self, surface, tray_rect):
+        npc = self.current_npc()
+        self.npc_angle_button_rects = []
+        self.npc_angle_tray_rect = tray_rect
+        self.npc_angle_scrollbar_rect = None
+        self.npc_angle_scroll_thumb_rect = None
+        self.npc_angle_visible = 0
+        if not npc:
+            return
+        pygame.draw.rect(surface, config.GRAY_DARK, tray_rect)
+        pygame.draw.rect(surface, config.BLACK, tray_rect, 1)
+        label = self.font.render("Angles", True, config.WHITE)
+        surface.blit(label, (tray_rect.x + 6, tray_rect.y + 4))
+        angles = list(npc.states.get(self.current_npc_state, {}).keys())
+        if not angles:
+            return
+        item_size = 48
+        padding = 6
+        start_x = tray_rect.x + 6
+        start_y = tray_rect.y + 24
+        usable_width = tray_rect.width - 12
+        cols = max(1, usable_width // (item_size + padding))
+        rows_visible = max(1, (tray_rect.height - 30) // (item_size + padding))
+        visible = cols * rows_visible
+        if len(angles) > visible:
+            scrollbar_width = 8
+            usable_width = max(1, usable_width - scrollbar_width - padding)
+            cols = max(1, usable_width // (item_size + padding))
+            visible = cols * rows_visible
+        self.npc_angle_visible = visible
+        self.npc_angle_scroll = max(0, min(self.npc_angle_scroll, max(0, len(angles) - visible)))
+        for idx in range(self.npc_angle_scroll, min(len(angles), self.npc_angle_scroll + visible)):
+            row = (idx - self.npc_angle_scroll) // cols
+            col = (idx - self.npc_angle_scroll) % cols
+            angle = angles[idx]
+            rect = pygame.Rect(start_x + col * (item_size + padding), start_y + row * (item_size + padding), item_size, item_size)
+            is_selected = angle == self.current_npc_angle
+            pygame.draw.rect(surface, config.WHITE if is_selected else config.GRAY_MEDIUM, rect)
+            pygame.draw.rect(surface, config.BLACK, rect, 1)
+            # preview
+            frames = npc.states.get(self.current_npc_state, {}).get(angle, [])
+            if frames:
+                try:
+                    path = self.tile_set.npc_image_path(npc, self.current_npc_state, angle, 0)
+                    preview = pygame.image.load(path).convert_alpha()
+                    preview = pygame.transform.scale(preview, (item_size - 6, item_size - 6))
+                    surface.blit(preview, (rect.x + 3, rect.y + 3))
+                except pygame.error:
+                    pass
+            text = self.font_small.render(angle[0].upper(), True, config.BLACK)
+            surface.blit(text, (rect.x + 2, rect.y + 2))
+            self.npc_angle_button_rects.append((rect, angle))
+        content_top = tray_rect.y + 24
+        self.npc_angle_scrollbar_rect, self.npc_angle_scroll_thumb_rect = self._make_tray_scrollbar(
+            tray_rect,
+            content_top,
+            len(angles),
+            visible,
+            self.npc_angle_scroll,
+        )
+        if self.npc_angle_scrollbar_rect:
+            pygame.draw.rect(surface, config.GRAY_MEDIUM, self.npc_angle_scrollbar_rect)
+            if self.npc_angle_scroll_thumb_rect:
+                pygame.draw.rect(surface, config.GRAY_DARK, self.npc_angle_scroll_thumb_rect)
 
     def set_asset_edit_target(self, target: str):
         if target not in ['tile', 'npc']:
@@ -978,6 +1311,7 @@ class Editor:
         shared_buttons = [
             ("Clear", self.clear_current),
             ("Color Picker", self.open_color_picker),
+            ("Eyedropper", self.activate_eyedropper),
             ("Eraser", self.toggle_eraser),
             ("Fill", self.toggle_fill),
             ("Select", self.toggle_selection_mode),
@@ -998,6 +1332,7 @@ class Editor:
                 ("Switch Sprite", self.switch_sprite),
                 ("Load Ref Img", self.load_reference_image),
                 ("Clear Ref Img", self.clear_reference_image),
+                ("Import Ref", self.import_reference_to_canvas),
             ]
         elif self.edit_mode == 'background':
             mode_buttons = [
@@ -1024,6 +1359,9 @@ class Editor:
                     ("Save Tile", self.save_tile),
                     ("Save Tileset", self.save_tileset),
                     ("Load Tileset", self.trigger_load_tileset_dialog),
+                    ("Load Ref Img", self.load_reference_image),
+                    ("Clear Ref Img", self.clear_reference_image),
+                    ("Import Ref", self.import_reference_to_canvas),
                     ("New Tile", self.start_new_tile_dialog),
                     ("New Tileset", self.start_new_tileset_dialog),
                     ("Toggle Walk", self.toggle_tile_walkable),
@@ -1040,15 +1378,13 @@ class Editor:
                     ("Save Tileset", self.save_tileset),
                     ("Save NPC", self.save_npc_frame),
                     ("Load Tileset", self.trigger_load_tileset_dialog),
+                    ("Load Ref Img", self.load_reference_image),
+                    ("Clear Ref Img", self.clear_reference_image),
+                    ("Import Ref", self.import_reference_to_canvas),
+                    ("Edit Player", self.edit_player_sprite),
                     ("New NPC", self.start_new_npc_dialog),
                     ("Prev NPC", self.previous_npc),
                     ("Next NPC", self.next_npc),
-                    ("State Stand", lambda: self.set_npc_state("standing")),
-                    ("State Walk", lambda: self.set_npc_state("walking")),
-                    ("Angle S", lambda: self.set_npc_angle("south")),
-                    ("Angle W", lambda: self.set_npc_angle("west")),
-                    ("Angle E", lambda: self.set_npc_angle("east")),
-                    ("Angle N", lambda: self.set_npc_angle("north")),
                     ("Prev Frame", self.previous_npc_frame),
                     ("Next Frame", self.next_npc_frame),
                     ("Add Frame", self.add_npc_frame),
@@ -1341,12 +1677,10 @@ class Editor:
 
     def open_color_picker(self):
         """Open the system's native color picker dialog using Tkinter."""
-        if not self._ensure_tkinter_root():
-            # Message already printed by _ensure_tkinter_root
-            return
-
         tk_root = self._ensure_tkinter_root()
         if not tk_root:
+             print("Color picker unavailable. Eyedropper tool activated.")
+             self.activate_eyedropper()
              return # Exit if root is still None
 
         # Convert current color to Tkinter format (hex string)
@@ -1407,6 +1741,53 @@ class Editor:
                 self.selection.selecting = False
                 self.selection.active = False
             print(f"Selected color: {color}")
+
+    def activate_eyedropper(self):
+        """Switch to the eyedropper tool."""
+        self.tool_manager.set_active_tool('eyedropper')
+
+    def pick_color_at_pos(self, pos):
+        """Sample a color from the active canvas at the given screen position."""
+        if self.edit_mode in ['monster', 'tile']:
+            sprite_editor = self._get_sprite_editor_at_pos(pos)
+            if sprite_editor:
+                grid_pos = sprite_editor.get_grid_position(pos)
+                if grid_pos:
+                    color = sprite_editor.get_pixel_color(grid_pos)
+                    if color and color[3] > 0:
+                        self.select_color((color[0], color[1], color[2], 255))
+                        return True
+                    ref_color = self._sample_reference_color_at_pos(pos, sprite_editor)
+                    if ref_color:
+                        self.select_color(ref_color)
+                        return True
+        elif self.edit_mode == 'background' and self.canvas_rect and self.current_background:
+            if self.canvas_rect.collidepoint(pos):
+                screen_x_rel = pos[0] - self.canvas_rect.x
+                screen_y_rel = pos[1] - self.canvas_rect.y
+                original_x = int((screen_x_rel + self.view_offset_x) / self.editor_zoom)
+                original_y = int((screen_y_rel + self.view_offset_y) / self.editor_zoom)
+                bg_width, bg_height = self.current_background.get_size()
+                if 0 <= original_x < bg_width and 0 <= original_y < bg_height:
+                    color = self.current_background.get_at((original_x, original_y))
+                    self.select_color((color[0], color[1], color[2], 255))
+                    return True
+        return False
+
+    def _sample_reference_color_at_pos(self, pos, sprite_editor):
+        """Sample a color from the reference image under the given screen position."""
+        if not self.scaled_reference_image or not sprite_editor:
+            return None
+        local_x = pos[0] - sprite_editor.position[0]
+        local_y = pos[1] - sprite_editor.position[1]
+        if local_x < 0 or local_y < 0:
+            return None
+        if local_x >= self.scaled_reference_image.get_width() or local_y >= self.scaled_reference_image.get_height():
+            return None
+        color = self.scaled_reference_image.get_at((int(local_x), int(local_y)))
+        if color[3] == 0:
+            return None
+        return (color[0], color[1], color[2], 255)
 
     def load_backgrounds(self):
         """
@@ -1784,6 +2165,34 @@ class Editor:
         elif self.dialog_selected_file_index >= self.dialog_file_scroll_offset + self.dialog_file_page_size:
             self.dialog_file_scroll_offset = self.dialog_selected_file_index - self.dialog_file_page_size + 1
 
+    def _make_tray_scrollbar(self, tray_rect, content_top, total, visible, scroll_offset):
+        """Return scrollbar and thumb rects for a tray if overflow exists."""
+        if total <= visible or visible <= 0:
+            return None, None
+        scrollbar_width = 8
+        scrollbar_rect = pygame.Rect(
+            tray_rect.right - scrollbar_width - 2,
+            content_top,
+            scrollbar_width,
+            max(1, tray_rect.bottom - content_top - 2),
+        )
+        ratio = visible / total
+        thumb_height = max(16, int(scrollbar_rect.height * ratio))
+        max_offset = max(1, total - visible)
+        top = scrollbar_rect.y + int((scroll_offset / max_offset) * (scrollbar_rect.height - thumb_height))
+        thumb_rect = pygame.Rect(scrollbar_rect.x, top, scrollbar_rect.width, thumb_height)
+        return scrollbar_rect, thumb_rect
+
+    def _set_tray_scroll_from_thumb(self, thumb_center_y, total, visible, scrollbar_rect, thumb_height):
+        """Compute scroll offset based on thumb position within tray scrollbar."""
+        if not scrollbar_rect or total <= visible or visible <= 0:
+            return 0
+        max_offset = total - visible
+        usable = max(1, scrollbar_rect.height - thumb_height)
+        relative = thumb_center_y - scrollbar_rect.y - (thumb_height // 2)
+        relative = max(0, min(relative, usable))
+        return int(round((relative / usable) * max_offset))
+
     def trigger_load_tileset_dialog(self):
         """Initiates the dialog for loading a tileset file."""
         if self.edit_mode != 'tile':
@@ -1836,8 +2245,8 @@ class Editor:
 
     def trigger_load_reference_dialog(self):
         """Initiates the dialog for loading a reference image."""
-        if self.edit_mode != 'monster':
-            print("Reference images only available in monster edit mode.")
+        if self.edit_mode not in ['monster', 'tile']:
+            print("Reference images only available in monster or tile edit mode.")
             return
 
         self.dialog_mode = 'load_ref'
@@ -2172,6 +2581,38 @@ class Editor:
         """Opens a dialog to select a reference image, loads and scales it."""
         self.trigger_load_reference_dialog()
 
+    def import_reference_to_canvas(self):
+        """Import the reference image behind the canvas using nearest-neighbor sampling."""
+        sprite_editor = self.get_active_canvas()
+        if not sprite_editor:
+            print("Import failed: No active canvas.")
+            return
+        if not self.reference_image:
+            print("Import failed: No reference image loaded.")
+            return
+        if not self.scaled_reference_image:
+            self._scale_reference_image()
+        if not self.scaled_reference_image:
+            print("Import failed: Reference image not available for sampling.")
+            return
+
+        self.save_state()
+
+        src_w, src_h = self.scaled_reference_image.get_size()
+        dst_w, dst_h = sprite_editor.frame.get_size()
+        scale_x = src_w / dst_w if dst_w else 1
+        scale_y = src_h / dst_h if dst_h else 1
+
+        for y in range(dst_h):
+            sample_y = min(src_h - 1, max(0, int((y + 0.5) * scale_y)))
+            for x in range(dst_w):
+                sample_x = min(src_w - 1, max(0, int((x + 0.5) * scale_x)))
+                color = self.scaled_reference_image.get_at((sample_x, sample_y))
+                if color.a == 0:
+                    continue
+                sprite_editor.frame.set_at((x, y), (color.r, color.g, color.b, 255))
+        print("Imported reference image into canvas.")
+
     def _scale_reference_image(self):
         """Scales the loaded reference image using Aspect Fit, then applies
            user-defined scale and offset, preparing it for display behind the active editor.
@@ -2180,10 +2621,10 @@ class Editor:
             self.scaled_reference_image = None
             return
 
-        # Target dimensions are the display size of the sprite editor grid
-        sprite_editor = self.sprites.get('front')
+        # Target dimensions are the display size of the active editor grid
+        sprite_editor = self.get_active_canvas()
         if not sprite_editor:
-            print("Error: Cannot scale reference image, sprite editor 'front' not found.")
+            print("Error: Cannot scale reference image, active editor not found.")
             self.scaled_reference_image = None
             return
 
@@ -2312,133 +2753,178 @@ class Editor:
                 self.subj_alpha_knob_rect.x = self.subj_alpha_slider_rect.x
             # No need to call apply_alpha here, draw_ui will use the value
             
-    def draw_ui(self):
-        """Draw the entire editor UI onto the screen."""
-        screen.fill(config.EDITOR_BG_COLOR)
-        # print(f"DEBUG: draw_ui start. self.dialog_mode = {self.dialog_mode}") 
+    def _draw_loading_state(self, surface):
+        loading_font = pygame.font.Font(config.DEFAULT_FONT, 30)
+        loading_surf = loading_font.render("Waiting for mode selection...", True, config.BLACK)
+        loading_rect = loading_surf.get_rect(center=surface.get_rect().center)
+        surface.blit(loading_surf, loading_rect)
 
-        # --- Draw Dialog FIRST if active --- 
-        if self.dialog_mode:
-            self.draw_dialog(screen)
-            return # Stop drawing here if a dialog is active
-
-        # --- Draw Main UI (Only if no dialog active and mode is set) ---
-        if self.edit_mode is None:
-             loading_font = pygame.font.Font(config.DEFAULT_FONT, 30)
-             loading_surf = loading_font.render("Waiting for mode selection...", True, config.BLACK)
-             loading_rect = loading_surf.get_rect(center=screen.get_rect().center)
-             screen.blit(loading_surf, loading_rect)
-             return
-
-        # Draw based on mode
-        if self.edit_mode == 'monster':
-            # Draw monster-specific UI
-            for sprite_editor in self.sprites.values():
-                sprite_editor.draw_background(screen)
-            if self.scaled_reference_image:
-                active_sprite_editor = self.sprites.get(self.current_sprite)
-                if active_sprite_editor:
-                    screen.blit(self.scaled_reference_image, active_sprite_editor.position)
-            for name, sprite_editor in self.sprites.items():
-                display_surface = sprite_editor.frame.copy()
-                scaled_display_frame = pygame.transform.scale(display_surface, (sprite_editor.display_width, sprite_editor.display_height))
-                scaled_display_frame.set_alpha(self.subject_alpha)
-                screen.blit(scaled_display_frame, sprite_editor.position)
+    def _draw_monster_ui(self, surface):
+        for sprite_editor in self.sprites.values():
+            sprite_editor.draw_background(surface)
+        if self.scaled_reference_image:
             active_sprite_editor = self.sprites.get(self.current_sprite)
             if active_sprite_editor:
-                active_sprite_editor.draw_highlight(screen, self.current_sprite)
-            monster_name = config.monsters[self.current_monster_index].get('name', 'Unknown')
-            info_text = f"Editing: {monster_name} ({self.current_sprite})"
+                surface.blit(self.scaled_reference_image, active_sprite_editor.position)
+        for sprite_editor in self.sprites.values():
+            display_surface = sprite_editor.frame.copy()
+            scaled_display_frame = pygame.transform.scale(
+                display_surface,
+                (sprite_editor.display_width, sprite_editor.display_height),
+            )
+            scaled_display_frame.set_alpha(self.subject_alpha)
+            surface.blit(scaled_display_frame, sprite_editor.position)
+        active_sprite_editor = self.sprites.get(self.current_sprite)
+        if active_sprite_editor:
+            active_sprite_editor.draw_highlight(surface, self.current_sprite)
+        monster_name = config.monsters[self.current_monster_index].get('name', 'Unknown')
+        info_text = f"Editing: {monster_name} ({self.current_sprite})"
+        info_surf = self.font.render(info_text, True, config.BLACK)
+        surface.blit(info_surf, (50, 50))
+        if self.mode == 'select':
+            active_sprite_editor = self.sprites.get(self.current_sprite)
+            if active_sprite_editor:
+                self.selection.draw(surface, active_sprite_editor.position)
+
+    def _draw_background_ui(self, surface):
+        if self.current_background and self.canvas_rect:
+            scaled_width = int(self.current_background.get_width() * self.editor_zoom)
+            scaled_height = int(self.current_background.get_height() * self.editor_zoom)
+            if scaled_width > 0 and scaled_height > 0:
+                zoomed_bg = pygame.transform.scale(
+                    self.current_background,
+                    (scaled_width, scaled_height),
+                )
+                max_offset_x = max(0, scaled_width - self.canvas_rect.width)
+                max_offset_y = max(0, scaled_height - self.canvas_rect.height)
+                clamped_offset_x = max(0, min(self.view_offset_x, max_offset_x))
+                clamped_offset_y = max(0, min(self.view_offset_y, max_offset_y))
+                source_rect = pygame.Rect(
+                    clamped_offset_x,
+                    clamped_offset_y,
+                    self.canvas_rect.width,
+                    self.canvas_rect.height,
+                )
+                surface.blit(zoomed_bg, self.canvas_rect.topleft, source_rect)
+            pygame.draw.rect(surface, config.BLACK, self.canvas_rect, 1)
+        bg_name = (
+            self.backgrounds[self.current_background_index][0]
+            if self.current_background_index != -1
+            else "New BG"
+        )
+        info_text = f"Editing BG: {bg_name} | Brush: {self.brush_size} | Zoom: {self.editor_zoom:.2f}x"
+        info_surf = self.font.render(info_text, True, config.BLACK)
+        surface.blit(info_surf, (50, 50))
+
+    def _draw_tile_ui(self, surface):
+        self.tile_canvas.draw_background(surface)
+        if self.scaled_reference_image:
+            surface.blit(self.scaled_reference_image, self.tile_canvas.position)
+        display_surface = self.tile_canvas.frame.copy()
+        scaled_display = pygame.transform.scale(
+            display_surface,
+            (self.tile_canvas.display_width, self.tile_canvas.display_height),
+        )
+        scaled_display.set_alpha(self.subject_alpha)
+        surface.blit(scaled_display, self.tile_canvas.position)
+        pygame.draw.rect(
+            surface,
+            config.SELECTION_HIGHLIGHT_COLOR,
+            pygame.Rect(
+                self.tile_canvas.position,
+                (self.tile_canvas.display_width, self.tile_canvas.display_height),
+            ),
+            3,
+        )
+        tileset_name = self.tile_set.name if self.tile_set else "Tiles"
+        if self.asset_edit_target == 'tile':
+            tile = self.current_tile()
+            walkable_state = tile.properties.get("walkable", True) if tile else True
+            tile_label = f"{tile.id} ({tile.name})" if tile else "No Tile"
+            walkable_text = "Walkable" if walkable_state else "Blocked"
+            frame_info = ""
+            if tile and tile.frames:
+                frame_info = (
+                    f" | Frame {self.current_tile_frame_index + 1}/{len(tile.frames)}"
+                    f" @ {tile.frame_duration_ms}ms"
+                )
+            info_text = f"Tileset: {tileset_name} | Tile: {tile_label} | {walkable_text}{frame_info}"
             info_surf = self.font.render(info_text, True, config.BLACK)
-            screen.blit(info_surf, (50, 50))
+            surface.blit(info_surf, (50, 50))
             if self.mode == 'select':
-                 active_sprite_editor = self.sprites.get(self.current_sprite)
-                 if active_sprite_editor:
-                     self.selection.draw(screen, active_sprite_editor.position)
-
-        elif self.edit_mode == 'background':
-            # Draw background-specific UI
-            if self.current_background and self.canvas_rect:
-                scaled_width = int(self.current_background.get_width() * self.editor_zoom)
-                scaled_height = int(self.current_background.get_height() * self.editor_zoom)
-                if scaled_width > 0 and scaled_height > 0:
-                    zoomed_bg = pygame.transform.scale(self.current_background, (scaled_width, scaled_height))
-                    max_offset_x = max(0, scaled_width - self.canvas_rect.width)
-                    max_offset_y = max(0, scaled_height - self.canvas_rect.height)
-                    clamped_offset_x = max(0, min(self.view_offset_x, max_offset_x))
-                    clamped_offset_y = max(0, min(self.view_offset_y, max_offset_y))
-                    source_rect = pygame.Rect(clamped_offset_x, clamped_offset_y, self.canvas_rect.width, self.canvas_rect.height)
-                    screen.blit(zoomed_bg, self.canvas_rect.topleft, source_rect)
-                pygame.draw.rect(screen, config.BLACK, self.canvas_rect, 1)
-            bg_name = self.backgrounds[self.current_background_index][0] if self.current_background_index != -1 else "New BG"
-            info_text = f"Editing BG: {bg_name} | Brush: {self.brush_size} | Zoom: {self.editor_zoom:.2f}x"
+                self.selection.draw(surface, self.tile_canvas.position)
+            self.draw_tile_panel(surface)
+        else:
+            npc = self.current_npc()
+            npc_label = npc.id if npc else "No NPC"
+            frame_info = ""
+            if npc:
+                frames = npc.states.get(self.current_npc_state, {}).get(self.current_npc_angle, [])
+                frame_info = (
+                    f" | Frame {self.current_npc_frame_index + 1}/{len(frames) if frames else 1}"
+                    f" @ {npc.frame_duration_ms}ms"
+                )
+            info_text = (
+                f"Tileset: {tileset_name} | NPC: {npc_label} | State: {self.current_npc_state}"
+                f" | Angle: {self.current_npc_angle}{frame_info}"
+            )
             info_surf = self.font.render(info_text, True, config.BLACK)
-            screen.blit(info_surf, (50, 50))
-        elif self.edit_mode == 'tile':
-            self.tile_canvas.draw_background(screen)
-            display_surface = self.tile_canvas.frame.copy()
-            scaled_display = pygame.transform.scale(display_surface, (self.tile_canvas.display_width, self.tile_canvas.display_height))
-            screen.blit(scaled_display, self.tile_canvas.position)
-            pygame.draw.rect(screen, config.SELECTION_HIGHLIGHT_COLOR, pygame.Rect(self.tile_canvas.position, (self.tile_canvas.display_width, self.tile_canvas.display_height)), 3)
-            tileset_name = self.tile_set.name if self.tile_set else "Tiles"
-            if self.asset_edit_target == 'tile':
-                tile = self.current_tile()
-                walkable_state = tile.properties.get("walkable", True) if tile else True
-                tile_label = f"{tile.id} ({tile.name})" if tile else "No Tile"
-                walkable_text = "Walkable" if walkable_state else "Blocked"
-                frame_info = ""
-                if tile and tile.frames:
-                    frame_info = f" | Frame {self.current_tile_frame_index + 1}/{len(tile.frames)} @ {tile.frame_duration_ms}ms"
-                info_text = f"Tileset: {tileset_name} | Tile: {tile_label} | {walkable_text}{frame_info}"
-                info_surf = self.font.render(info_text, True, config.BLACK)
-                screen.blit(info_surf, (50, 50))
-                if self.mode == 'select':
-                    self.selection.draw(screen, self.tile_canvas.position)
-                self.draw_tile_panel(screen)
-            else:
-                npc = self.current_npc()
-                npc_label = npc.id if npc else "No NPC"
-                frame_info = ""
-                if npc:
-                    frames = npc.states.get(self.current_npc_state, {}).get(self.current_npc_angle, [])
-                    frame_info = f" | Frame {self.current_npc_frame_index + 1}/{len(frames) if frames else 1} @ {npc.frame_duration_ms}ms"
-                info_text = f"Tileset: {tileset_name} | NPC: {npc_label} | State: {self.current_npc_state} | Angle: {self.current_npc_angle}{frame_info}"
-                info_surf = self.font.render(info_text, True, config.BLACK)
-                screen.blit(info_surf, (50, 50))
-                if self.mode == 'select':
-                    self.selection.draw(screen, self.tile_canvas.position)
-                self.draw_npc_panel(screen)
+            surface.blit(info_surf, (50, 50))
+            if self.mode == 'select':
+                self.selection.draw(surface, self.tile_canvas.position)
+            self.draw_npc_panel(surface)
 
-        # Draw Common Elements
-        self.palette.draw(screen, self.current_color)
+    def _draw_common_ui(self, surface):
+        self.palette.draw(surface, self.current_color)
         if hasattr(self, 'buttons') and self.buttons:
             for button in self.buttons:
-                button.draw(screen)
-        # Brush Slider
-        pygame.draw.rect(screen, config.GRAY_LIGHT, self.brush_slider)
-        pygame.draw.rect(screen, config.BLACK, self.brush_slider, 1)
+                button.draw(surface)
+        pygame.draw.rect(surface, config.GRAY_LIGHT, self.brush_slider)
+        pygame.draw.rect(surface, config.BLACK, self.brush_slider, 1)
         brush_text = f"Brush: {self.brush_size}"
         brush_surf = self.font.render(brush_text, True, config.BLACK)
         brush_rect = brush_surf.get_rect(midleft=(self.brush_slider.right + 10, self.brush_slider.centery))
-        screen.blit(brush_surf, brush_rect)
-        # Ref Alpha Slider
-        pygame.draw.rect(screen, config.GRAY_LIGHT, self.ref_alpha_slider_rect)
-        pygame.draw.rect(screen, config.BLACK, self.ref_alpha_slider_rect, 1)
-        pygame.draw.rect(screen, config.BLUE, self.ref_alpha_knob_rect)
+        surface.blit(brush_surf, brush_rect)
+        pygame.draw.rect(surface, config.GRAY_LIGHT, self.ref_alpha_slider_rect)
+        pygame.draw.rect(surface, config.BLACK, self.ref_alpha_slider_rect, 1)
+        pygame.draw.rect(surface, config.BLUE, self.ref_alpha_knob_rect)
         alpha_text = f"Ref Alpha: {self.reference_alpha}"
         alpha_surf = self.font.render(alpha_text, True, config.BLACK)
-        alpha_rect = alpha_surf.get_rect(midleft=(self.ref_alpha_slider_rect.right + 10, self.ref_alpha_slider_rect.centery))
-        screen.blit(alpha_surf, alpha_rect)
-        # Subject Alpha Slider (Monster Mode Only)
-        if self.edit_mode == 'monster':
-            pygame.draw.rect(screen, config.GRAY_LIGHT, self.subj_alpha_slider_rect)
-            pygame.draw.rect(screen, config.BLACK, self.subj_alpha_slider_rect, 1)
-            pygame.draw.rect(screen, config.RED, self.subj_alpha_knob_rect)
+        alpha_rect = alpha_surf.get_rect(
+            midleft=(self.ref_alpha_slider_rect.right + 10, self.ref_alpha_slider_rect.centery),
+        )
+        surface.blit(alpha_surf, alpha_rect)
+        if self.edit_mode in ['monster', 'tile']:
+            pygame.draw.rect(surface, config.GRAY_LIGHT, self.subj_alpha_slider_rect)
+            pygame.draw.rect(surface, config.BLACK, self.subj_alpha_slider_rect, 1)
+            pygame.draw.rect(surface, config.RED, self.subj_alpha_knob_rect)
             subj_alpha_text = f"Subj Alpha: {self.subject_alpha}"
             subj_alpha_surf = self.font.render(subj_alpha_text, True, config.BLACK)
-            subj_alpha_rect = subj_alpha_surf.get_rect(midleft=(self.subj_alpha_slider_rect.right + 10, self.subj_alpha_slider_rect.centery))
-            screen.blit(subj_alpha_surf, subj_alpha_rect)
-    # <<< End Restore draw_ui >>>
+            subj_alpha_rect = subj_alpha_surf.get_rect(
+                midleft=(self.subj_alpha_slider_rect.right + 10, self.subj_alpha_slider_rect.centery),
+            )
+            surface.blit(subj_alpha_surf, subj_alpha_rect)
+
+    def draw_ui(self):
+        """Draw the entire editor UI onto the screen."""
+        screen.fill(config.EDITOR_BG_COLOR)
+
+        if self.dialog_mode:
+            self.draw_dialog(screen)
+            return
+
+        if self.edit_mode is None:
+            self._draw_loading_state(screen)
+            return
+
+        if self.edit_mode == 'monster':
+            self._draw_monster_ui(screen)
+        elif self.edit_mode == 'background':
+            self._draw_background_ui(screen)
+        elif self.edit_mode == 'tile':
+            self._draw_tile_ui(screen)
+
+        self._draw_common_ui(screen)
 
     def draw_dialog(self, surface):
         """Draws the current dialog box overlay."""

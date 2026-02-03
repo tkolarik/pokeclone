@@ -70,17 +70,10 @@
         * **Testing:** Manual end-to-end test per the workflow described in `docs/map-editor-design.md`.
     * **Labels:** `feature`, `overworld`, `map`, `editor`, `tools`
 
-* **[OVERWORLD-4] Extend Pixel Art Editor for Tiles + Tile Manager**
-    * **Type:** Feature
-    * **Priority:** High
-    * **Description:** Extend the existing pixel art editor to support tile-focused editing, plus add a tile manager system to edit, save, load, and reference tiles used by the overworld. This system should enable creating tile sets and linking tiles to in-game maps.
-    * **Acceptance Criteria:**
-        * The existing pixel art editor includes a tile-editing mode or workflow to create and edit individual tiles at a fixed tile size.
-        * Tile sets can be saved and loaded from disk with metadata (e.g., tile IDs, names, properties).
-        * A tile manager (integrated with or adjacent to the editor UI) provides a way to browse and select tiles for use in the map editor.
-        * Overworld maps can reference tiles by stable IDs from the tile set.
-        * **Testing:** Manual testing confirms tiles can be created, saved, loaded, and referenced in-game without missing tile errors.
-    * **Labels:** `feature`, `overworld`, `tiles`, `editor`, `asset-pipeline`
+* ~~**[OVERWORLD-4] Extend Pixel Art Editor for Tiles + Tile Manager**~~ **(Completed)**
+    * Added tile edit mode with animated multi-frame support, tileset save/load, and tile browser.
+    * Added tileset-backed overworld rendering and sample data.
+    * Added NPC sprite editing (states/angles/frames) alongside tilesets.
 
 * **[OVERWORLD-5] Add Overworld Music Per Map**
     * **Type:** Feature
@@ -226,6 +219,18 @@
         * Existing functionality remains unchanged.
         * Unit tests for `Editor` are potentially easier to write/maintain.
     * **Labels:** `refactoring`, `architecture`, `code-quality`, `maintainability`, `editor`, `dependency-injection`, `testing`
+
+* **[INFRA-1] Create Distribution Build Script (PyInstaller)**
+    * **Type:** Task
+    * **Priority:** Medium
+    * **Description:** Python games are notoriously difficult to distribute to non-technical users. Set up a build script using PyInstaller to generate a standalone executable (e.g., `.exe` on Windows, binary on Mac/Linux) for the main game. This mitigates the risk of "it only runs on my machine."
+    * **Acceptance Criteria:**
+        * A build script (e.g., `build.sh` or `build.bat`) exists.
+        * Running the script produces a standalone executable in a `dist/` folder.
+        * The executable runs the game (Main Menu) correctly on the host OS without requiring a system Python installation.
+        * Assets (images, json) are correctly bundled or loaded relative to the executable.
+        * **Testing:** Run the generated executable on a clean environment (or just outside the venv) and verify the game launches.
+    * **Labels:** `infrastructure`, `distribution`, `risk-mitigation`
 
 ### Low Priority
 

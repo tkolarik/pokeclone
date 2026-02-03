@@ -2,66 +2,176 @@ import os
 import sys
 import unittest
 
-# Add the project root to the Python path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, project_root)
 
-from src.overworld.state import OverworldMap, OverworldState, Player, TileBehavior
+from src.core.tileset import TileDefinition, TileSet
+from src.overworld.state import (
+    CellOverride,
+    Connection,
+    EntityDef,
+    MapData,
+    MapLayer,
+    OverworldSession,
+    TriggerDef,
+)
 
 
-class TestOverworldState(unittest.TestCase):
-    def setUp(self):
-        self.behaviors = {
-            "#": TileBehavior(walkable=False),
-            ".": TileBehavior(walkable=True),
-            "S": TileBehavior(walkable=True, interaction="Hello there."),
-        }
-        self.rows = [
-            "#####",
-            "#...#",
-            "#.S.#",
-            "#...#",
-            "#####",
-        ]
-        self.map = OverworldMap(self.rows, self.behaviors)
+class FakeAudio:
+    def __init__(self):
+        self.played = []
+        self.stopped = False
 
-    def test_map_walkability_and_bounds(self):
-        self.assertTrue(self.map.is_walkable(1, 1))
-        self.assertFalse(self.map.is_walkable(0, 0))
-        self.assertFalse(self.map.is_walkable(-1, 0))
-        self.assertFalse(self.map.is_walkable(5, 5))
+    def play_music(self, music_id):
+        self.played.append(music_id)
 
-    def test_move_updates_position_and_facing(self):
-        state = OverworldState(self.map, Player(x=1, y=1))
-        moved = state.move("right")
-        self.assertTrue(moved)
-        self.assertEqual((state.player.x, state.player.y), (2, 1))
-        self.assertEqual(state.player.facing, "right")
+    def stop_music(self):
+        self.stopped = True
 
-    def test_move_blocks_walls_but_updates_facing(self):
-        state = OverworldState(self.map, Player(x=1, y=1))
-        moved = state.move("left")
-        self.assertFalse(moved)
-        self.assertEqual((state.player.x, state.player.y), (1, 1))
-        self.assertEqual(state.player.facing, "left")
+    def play_sound(self, sound_id):
+        self.played.append(f"sound:{sound_id}")
 
-    def test_interaction_reads_sign(self):
-        state = OverworldState(self.map, Player(x=2, y=3, facing="up"))
-        message = state.interact()
-        self.assertEqual(message, "Hello there.")
-        self.assertEqual(state.message, "Hello there.")
 
-    def test_interaction_clears_message_on_empty_tile(self):
-        state = OverworldState(self.map, Player(x=1, y=1, facing="right"))
-        state.message = "Old message"
-        message = state.interact()
-        self.assertIsNone(message)
-        self.assertIsNone(state.message)
+def build_tileset():
+    tileset = TileSet("test", "Test", tile_size=32)
+    tileset.tiles = [
+        TileDefinition(id="floor", name="floor", filename="floor.png", properties={"walkable": True}),
+        TileDefinition(id="wall", name="wall", filename="wall.png", properties={"walkable": False}),
+    ]
+    return tileset
 
-    def test_move_clears_message_on_successful_move(self):
-        state = OverworldState(self.map, Player(x=1, y=1))
-        state.message = "Old message"
-        moved = state.move("right")
-        self.assertTrue(moved)
-        self.assertIsNone(state.message)
 
+def build_basic_map(map_id="map1", music_id=None):
+    return MapData(
+        map_id=map_id,
+        name=map_id,
+        version="1.0.0",
+        tile_size=32,
+        dimensions=(3, 3),
+        tileset_id="test",
+        layers=[
+            MapLayer(
+                name="ground",
+                tiles=[
+                    ["floor", "floor", "floor"],
+                    ["floor", "floor", "floor"],
+                    ["floor", "floor", "floor"],
+                ],
+            ),
+            MapLayer(
+                name="overlay",
+                tiles=[
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+            ),
+        ],
+        connections=[],
+        entities=[],
+        triggers=[],
+        overrides={},
+        music_id=music_id,
+        spawn={"x": 1, "y": 1},
+    )
+
+
+class TestOverworldSession(unittest.TestCase):
+    def test_collision_and_override(self):
+        tileset = build_tileset()
+        world = build_basic_map()
+        world.layers[0].tiles[0][1] = "wall"
+        session = OverworldSession(world, tileset=tileset, audio_controller=FakeAudio())
+
+        moved = session.move("up")  # into wall at (1,0)
+        self.assertFalse(moved, "Movement should block on non-walkable tile.")
+        # Make wall walkable via override
+        world.set_override(1, 0, CellOverride(walkable=True))
+        moved = session.move("up")
+        self.assertTrue(moved, "Override should allow movement.")
+        self.assertEqual((session.player.x, session.player.y), (1, 0))
+
+    def test_entity_then_trigger_order(self):
+        tileset = build_tileset()
+        world = build_basic_map()
+        world.entities.append(
+            EntityDef(
+                id="npc1",
+                type="npc",
+                name="NPC",
+                sprite_id="npc_sprite",
+                position={"x": 1, "y": 0},
+                actions=[{"kind": "showText", "text": "Entity first"}],
+            )
+        )
+        world.triggers.append(
+            TriggerDef(
+                id="t1",
+                type="onInteract",
+                position={"x": 1, "y": 0},
+                actions=[{"kind": "showText", "text": "Trigger second"}],
+                repeatable=True,
+            )
+        )
+        session = OverworldSession(world, tileset=tileset, audio_controller=FakeAudio())
+        session.player.x, session.player.y, session.player.facing = 1, 1, "up"
+
+        session.interact()
+        self.assertEqual(session.active_message, "Entity first")
+        session.acknowledge_message()
+        self.assertEqual(session.active_message, "Trigger second")
+
+    def test_on_enter_trigger_consumes_repeatable(self):
+        tileset = build_tileset()
+        world = build_basic_map()
+        world.triggers.append(
+            TriggerDef(
+                id="enter_once",
+                type="onEnter",
+                position={"x": 1, "y": 0},
+                actions=[{"kind": "showText", "text": "Hello"}],
+                repeatable=False,
+            )
+        )
+        session = OverworldSession(world, tileset=tileset, audio_controller=FakeAudio())
+        session.player.x, session.player.y = 1, 1
+        session.move("up")
+        self.assertEqual(session.active_message, "Hello")
+        session.acknowledge_message()
+        session.move("down")
+        session.move("up")
+        self.assertIsNone(session.active_message, "Non-repeatable trigger should not fire twice.")
+
+    def test_edge_connection_switches_map_and_music(self):
+        tileset = build_tileset()
+        map_one = build_basic_map("map_one", music_id="song1")
+        map_two = build_basic_map("map_two", music_id="song2")
+        map_one.connections.append(
+            Connection(
+                id="north_exit",
+                type="edge",
+                from_ref="up",
+                to={"mapId": "map_two", "spawn": {"x": 1, "y": 2}, "facing": "south"},
+                condition=None,
+                extra={},
+            )
+        )
+
+        # Persist maps to disk so the loader path in session works
+        map_one.save()
+        map_two.save()
+
+        audio = FakeAudio()
+        session = OverworldSession(map_one, tileset=tileset, audio_controller=audio)
+        session.player.x, session.player.y = 1, 0  # Move off north edge
+        moved = session.move("up")
+
+        self.assertTrue(moved, "Edge connection should allow movement to target map.")
+        self.assertEqual(session.map.id, "map_two")
+        self.assertEqual((session.player.x, session.player.y), (1, 2))
+        self.assertEqual(audio.played[0], "song1")
+        self.assertEqual(audio.played[-1], "song2")
+
+
+if __name__ == "__main__":
+    unittest.main()

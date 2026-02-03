@@ -82,6 +82,41 @@
   ],
   "npcs": [
     {
+      "id": "player",
+      "name": "Player",
+      "frameDurationMs": 200,
+      "states": {
+        "standing": {
+          "south": [
+            "player_standing_south.png"
+          ],
+          "west": [
+            "player_standing_west.png"
+          ],
+          "east": [
+            "player_standing_east.png"
+          ],
+          "north": [
+            "player_standing_north.png"
+          ]
+        },
+        "walking": {
+          "south": [
+            "player_walking_south.png"
+          ],
+          "west": [
+            "player_walking_west.png"
+          ],
+          "east": [
+            "player_walking_east.png"
+          ],
+          "north": [
+            "player_walking_north.png"
+          ]
+        }
+      }
+    },
+    {
       "id": "npc_guide",
       "name": "Guide",
       "frameDurationMs": 200,
@@ -89,12 +124,70 @@
         "standing": {
           "south": [
             "npc_guide_standing_south.png"
+          ],
+          "west": [
+            "npc_guide_standing_west.png"
+          ],
+          "east": [
+            "npc_guide_standing_east.png"
+          ],
+          "north": [
+            "npc_guide_standing_north.png"
           ]
         },
         "walking": {
           "south": [
             "npc_guide_walking_south_01.png",
             "npc_guide_walking_south_02.png"
+          ],
+          "west": [
+            "npc_guide_walking_west.png"
+          ],
+          "east": [
+            "npc_guide_walking_east.png"
+          ],
+          "north": [
+            "npc_guide_walking_north.png"
+          ]
+        }
+      }
+    },
+    {
+      "id": "test",
+      "name": "test",
+      "frameDurationMs": 200,
+      "states": {
+        "idle": {
+          "south": [
+            "test_idle_down.png"
+          ]
+        },
+        "standing": {
+          "south": [
+            "test_standing_south.png"
+          ],
+          "west": [
+            "test_standing_west.png"
+          ],
+          "east": [
+            "test_standing_east.png"
+          ],
+          "north": [
+            "test_standing_north.png"
+          ]
+        },
+        "walking": {
+          "south": [
+            "test_walking_south.png"
+          ],
+          "west": [
+            "test_walking_west.png"
+          ],
+          "east": [
+            "test_walking_east.png"
+          ],
+          "north": [
+            "test_walking_north.png"
           ]
         }
       }

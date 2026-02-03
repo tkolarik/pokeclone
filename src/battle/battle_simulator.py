@@ -33,14 +33,23 @@ class Move:
         self.effect = effect
 
 class Creature:
-    def __init__(self, name, type_, max_hp, attack, defense, moves, sprite):
+    def __init__(self, name, type_, max_hp, attack, defense, moves, sprite,
+                 level=1, base_stats=None, move_pool=None, learnset=None):
         self.name = name
         self.type = type_
+        self.level = level
+        self.base_stats = base_stats or {
+            "max_hp": max_hp,
+            "attack": attack,
+            "defense": defense,
+        }
         self.max_hp = max_hp
         self.current_hp = max_hp
         self.attack = attack
         self.defense = defense
         self.moves = moves
+        self.move_pool = move_pool or []
+        self.learnset = learnset or []
         # Sprite is expected to be native resolution here
         # Scaling happens in draw_battle
         self.sprite = sprite
@@ -52,6 +61,82 @@ class Creature:
 # Use path from config
 with open(os.path.join(config.DATA_DIR, 'type_chart.json'), 'r') as f:
     type_chart = json.load(f)
+
+def clamp_level(level):
+    try:
+        level_value = int(level)
+    except (TypeError, ValueError):
+        level_value = config.DEFAULT_MONSTER_LEVEL
+    return max(config.MIN_MONSTER_LEVEL, min(config.MAX_MONSTER_LEVEL, level_value))
+
+def level_modifier(level):
+    return 1 + (clamp_level(level) - 1) * config.LEVEL_STAT_GROWTH
+
+def scale_stat(base_stat, level):
+    return max(1, int(round(base_stat * level_modifier(level))))
+
+def scale_stats(base_stats, level):
+    return {
+        "max_hp": scale_stat(base_stats.get("max_hp", 1), level),
+        "attack": scale_stat(base_stats.get("attack", 1), level),
+        "defense": scale_stat(base_stats.get("defense", 1), level),
+    }
+
+def normalize_base_stats(monster):
+    base_stats = monster.get("base_stats")
+    if not base_stats:
+        base_stats = {
+            "max_hp": monster.get("max_hp", 1),
+            "attack": monster.get("attack", 1),
+            "defense": monster.get("defense", 1),
+        }
+    return {
+        "max_hp": int(base_stats.get("max_hp", 1)),
+        "attack": int(base_stats.get("attack", 1)),
+        "defense": int(base_stats.get("defense", 1)),
+    }
+
+def normalize_move_pool(monster):
+    move_pool = monster.get("move_pool")
+    if not move_pool:
+        move_pool = monster.get("moves", [])
+    return list(move_pool)
+
+def normalize_learnset(monster, move_pool):
+    learnset = monster.get("learnset")
+    if learnset:
+        return learnset
+    return [{"level": 1, "move": move} for move in move_pool]
+
+def flatten_learnset(learnset):
+    flattened = []
+    for entry in learnset:
+        level = entry.get("level", 1)
+        try:
+            level = int(level)
+        except (TypeError, ValueError):
+            level = 1
+        if "move" in entry:
+            flattened.append((level, entry["move"]))
+        elif "moves" in entry:
+            for move_name in entry["moves"]:
+                flattened.append((level, move_name))
+    return flattened
+
+def build_moves_for_level(learnset, level, moves_dict):
+    flattened = flatten_learnset(learnset)
+    available = [move_name for lvl, move_name in flattened if lvl <= level]
+    if not available:
+        available = [move_name for _, move_name in flattened]
+    seen = set()
+    ordered = []
+    for move_name in available:
+        if move_name not in seen:
+            seen.add(move_name)
+            ordered.append(move_name)
+    if len(ordered) > config.MAX_BATTLE_MOVES:
+        ordered = ordered[-config.MAX_BATTLE_MOVES:]
+    return [moves_dict.get(move_name, Move(move_name, 'Normal', 50)) for move_name in ordered]
 
 def apply_stat_change(creature, stat, change):
     """Applies a stat change multiplier to a creature's specified stat."""
@@ -122,11 +207,23 @@ def create_sprite_from_file(filename):
         # Return a default native size sprite if file not found
         return create_default_sprite() 
     
-def load_creatures():
+def load_moves():
+    moves_file = os.path.join(config.DATA_DIR, 'moves.json')
+    try:
+        with open(moves_file, 'r') as f:
+            moves_data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Error loading {moves_file}: {e}")
+        return {}
+    return {
+        move['name']: Move(move['name'], move['type'], move['power'], move.get('effect'))
+        for move in moves_data
+    }
+
+def load_creatures(moves_dict=None):
     creatures = []
     # Use paths from config
     monsters_file = os.path.join(config.DATA_DIR, 'monsters.json')
-    moves_file = os.path.join(config.DATA_DIR, 'moves.json')
     
     try:
         with open(monsters_file, 'r') as f:
@@ -135,25 +232,51 @@ def load_creatures():
         print(f"Error loading {monsters_file}: {e}")
         return [] # Return empty list if core data fails
 
-    try:
-        with open(moves_file, 'r') as f:
-            moves_data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-         print(f"Error loading {moves_file}: {e}")
-         return []
-    
-    moves_dict = {move['name']: Move(move['name'], move['type'], move['power'], move.get('effect')) for move in moves_data}
+    if moves_dict is None:
+        moves_dict = load_moves()
+    if not moves_dict:
+        return []
     
     for monster in monsters_data:
         # Use path from config
         sprite_path = os.path.join(config.SPRITE_DIR, f"{monster['name']}_front.png")
         sprite = create_sprite_from_file(sprite_path)
-        moves = [moves_dict.get(move_name, Move(move_name, 'Normal', 50)) for move_name in monster['moves']]
-        creature = Creature(monster['name'], monster['type'], monster['max_hp'], 
-                            monster['attack'], monster['defense'], moves, sprite)
+        base_stats = normalize_base_stats(monster)
+        move_pool = normalize_move_pool(monster)
+        learnset = normalize_learnset(monster, move_pool)
+        level = config.MIN_MONSTER_LEVEL
+        scaled_stats = scale_stats(base_stats, level)
+        moves = build_moves_for_level(learnset, level, moves_dict)
+        creature = Creature(monster['name'], monster['type'], scaled_stats['max_hp'], 
+                            scaled_stats['attack'], scaled_stats['defense'], moves, sprite,
+                            level=level, base_stats=base_stats, move_pool=move_pool, learnset=learnset)
         creatures.append(creature)
     
     return creatures
+
+def create_battle_creature(template, level, moves_dict, sprite):
+    base_stats = getattr(template, "base_stats", {
+        "max_hp": template.max_hp,
+        "attack": template.attack,
+        "defense": template.defense,
+    })
+    move_pool = getattr(template, "move_pool", [move.name for move in template.moves])
+    learnset = getattr(template, "learnset", [{"level": 1, "move": move} for move in move_pool])
+    scaled_stats = scale_stats(base_stats, level)
+    moves = build_moves_for_level(learnset, level, moves_dict)
+    return Creature(
+        name=template.name,
+        type_=template.type,
+        max_hp=scaled_stats['max_hp'],
+        attack=scaled_stats['attack'],
+        defense=scaled_stats['defense'],
+        moves=moves,
+        sprite=sprite,
+        level=clamp_level(level),
+        base_stats=base_stats,
+        move_pool=move_pool,
+        learnset=learnset,
+    )
 
 class Button:
     def __init__(self, rect, text, action=None):
@@ -204,8 +327,8 @@ def draw_battle(creature1, creature2, buttons, background):
     pygame.draw.rect(SCREEN, config.HP_BAR_COLOR, (config.BATTLE_WIDTH - 100 - hp_bar_width, 100, hp_bar_width * (creature2.current_hp / creature2.max_hp), hp_bar_height))
 
     # Draw names and HP
-    name1 = FONT.render(f"{creature1.name} HP: {creature1.current_hp}/{creature1.max_hp}", True, config.BLACK)
-    name2 = FONT.render(f"{creature2.name} HP: {creature2.current_hp}/{creature2.max_hp}", True, config.BLACK)
+    name1 = FONT.render(f"{creature1.name} Lv{creature1.level} HP: {creature1.current_hp}/{creature1.max_hp}", True, config.BLACK)
+    name2 = FONT.render(f"{creature2.name} Lv{creature2.level} HP: {creature2.current_hp}/{creature2.max_hp}", True, config.BLACK)
     SCREEN.blit(name1, (100, 80))
     SCREEN.blit(name2, (config.BATTLE_WIDTH - 100 - hp_bar_width, 80))
 
@@ -280,6 +403,45 @@ def load_random_background():
     default_bg = pygame.Surface((config.BATTLE_WIDTH, config.BATTLE_HEIGHT), pygame.SRCALPHA)
     default_bg.fill((*config.BATTLE_BG_COLOR, 255))  # Ensure full opacity
     return default_bg
+
+def prompt_for_level(prompt_text, default_level):
+    input_text = ""
+    hint_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - 6)
+    clock = pygame.time.Clock()
+
+    while True:
+        SCREEN.fill(config.BATTLE_BG_COLOR)
+        prompt_surf = FONT.render(prompt_text, True, config.BLACK)
+        prompt_rect = prompt_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT // 2 - 60))
+        SCREEN.blit(prompt_surf, prompt_rect)
+
+        value_text = input_text if input_text else str(default_level)
+        value_surf = FONT.render(f"Level: {value_text}", True, config.BLACK)
+        value_rect = value_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT // 2))
+        SCREEN.blit(value_surf, value_rect)
+
+        hint_surf = hint_font.render("Enter = confirm, Esc = default", True, config.GRAY_DARK)
+        hint_rect = hint_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT // 2 + 50))
+        SCREEN.blit(hint_surf, hint_rect)
+
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    level_value = int(input_text) if input_text else default_level
+                    return clamp_level(level_value)
+                if event.key == pygame.K_ESCAPE:
+                    return clamp_level(default_level)
+                if event.key == pygame.K_BACKSPACE:
+                    input_text = input_text[:-1]
+                elif event.unicode.isdigit() and len(input_text) < 3:
+                    input_text += event.unicode
+
+        clock.tick(config.FPS)
 
 def battle(creature1, creature2):
     clock = pygame.time.Clock()
@@ -383,7 +545,8 @@ def show_end_options():
                     return False
 
 def main():
-    creatures = load_creatures()
+    moves_dict = load_moves()
+    creatures = load_creatures(moves_dict)
     if len(creatures) < 2:
         print("Not enough creatures to battle. Please add more creature data.")
         return
@@ -562,13 +725,11 @@ def main():
         # and ensure stats/HP are reset.
         player_sprite_path = os.path.join(config.SPRITE_DIR, f"{selected_player_creature.name}_front.png")
         player_sprite = create_sprite_from_file(player_sprite_path)
-        player_for_battle = Creature(
-            name=selected_player_creature.name,
-            type_=selected_player_creature.type,
-            max_hp=selected_player_creature.max_hp,
-            attack=selected_player_creature.attack,
-            defense=selected_player_creature.defense,
-            moves=selected_player_creature.moves, # Moves are simple objects, ok to reuse reference
+        player_level = prompt_for_level("Choose your monster level", config.DEFAULT_MONSTER_LEVEL)
+        player_for_battle = create_battle_creature(
+            template=selected_player_creature,
+            level=player_level,
+            moves_dict=moves_dict,
             sprite=player_sprite
         )
 
@@ -576,13 +737,10 @@ def main():
         selected_opponent_creature = random.choice([c for c in creatures if c.name != selected_player_creature.name])
         opponent_sprite_path = os.path.join(config.SPRITE_DIR, f"{selected_opponent_creature.name}_front.png")
         opponent_sprite = create_sprite_from_file(opponent_sprite_path)
-        opponent_for_battle = Creature(
-            name=selected_opponent_creature.name,
-            type_=selected_opponent_creature.type,
-            max_hp=selected_opponent_creature.max_hp,
-            attack=selected_opponent_creature.attack,
-            defense=selected_opponent_creature.defense,
-            moves=selected_opponent_creature.moves,
+        opponent_for_battle = create_battle_creature(
+            template=selected_opponent_creature,
+            level=config.DEFAULT_MONSTER_LEVEL,
+            moves_dict=moves_dict,
             sprite=opponent_sprite
         )
         

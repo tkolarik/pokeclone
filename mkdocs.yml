@@ -1,0 +1,15 @@
+site_name: PokeClone Documentation
+theme: readthedocs
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Main Menu: main-menu.md
+  - Overworld: overworld.md
+  - Battle Simulator: battle-simulator.md
+  - Pixel Art Editor: pixel-art-editor.md
+  - Map Editor: map-editor.md
+  - World View: world-view.md
+  - Design Docs:
+    - Map Editor: map-editor-design.md
+    - Overworld System: overworld-system-design.md

@@ -1,0 +1,592 @@
+[
+  {
+    "id": "OVERWORLD-1",
+    "title": "Implement Basic Overworld Functionality",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Establish the foundational overworld gameplay loop and architecture. This milestone introduces a new \"Overworld\" game mode, distinct from the battle simulator and pixel art editor, and accessible via a main menu. The overworld will serve as the player's primary navigation and exploration interface, laying the groundwork for future features such as encounters, NPCs, and map-based events.",
+    "acceptanceCriteria": [
+      "The player can enter the overworld mode from the main menu.",
+      "The overworld displays a map and a controllable player character.",
+      "Player movement is responsive and respects map boundaries/collisions.",
+      "At least one type of interactive tile or object is present (even if only as a placeholder).",
+      "The player can return to the main menu from the overworld.",
+      "The code is organized to allow future expansion (e.g., adding NPCs, wild encounters, map transitions)."
+    ]
+  },
+  {
+    "id": "OVERWORLD-6",
+    "title": "Implement Overworld Runtime (per design doc)",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Implement/align the overworld runtime systems according to `docs/overworld-system-design.md` so the game has a stable, testable contract that tooling (map editor, tile manager, audio) can target.",
+    "acceptanceCriteria": [
+      "The runtime behavior matches `docs/overworld-system-design.md` for movement, collision, interactions, triggers/actions, connections/portals, and per-map audio.",
+      "The overworld consumes the map schema defined in `docs/map-editor-design.md` without manual data edits."
+    ]
+  },
+  {
+    "id": "OVERWORLD-3",
+    "title": "Implement Map Editor (per design doc)",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Build the overworld map editor according to `docs/map-editor-design.md`, enabling creation, editing, saving, and loading of maps that the overworld runtime can consume.",
+    "acceptanceCriteria": [
+      "The implementation follows `docs/map-editor-design.md` (UX, data model, validation, and integration points).",
+      "The editor can create, edit, save, and load maps that the overworld can render and navigate without errors."
+    ]
+  },
+  {
+    "id": "OVERWORLD-4",
+    "title": "Extend Pixel Art Editor for Tiles + Tile Manager",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": []
+  },
+  {
+    "id": "OVERWORLD-5",
+    "title": "Add Overworld Music Per Map",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Add overworld music support with per-map soundtrack assignment so each map can define its own background music.",
+    "acceptanceCriteria": [
+      "Each map definition can reference a music track (by filename or ID).",
+      "Entering a map plays its assigned track and stops or fades out the previous map's track.",
+      "A default overworld track is used when a map does not specify one."
+    ]
+  },
+  {
+    "id": "POKE-11",
+    "title": "Improve Pixel Editor UI/UX Feedback",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "The pixel art editor currently lacks some key visual feedback... (previous description remains) ...Review and correct the panning logic to use standard mouse wheel events (`event.y` for vertical) and potentially implement panning via middle-mouse drag or keyboard modifiers + mouse drag for more control.",
+    "acceptanceCriteria": [
+      "The currently selected drawing/editing tool is clearly indicated visually.",
+      "Zooming feels intuitive, potentially centering on the cursor.",
+      "Panning works predictably using standard controls."
+    ]
+  },
+  {
+    "id": "POKE-12",
+    "title": "Enhance Opponent Battle AI",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "The current AI for the opponent in `battle_simulator.py` (`opponent_choose_move` function) is extremely basic... (previous description remains) ...Start by implementing basic type effectiveness considerations and perhaps HP awareness.",
+    "acceptanceCriteria": [
+      "The `opponent_choose_move` function uses game state information (e.g., types, HP) to make move decisions.",
+      "The opponent's behavior is noticeably more strategic than pure random selection.",
+      "The complexity can be increased incrementally."
+    ]
+  },
+  {
+    "id": "POKE-13",
+    "title": "Implement Battle Sound Effects",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "While the game has background music functionality (`battle_simulator.py` `play_random_song`), it lacks sound effects... (previous description remains) ...Ensure multiple sounds can play without cutting each other off abruptly (Pygame's mixer handles channels automatically to some extent).",
+    "acceptanceCriteria": [
+      "Sound effect files are present in the `sounds/` directory.",
+      "Sounds are loaded using `pygame.mixer.Sound`.",
+      "Key battle events (attacks, damage, faints, stat changes, win/loss) trigger corresponding sound effects.",
+      "Sound effects enhance the battle experience."
+    ]
+  },
+  {
+    "id": "POKE-14",
+    "title": "Refine Editor Tool State Management (Select/Paste/Mirror/Rotate)",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Managing the editor's current mode (e.g., 'draw', 'select', 'paste') and how tools interact with these modes seems complex... (previous description remains) ...Refactor the `handle_event` and related functions to adhere to this explicit state management logic. This might be done as part of POKE-10.",
+    "acceptanceCriteria": [
+      "Editor modes (Draw, Select, Fill, Paste) and tool activations follow clear, predictable rules.",
+      "State transition logic is centralized or clearly managed.",
+      "Interactions like selecting colors or clicking buttons have consistent effects on the current mode.",
+      "Paste mode allows multiple placements until explicitly cancelled.",
+      "Using Copy, Mirror, Rotate behaves logically with respect to the active selection and mode."
+    ]
+  },
+  {
+    "id": "POKE-23",
+    "title": "Add Clipboard History + Persistent Favorite Paste Patterns",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Extend the existing copy/paste workflow in the pixel art editor with a clipboard history (multiple recently copied selections/patterns) and session-to-session persistent \u201cfavorites\u201d for frequently reused patterns.",
+    "acceptanceCriteria": [
+      "Copy operations add the current selection/pattern to a bounded clipboard history (most-recent-first).",
+      "Users can browse/select an item from clipboard history to paste (via UI and/or hotkeys).",
+      "Users can mark clipboard items as favorites; favorites persist across app restarts.",
+      "Pasting a history/favorite item behaves like the current paste tool (preview + placement + cancel), without breaking existing copy/paste behavior."
+    ]
+  },
+  {
+    "id": "TEST-1",
+    "title": "Set up Unit Testing Framework",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "The project currently lacks automated tests... (previous description remains) ...Ensure basic setup allows tests to be written and executed easily.",
+    "acceptanceCriteria": [
+      "A testing framework (`unittest` or `pytest`) is added as a development dependency.",
+      "Project structure includes a dedicated `tests/` directory.",
+      "A sample test runs successfully using the framework's runner (e.g., `python -m unittest discover` or `pytest`).",
+      "Instructions for running tests are added (e.g., to README or a CONTRIBUTING guide)."
+    ]
+  },
+  {
+    "id": "TEST-2",
+    "title": "Write Unit Tests for Damage Calculation Logic",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "The `calculate_damage` function in `battle_simulator.py` contains critical game logic... (previous description remains) ...(Optional) Mocking `random.uniform` to test the damage range calculation deterministically.",
+    "acceptanceCriteria": [
+      "A test suite exists for `calculate_damage`.",
+      "Tests cover various type effectiveness scenarios.",
+      "Tests cover stat-changing moves (0 power).",
+      "Tests pass reliably."
+    ]
+  },
+  {
+    "id": "TEST-3",
+    "title": "Write Unit Tests for Stat Modification Logic",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "The `apply_stat_change` function (and potentially the underlying formula if POKE-7 is done) in `battle_simulator.py` modifies creature stats... (previous description remains) ...Potential edge cases (e.g., hitting max/min stat stages if implemented).",
+    "acceptanceCriteria": [
+      "A test suite exists for stat modification logic.",
+      "Tests cover buffs and debuffs for relevant stats.",
+      "Tests validate the calculated stat values against expected outcomes based on the implemented formula/stage system.",
+      "Tests pass reliably."
+    ]
+  },
+  {
+    "id": "TEST-4",
+    "title": "Add Integration Test for Editor Startup",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "The current unit tests mock dependencies heavily and didn't catch an `AttributeError` related to `config.monsters` not being set during application startup via the root entry point script (`pixle_art_editor.py`). Create an integration test that attempts to launch the editor application (e.g., by running the entry script or using `python -m src.editor.pixle_art_editor`) and verifies that it initializes completely without crashing, including loading necessary data like monsters.",
+    "acceptanceCriteria": [
+      "An integration test exists that simulates application startup for the pixel art editor.",
+      "The test verifies that the editor initializes without critical errors (like the `AttributeError` for `config.monsters`).",
+      "The test uses minimal mocking, focusing on the integration of components during startup.",
+      "The test passes reliably."
+    ]
+  },
+  {
+    "id": "REFACTOR-1",
+    "title": "Inject Dependencies into Editor Class",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "The `Editor` class in `src/editor/pixle_art_editor.py` currently relies on globally loaded monster data (`config.monsters`) set by the entry point script. This makes the class harder to test in isolation and couples it to the startup sequence. Refactor the `Editor` class to accept dependencies like the loaded monster data via its constructor (`__init__`) instead of relying on global state. Update the entry point script (`pixle_art_editor.py`) to load the data and pass it to the `Editor` instance.",
+    "acceptanceCriteria": [
+      "`Editor.__init__` accepts necessary data (like loaded monster list) as arguments.",
+      "The `Editor` class uses the passed-in data instead of relying on `config.monsters`.",
+      "The root entry point script (`pixle_art_editor.py`) loads the data and passes it correctly during `Editor` instantiation.",
+      "Existing functionality remains unchanged.",
+      "Unit tests for `Editor` are potentially easier to write/maintain."
+    ]
+  },
+  {
+    "id": "INFRA-1",
+    "title": "Create Distribution Build Script (PyInstaller)",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Python games are notoriously difficult to distribute to non-technical users. Set up a build script using PyInstaller to generate a standalone executable (e.g., `.exe` on Windows, binary on Mac/Linux) for the main game. This mitigates the risk of \"it only runs on my machine.\"",
+    "acceptanceCriteria": [
+      "A build script (e.g., `build.sh` or `build.bat`) exists.",
+      "Running the script produces a standalone executable in a `dist/` folder.",
+      "The executable runs the game (Main Menu) correctly on the host OS without requiring a system Python installation.",
+      "Assets (images, json) are correctly bundled or loaded relative to the executable."
+    ]
+  },
+  {
+    "id": "POKE-15",
+    "title": "Remove Magic Numbers from Codebase",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Throughout the codebase (especially in UI layout calculations...) ... (previous description remains) ...The goal is to improve code readability and make future adjustments easier.",
+    "acceptanceCriteria": [
+      "Hardcoded numerical literals with unclear meaning are replaced by named constants.",
+      "Code readability is improved."
+    ]
+  },
+  {
+    "id": "POKE-16",
+    "title": "Add Robust Error Handling",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "While some basic error handling exists... (previous description remains) ...Ensure user actions like cancelling dialogs don't cause errors.",
+    "acceptanceCriteria": [
+      "Common file I/O errors are caught and handled gracefully.",
+      "Potential Pygame errors in critical sections are handled.",
+      "The application provides user feedback on errors where appropriate, rather than just crashing."
+    ]
+  },
+  {
+    "id": "POKE-17",
+    "title": "Add Missing README Screenshot and Documentation",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "The project's `README.md` file currently has placeholders... (previous description remains) ...Either add relevant developer/user documentation under the \"Documentation\" section or remove the section if no additional documentation is planned beyond the README itself.",
+    "acceptanceCriteria": [
+      "The screenshot path in `README.md` points to an actual, relevant image file committed to the repository.",
+      "The \"Documentation\" section is either populated or removed.",
+      "The README accurately reflects the project's current state."
+    ]
+  },
+  {
+    "id": "POKE-18",
+    "title": "Optimize Editor Undo/Redo Memory Usage",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "The pixel editor's undo/redo system (`pixle_art_editor.py` `save_state`, `undo`, `redo` methods) currently works by saving complete copies... (previous description remains) ...This is likely a significant refactoring effort and should only be undertaken if memory usage proves problematic.",
+    "acceptanceCriteria": [
+      "(If implemented) The undo/redo system consumes measurably less memory per step, especially for large canvases.",
+      "Undo/Redo functionality remains correct and reliable for all editing operations."
+    ]
+  },
+  {
+    "id": "POKE-19",
+    "title": "Adjust Creature Sprite Positioning in Battle View",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "In the battle screen (`battle_simulator.py` `draw_battle` function), the creature sprites are drawn using coordinates calculated relative to the bottom of the screen... (previous description remains) ...Experiment with different positioning strategies or offsets for the creature sprites...",
+    "acceptanceCriteria": [
+      "Creature sprite positions in the battle view are visually appealing and well-integrated with other UI elements.",
+      "Positioning logic is clear and potentially uses constants from POKE-1 (Done)."
+    ]
+  },
+  {
+    "id": "POKE-20",
+    "title": "Perform Balance Pass on Stat Changes and Damage",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "After implementing changes to the stat modification formula (POKE-7 - Done) and completing the type chart (POKE-5), the overall balance of combat needs review... (previous description remains) ...Adjust base stats (`monsters.json`), move powers (`moves.json`), stat change magnitudes (POKE-7 logic - Done), or type effectiveness multipliers (POKE-5 data) as needed...",
+    "acceptanceCriteria": [
+      "Combat feels relatively balanced \u2013 no single type or strategy is overwhelmingly dominant without counterplay.",
+      "Stat changes have a noticeable but not game-breaking impact.",
+      "Battles last a reasonable number of turns on average.",
+      "Adjustments to data files (`monsters.json`, `moves.json`, `type_chart.json`) or formulas are documented."
+    ]
+  },
+  {
+    "id": "POKE-10",
+    "title": "Refactor Pixel Art Editor for Modularity",
+    "status": "In Progress",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "The main file for the pixel art editor, `pixle_art_editor.py`, has grown very large... (previous description remains) ...Refactor the `Editor` class and `handle_event` method to delegate responsibilities to these new components.",
+    "acceptanceCriteria": [
+      "The codebase for the pixel editor is organized into multiple smaller, well-defined modules/classes.",
+      "The main editor file (`pixle_art_editor.py` or its replacement) is significantly shorter and less complex.",
+      "Responsibilities are clearly separated (e.g., tool logic is separate from UI drawing).",
+      "The editor's functionality remains intact or is improved.",
+      "Code is more readable and maintainable."
+    ]
+  },
+  {
+    "id": "POKE-10.4",
+    "title": "Refactor UI Drawing (`draw_ui`)",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Simplify the `Editor.draw_ui` method by extracting UI drawing responsibilities. Move drawing logic for specific components (sprite editors view, background canvas view, palette, sliders, info text) into separate functions or methods, potentially within an `UIManager` or `EditorUI` class (using `ui_manager.py` or `editor_ui.py`). `Editor.draw_ui` should become primarily an orchestrator.",
+    "acceptanceCriteria": [
+      "The `Editor.draw_ui` method is significantly shorter and delegates drawing tasks.",
+      "Drawing logic for distinct UI areas is encapsulated in separate functions/methods/classes.",
+      "The overall UI appearance and layout remain unchanged.",
+      "Relevant integration tests are **written and pass** to verify that `draw_ui` invokes sub-drawing routines correctly (may require surface mocking).",
+      "Manual regression testing confirms the UI renders correctly in all modes."
+    ]
+  },
+  {
+    "id": "POKE-10.5",
+    "title": "Refactor State Management",
+    "status": "In Progress",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Centralize or better encapsulate the editor's state management. Aspects like `current_color`, `mode`, `edit_mode`, `brush_size`, `editor_zoom`, `view_offset`, undo/redo stacks, etc., could be grouped into a dedicated state object/class. Access to and modification of state should be managed through clearer interfaces.",
+    "acceptanceCriteria": [
+      "Editor state variables are grouped logically (e.g., in a dedicated state class).",
+      "Access and modification of state are handled through well-defined methods or properties.",
+      "The `Editor` class and other components access state through the new mechanism.",
+      "All editor functionality relying on this state continues to work correctly.",
+      "Relevant unit tests are **written and pass** for the state management logic, verifying state transitions and access.",
+      "Manual regression testing confirms no state-related regressions."
+    ]
+  },
+  {
+    "id": "POKE-10.6",
+    "title": "Refactor File I/O and Dialogs",
+    "status": "In Progress",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Extract file loading/saving logic (monsters, sprites, backgrounds, reference images) and dialog interactions (including the Pygame-based dialog system and any remaining Tkinter calls) from the `Editor` class. This logic could reside in dedicated file I/O modules and a `DialogManager` (using `dialog_manager.py`).",
+    "acceptanceCriteria": [
+      "File loading/saving logic is moved out of the `Editor` class.",
+      "Dialog presentation and handling logic are managed by a dedicated system (e.g., `DialogManager`).",
+      "The `Editor` class calls the appropriate I/O or dialog functions.",
+      "All file operations and dialog interactions work correctly.",
+      "Relevant unit/integration tests are **written and pass** for file I/O functions (mocking FS access) and dialog management logic (testing state transitions/callbacks).",
+      "Manual regression testing confirms all file and dialog operations work correctly."
+    ]
+  },
+  {
+    "id": "POKE-9",
+    "title": "Fix Tkinter Initialization Conflicts",
+    "status": "On Hold",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "The pixel art editor (`pixle_art_editor.py`) relies on Python's built-in Tkinter library for the color picker and file dialogs (e.g., loading reference images), and removing it is currently blocked ([See ToDo](#on-hold)). However, initializing Tkinter (`tk.Tk()`) *after* Pygame (`pygame.init()`) can cause crashes on some systems (especially macOS) due to conflicts between SDL and Tkinter interacting with the windowing system (e.g., `-[SDLApplication macOSVersion]: unrecognized selector`). The goal is to fix this crash by ensuring Tkinter is initialized safely before Pygame, allowing its dialogs to function correctly.",
+    "acceptanceCriteria": [
+      "Tkinter initialization (`tk.Tk()`) does not crash the application when called.",
+      "Tkinter-dependent features (Color Picker, Load Ref Img) open their respective dialogs without crashing the main application.",
+      "The Tkinter root window remains hidden.",
+      "Pygame functionality is unaffected."
+    ]
+  },
+  {
+    "id": "OVERWORLD-2",
+    "title": "Add Map Editor Functionality (Design Doc Complete)",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Authored the map editor design and requirements in a dedicated design doc for future implementation."
+  },
+  {
+    "id": "FEAT-REFIMG-PANZOOM",
+    "title": "Implement Reference Image Panning and Scaling",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Currently, the reference image loaded in the monster editor (`[FEAT-REFIMG]`) is displayed at a fixed position and scale (aspect-fit). This can make it difficult to precisely align with the pixel grid, especially if the desired tracing area is small or off-center in the original image. Implement controls to allow the user to pan (move horizontally/vertically) and scale (zoom in/out) the reference image layer independently of the main pixel grid zoom/pan. This could involve dedicated UI buttons/sliders or keyboard modifiers + mouse interactions.",
+    "acceptanceCriteria": [
+      "Controls (UI elements or keyboard/mouse shortcuts) are available to pan the reference image horizontally and vertically.",
+      "Controls are available to scale the reference image up and down.",
+      "Panning and scaling operations affect only the reference image layer, not the pixel grid or other UI elements.",
+      "The transparency setting (`[FEAT-REFIMG]`) still functions correctly with the panned/scaled image.",
+      "The \"Clear Ref Img\" function resets any panning and scaling applied.",
+      "The editor remains performant even with panning/scaling applied."
+    ]
+  },
+  {
+    "id": "POKE-10.3",
+    "title": "Refactor Core Drawing/Tool Logic",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Extract the logic for different editing tools (Draw, Erase, Fill, Paste) currently residing within the `Editor` class (e.g., in `_handle_canvas_click`, `flood_fill`, `apply_paste`) into separate classes or functions, potentially managed by a `ToolManager` using `tool_manager.py`. The `EventHandler` and `Editor` should delegate actions to the appropriate tool handler based on the current mode/tool.",
+    "acceptanceCriteria": [
+      "Logic for Draw, Erase, Fill, and Paste tools is encapsulated outside the main `Editor` class (e.g., in `tool_manager.py` or individual tool modules).",
+      "The `Editor` class delegates canvas interactions (clicks/drags) to the active tool handler.",
+      "The `EventHandler` correctly facilitates this delegation.",
+      "All tools function correctly in both monster and background edit modes.",
+      "Relevant unit/integration tests are **written and pass** for each extracted tool's logic, verifying correct pixel manipulation on a mock canvas or `SpriteEditor` frame.",
+      "Manual regression testing confirms all tools work as expected."
+    ]
+  },
+  {
+    "id": "POKE-10.1",
+    "title": "Extract `SpriteEditor` Class",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Move the `SpriteEditor` class definition from `pixle_art_editor.py` into its own dedicated module (e.g., `sprite_editor.py`). Update `pixle_art_editor.py` to import and use the class from the new module. Ensure all functionality related to sprite data handling (loading, saving, drawing pixels, getting grid positions) remains intact.",
+    "acceptanceCriteria": [
+      "The `SpriteEditor` class is defined in a separate file (e.g., `sprite_editor.py`).",
+      "`pixle_art_editor.py` imports and instantiates `SpriteEditor` from the new module.",
+      "All existing sprite editing functionality works as before.",
+      "Relevant unit/integration tests are **written and pass** for the `SpriteEditor` class, verifying its core methods (e.g., `load_sprite`, `save_sprite`, `draw_pixel`, `get_grid_position`) in isolation or minimal integration.",
+      "Manual regression testing confirms sprite editing remains fully functional."
+    ]
+  },
+  {
+    "id": "POKE-10.2",
+    "title": "Extract `Palette` Class",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Move the `Palette` class definition from `pixle_art_editor.py` into the `editor_ui.py` module. Update `pixle_art_editor.py` to import and use the class from its new location. Ensure color selection and palette scrolling functionality remain intact.",
+    "acceptanceCriteria": [
+      "The `Palette` class is defined in `editor_ui.py`.",
+      "`pixle_art_editor.py` imports and instantiates `Palette` from `editor_ui.py`.",
+      "Color selection using the palette works correctly.",
+      "Palette scrolling functions as expected.",
+      "Relevant unit/integration tests are **written and pass** for the `Palette` class, verifying its drawing and click handling logic (potentially mocking `editor.select_color`).",
+      "Manual regression testing confirms palette interaction remains fully functional."
+    ]
+  },
+  {
+    "id": "FEAT-REFIMG",
+    "title": "Add Reference Image Layer to Pixel Editor",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Implement functionality to load, display (with aspect-fit scaling), adjust transparency (alpha slider), and clear a background reference/tracing image within the pixel art editor's monster editing mode. The image should appear behind the interactive pixel grid.",
+    "acceptanceCriteria": [
+      "A \"Load Ref Img\" button/option allows selecting PNG/JPG/etc. files.",
+      "The loaded image displays behind the *active* sprite editor grid, scaled to fit while maintaining aspect ratio.",
+      "An alpha slider controls the reference image's transparency (0-100% or 0-255).",
+      "A \"Clear Ref Img\" button/option removes the reference image.",
+      "Loading, clearing, and alpha adjustment work correctly without breaking other editor functions.",
+      "Drawing/erasing on the main grid is unaffected by the reference image."
+    ]
+  },
+  {
+    "id": "POKE-1",
+    "title": "Define and Centralize Core Configuration Constants",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": []
+  },
+  {
+    "id": "POKE-2",
+    "title": "Refactor Sprite Creation to Use Native Resolution",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": []
+  },
+  {
+    "id": "POKE-3",
+    "title": "Refactor Editor Sprite Loading/Saving to Native Resolution",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": []
+  },
+  {
+    "id": "POKE-4",
+    "title": "Refactor Battle Sim Sprite Loading/Scaling",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": []
+  },
+  {
+    "id": "POKE-5",
+    "title": "Complete `type_chart.json` Data",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": []
+  },
+  {
+    "id": "POKE-6",
+    "title": "Implement Stat Reset Between Battles",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": []
+  },
+  {
+    "id": "POKE-7",
+    "title": "Review and Simplify Stat Change Formula",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": []
+  },
+  {
+    "id": "POKE-8",
+    "title": "Fix Creature Selection Keyboard Navigation",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": []
+  },
+  {
+    "id": "POKE-21",
+    "title": "Editor: Eraser/Fill modes deactivate immediately upon button click",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": []
+  },
+  {
+    "id": "UI-BATTLESIM-NAVHINT",
+    "title": "Add Page Navigation Key Hints in Battle Sim Character Select",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "In the battle simulator's character selection screen, when the user attempts to navigate left off the first item on a page or right off the last item on a page using arrow keys, display a temporary visual hint (e.g., \"Press [ for Prev Page\" or \"Press ] for Next Page\") to guide them on how to change pages.",
+    "acceptanceCriteria": [
+      "Pressing Left Arrow on the first selectable item displays the previous page hint (if applicable).",
+      "Pressing Right Arrow on the last selectable item displays the next page hint (if applicable).",
+      "The hint is displayed clearly on the screen (e.g., near page number or center).",
+      "The hint disappears after a short duration (e.g., 1-2 seconds) or on the next user input.",
+      "The core navigation logic remains unchanged."
+    ]
+  },
+  {
+    "id": "POKE-22",
+    "title": "Reorganize Project Folder Structure",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "The current project structure has most Python modules (`pixle_art_editor.py`, `tool_manager.py`, `battle_simulator.py`, etc.) directly in the root directory. This can become hard to manage as the project grows. Reorganize the codebase into a more standard structure, likely involving a main `src/` directory with subdirectories for different components (e.g., `src/editor`, `src/battle`, `src/core`, `src/ui`, `src/utils`). Update all necessary imports and ensure the application and tests still run correctly after the reorganization.",
+    "acceptanceCriteria": [
+      "Python source files are moved into a logical directory structure (e.g., under `src/`).",
+      "All internal imports within the codebase are updated to reflect the new structure.",
+      "The main application entry points (e.g., `pixle_art_editor.py`, `battle_simulator.py`, potentially moved/adjusted) still launch the application correctly.",
+      "All unit tests pass after the reorganization (adjusting imports in tests as needed).",
+      "Directory structure is cleaner and easier to navigate."
+    ]
+  }
+]

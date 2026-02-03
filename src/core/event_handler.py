@@ -60,10 +60,10 @@ class EventHandler:
         elif event.type == pygame.MOUSEWHEEL:
              # --- Reference Image Scaling --- 
              mods = pygame.key.get_mods()
-             if self.editor.edit_mode == 'monster' and (mods & KMOD_ALT):
-                 active_sprite_editor = self.editor.sprites.get(self.editor.current_sprite)
+             if self.editor.edit_mode in ['monster', 'tile'] and (mods & KMOD_ALT):
+                 active_sprite_editor = self.editor.get_active_canvas()
                  if active_sprite_editor:
-                     editor_rect = pygame.Rect(active_sprite_editor.position, 
+                     editor_rect = pygame.Rect(active_sprite_editor.position,
                                                 (active_sprite_editor.display_width, active_sprite_editor.display_height))
                      if editor_rect.collidepoint(pygame.mouse.get_pos()): # Check if mouse is over editor
                          scale_factor = 1.1 if event.y > 0 else (1 / 1.1)
@@ -229,7 +229,7 @@ class EventHandler:
 
         if event.button == 1: # Left click
             # 0a. Check Subject Alpha Slider Click/Drag Start
-            if self.editor.edit_mode == 'monster' and self.editor.subj_alpha_slider_rect.collidepoint(event.pos):
+            if self.editor.edit_mode in ['monster', 'tile'] and self.editor.subj_alpha_slider_rect.collidepoint(event.pos):
                 self.editor.adjusting_subject_alpha = True
                 self._update_subject_alpha_slider(event.pos) # Update alpha and knob position
                 return True # Event handled
@@ -242,8 +242,8 @@ class EventHandler:
 
             # 0c. Check Reference Image Pan Start (Alt + Click on active editor)
             mods = pygame.key.get_mods()
-            if self.editor.edit_mode == 'monster' and (mods & KMOD_ALT):
-                active_sprite_editor = self.editor.sprites.get(self.editor.current_sprite)
+            if self.editor.edit_mode in ['monster', 'tile'] and (mods & KMOD_ALT):
+                active_sprite_editor = self.editor.get_active_canvas()
                 if active_sprite_editor:
                     editor_rect = pygame.Rect(active_sprite_editor.position, 
                                                (active_sprite_editor.display_width, active_sprite_editor.display_height))
@@ -285,7 +285,8 @@ class EventHandler:
             if clicked_sprite_editor or is_bg_click:
                 # Save state BEFORE the action starts (important for undo)
                 # Only save state if not already dragging a selection
-                if not (editor.mode == 'select' and editor.selection.selecting):
+                if (editor.tool_manager.active_tool_name != 'eyedropper' and
+                    not (editor.mode == 'select' and editor.selection.selecting)):
                      editor.save_state()
 
                 if editor.mode == 'select':
@@ -337,16 +338,9 @@ class EventHandler:
                 return True # Panning started
                 
         # Handle Right-click, Middle-click, etc. if needed
-        # elif event.button == 3: # Right click
-        #     # Example: Eyedropper tool?
-        #     sprite_at_pos = editor._get_sprite_editor_at_pos(event.pos)
-        #     if sprite_at_pos:
-        #         grid_pos = sprite_at_pos.get_grid_position(event.pos)
-        #         if grid_pos:
-        #             color = sprite_at_pos.get_pixel_color(grid_pos)
-        #             if color: editor.select_color(color)
-        #             return True
-        #     pass
+        elif event.button == 3: # Right click
+             if editor.pick_color_at_pos(event.pos):
+                 return True
 
         return False # Event not handled
 
@@ -358,6 +352,41 @@ class EventHandler:
         if editor.adjusting_subject_alpha and (event.buttons[0] == 1):
             self._update_subject_alpha_slider(event.pos)
             return True
+
+        # Handle tray scrollbar drag (tile/npc)
+        if editor.tile_frame_dragging_scrollbar and (event.buttons[0] == 1):
+            frames = editor.current_tile().frames if editor.current_tile() else []
+            if editor.tile_frame_scrollbar_rect and editor.tile_frame_scroll_thumb_rect:
+                editor.tile_frame_scroll = editor._set_tray_scroll_from_thumb(
+                    event.pos[1],
+                    len(frames),
+                    editor.tile_frame_visible,
+                    editor.tile_frame_scrollbar_rect,
+                    editor.tile_frame_scroll_thumb_rect.height,
+                )
+                return True
+        if editor.npc_state_dragging_scrollbar and (event.buttons[0] == 1):
+            states = list(editor.current_npc().states.keys()) if editor.current_npc() else []
+            if editor.npc_state_scrollbar_rect and editor.npc_state_scroll_thumb_rect:
+                editor.npc_state_scroll = editor._set_tray_scroll_from_thumb(
+                    event.pos[1],
+                    len(states),
+                    editor.npc_state_visible,
+                    editor.npc_state_scrollbar_rect,
+                    editor.npc_state_scroll_thumb_rect.height,
+                )
+                return True
+        if editor.npc_angle_dragging_scrollbar and (event.buttons[0] == 1):
+            angles = list(editor.current_npc().states.get(editor.current_npc_state, {}).keys()) if editor.current_npc() else []
+            if editor.npc_angle_scrollbar_rect and editor.npc_angle_scroll_thumb_rect:
+                editor.npc_angle_scroll = editor._set_tray_scroll_from_thumb(
+                    event.pos[1],
+                    len(angles),
+                    editor.npc_angle_visible,
+                    editor.npc_angle_scrollbar_rect,
+                    editor.npc_angle_scroll_thumb_rect.height,
+                )
+                return True
 
         # Handle Reference Image Panning Drag (Alt + Drag)
         if self.ref_img_panning and (event.buttons[0] == 1):
@@ -426,10 +455,16 @@ class EventHandler:
                 editor.adjusting_subject_alpha = False
                 return True # Event handled
                 
-             # Stop adjusting reference alpha slider
+            # Stop adjusting reference alpha slider
             if editor.adjusting_alpha:
                 editor.adjusting_alpha = False
                 return True # Event handled
+
+            if editor.tile_frame_dragging_scrollbar or editor.npc_state_dragging_scrollbar or editor.npc_angle_dragging_scrollbar:
+                editor.tile_frame_dragging_scrollbar = False
+                editor.npc_state_dragging_scrollbar = False
+                editor.npc_angle_dragging_scrollbar = False
+                return True
 
             # Handle drawing end - NO LONGER NEEDED HERE
             # if editor.drawing:

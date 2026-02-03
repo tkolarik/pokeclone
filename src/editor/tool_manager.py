@@ -212,6 +212,15 @@ class PasteTool(BaseTool):
         pass
 
 
+class EyedropperTool(BaseTool):
+    def __init__(self):
+        super().__init__("Eyedropper")
+
+    def handle_click(self, editor, pos):
+        if not editor.pick_color_at_pos(pos):
+            print("Eyedropper: No color found at that position.")
+
+
 # --- Tool Manager ---
 class ToolManager:
     def __init__(self, editor):
@@ -220,6 +229,7 @@ class ToolManager:
             'draw': DrawTool(),
             'fill': FillTool(),    # <<< Add FillTool
             'paste': PasteTool(),   # <<< Add PasteTool
+            'eyedropper': EyedropperTool(),
             # 'select': SelectionTool() # Selection might be managed differently
         }
         self.active_tool_name = 'draw' # Default tool
