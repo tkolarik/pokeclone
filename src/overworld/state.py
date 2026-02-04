@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import random
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
@@ -571,6 +572,7 @@ class OverworldSession:
         self.message_queue: List[str] = []
         self.audio = audio_controller or NullAudioController()
         self.current_music_id: Optional[str] = None
+        self.random_music_id: Optional[str] = None
         self.battle_launcher = battle_launcher
         self.pending_battle: Optional[Dict[str, Any]] = None
         self._ensure_music()
@@ -600,15 +602,25 @@ class OverworldSession:
         if spawn_override:
             spawn_x, spawn_y = spawn_override.get("x", spawn_x), spawn_override.get("y", spawn_y)
         self.player = Player(x=spawn_x, y=spawn_y, facing=facing or self.player.facing)
+        if self.map.music_id:
+            self.random_music_id = None
+        else:
+            self.random_music_id = random.choice(config.OVERWORLD_MUSIC_TRACKS) if config.OVERWORLD_MUSIC_TRACKS else None
         self._ensure_music()
 
     def _ensure_music(self) -> None:
-        if self.map.music_id != self.current_music_id:
-            if self.map.music_id is not None:
-                self.audio.play_music(self.map.music_id)
+        desired_music = self.map.music_id
+        if desired_music is None:
+            if self.random_music_id is None and config.OVERWORLD_MUSIC_TRACKS:
+                self.random_music_id = random.choice(config.OVERWORLD_MUSIC_TRACKS)
+            desired_music = self.random_music_id
+
+        if desired_music != self.current_music_id:
+            if desired_music is not None:
+                self.audio.play_music(desired_music)
             else:
                 self.audio.stop_music()
-            self.current_music_id = self.map.music_id
+            self.current_music_id = desired_music
 
     # Message handling -----------------------------------------------------
     def queue_message(self, text: Optional[Any]) -> None:

@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from unittest.mock import patch
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, project_root)
@@ -77,6 +78,41 @@ def build_basic_map(map_id="map1", music_id=None):
 
 
 class TestOverworldSession(unittest.TestCase):
+    def test_random_music_fallback_on_map_load(self):
+        world = build_basic_map(music_id=None)
+        audio = FakeAudio()
+        with patch("src.overworld.state.config.OVERWORLD_MUSIC_TRACKS", ["track_a.ogg", "track_b.ogg"]), \
+             patch("src.overworld.state.random.choice", return_value="track_b.ogg") as mock_choice:
+            session = OverworldSession(world, tileset=build_tileset(), audio_controller=audio)
+
+        mock_choice.assert_called_once()
+        self.assertEqual(session.current_music_id, "track_b.ogg")
+        self.assertEqual(audio.played[-1], "track_b.ogg")
+
+    def test_music_id_overrides_random_fallback(self):
+        world = build_basic_map(music_id="explicit_song.ogg")
+        audio = FakeAudio()
+        with patch("src.overworld.state.config.OVERWORLD_MUSIC_TRACKS", ["track_a.ogg"]), \
+             patch("src.overworld.state.random.choice") as mock_choice:
+            session = OverworldSession(world, tileset=build_tileset(), audio_controller=audio)
+
+        mock_choice.assert_not_called()
+        self.assertEqual(session.current_music_id, "explicit_song.ogg")
+        self.assertEqual(audio.played[-1], "explicit_song.ogg")
+
+    def test_random_music_refreshes_on_set_map(self):
+        audio = FakeAudio()
+        map_one = build_basic_map("map_one", music_id=None)
+        map_two = build_basic_map("map_two", music_id=None)
+        with patch("src.overworld.state.config.OVERWORLD_MUSIC_TRACKS", ["track_a.ogg", "track_b.ogg"]), \
+             patch("src.overworld.state.random.choice", side_effect=["track_a.ogg", "track_b.ogg"]) as mock_choice:
+            session = OverworldSession(map_one, tileset=build_tileset(), audio_controller=audio)
+            session.set_map(map_two, tileset=build_tileset())
+
+        self.assertEqual(mock_choice.call_count, 2)
+        self.assertEqual(audio.played[0], "track_a.ogg")
+        self.assertEqual(audio.played[-1], "track_b.ogg")
+
     def test_collision_and_override(self):
         tileset = build_tileset()
         world = build_basic_map()

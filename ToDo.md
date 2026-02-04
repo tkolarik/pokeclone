@@ -8,7 +8,7 @@
 
 ### High Priority
 
-* **[OVERWORLD-3] Implement Map Editor (per design doc)**
+* ~~**[OVERWORLD-3] Implement Map Editor (per design doc)**~~ **(Completed)**
     * **Type:** Feature
     * **Priority:** High
     * **Description:** Build the overworld map editor according to `docs/map-editor-design.md`, enabling creation, editing, saving, and loading of maps that the overworld runtime can consume.
@@ -23,7 +23,7 @@
     * Added tileset-backed overworld rendering and sample data.
     * Added NPC sprite editing (states/angles/frames) alongside tilesets.
 
-* **[OVERWORLD-5] Add Overworld Music Per Map**
+* ~~**[OVERWORLD-5] Add Overworld Music Per Map**~~ **(Completed)**
     * **Type:** Feature
     * **Priority:** High
     * **Description:** Add overworld music support with per-map soundtrack assignment so each map can define its own background music.

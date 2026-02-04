@@ -32,7 +32,7 @@
   {
     "id": "OVERWORLD-3",
     "title": "Implement Map Editor (per design doc)",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],
@@ -45,7 +45,7 @@
   {
     "id": "OVERWORLD-4",
     "title": "Extend Pixel Art Editor for Tiles + Tile Manager",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": []
@@ -53,7 +53,7 @@
   {
     "id": "OVERWORLD-5",
     "title": "Add Overworld Music Per Map",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],

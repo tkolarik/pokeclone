@@ -97,6 +97,9 @@ GRAY_DARK = (100, 100, 100)
 EDITOR_BG_COLOR = GRAY_LIGHT
 BATTLE_BG_COLOR = WHITE
 OVERWORLD_BG_COLOR = (90, 140, 90)
+
+# Overworld music fallback (when maps omit musicId). Filenames live in songs/.
+OVERWORLD_MUSIC_TRACKS = ["Overworld-1.wav", "Overworld-2.wav", "Overworld-3.wav"]
 HP_BAR_COLOR = GREEN
 BUTTON_COLOR = GRAY_LIGHT
 BUTTON_HOVER_COLOR = GRAY_MEDIUM
