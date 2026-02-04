@@ -99,12 +99,10 @@ BATTLE_BG_COLOR = WHITE
 OVERWORLD_BG_COLOR = (90, 140, 90)
 
 # Overworld music fallback (when maps omit musicId). Filenames live in songs/.
-OVERWORLD_MUSIC_TRACKS = ["Overworld-1.wav", "Overworld-2.wav", "Overworld-3.wav"]
+OVERWORLD_MUSIC_TRACKS = ["Overworld-1.wav", "Overworld-2.wav", "Overworld-3.wav", "Overworld-4.wav"]
 HP_BAR_COLOR = GREEN
 BUTTON_COLOR = GRAY_LIGHT
 BUTTON_HOVER_COLOR = GRAY_MEDIUM
-BUTTON_ACTIVE_COLOR = (240, 220, 140)
-BUTTON_ACTIVE_TEXT_COLOR = BLACK
 SELECTION_HIGHLIGHT_COLOR = RED
 SELECTION_FILL_COLOR = (*BLUE, 50) # Semi-transparent blue
 GRID_COLOR_1 = GRAY_LIGHT
