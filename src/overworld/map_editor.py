@@ -2,13 +2,13 @@ import json
 import math
 import os
 import random
-import subprocess
 import sys
 from typing import Dict, List, Optional, Tuple
 
 import pygame
 
 from src.core import config
+from src.core.launcher import spawn_module
 from src.core.tileset import TileDefinition, TileSet, list_tileset_files, NPCSprite
 from src.overworld.overworld import load_tileset_images
 from src.overworld.state import (
@@ -1470,35 +1470,27 @@ class MapEditor:
 
     # External editor -----------------------------------------------------
     def _open_art_editor(self, kind: str, identifier: str) -> None:
-        editor_path = os.path.join(config.PROJECT_ROOT, "pixle_art_editor.py")
-        if not os.path.exists(editor_path):
-            self.status_message = "Pixel editor entrypoint not found."
-            return
         if kind == "npc" and self.tileset:
             for npc in self.tileset.npcs:
                 if npc.id == identifier:
                     self._ensure_npc_frames(npc)
                     break
         try:
-            args = [sys.executable, editor_path]
             env = os.environ.copy()
+            args = []
             if kind == "npc":
-                args += ["--mode", "tile", "--asset", "npc", "--npc", identifier]
+                args = ["--mode", "tile", "--asset", "npc", "--npc", identifier]
                 env["POKECLONE_EDITOR_MODE"] = "tile"
                 env["POKECLONE_EDITOR_ASSET"] = "npc"
                 env["POKECLONE_EDITOR_NPC"] = identifier
-            subprocess.Popen(args, env=env)
+            spawn_module("src.editor.pixle_art_editor", args=args, env=env)
             self.status_message = f"Opening pixel editor for {kind} '{identifier}'..."
         except Exception as e:
             self.status_message = f"Failed to open editor: {e}"
 
     def _open_world_view(self) -> None:
-        world_view_path = os.path.join(config.PROJECT_ROOT, "src", "overworld", "world_view.py")
-        if not os.path.exists(world_view_path):
-            self.status_message = "World view not found."
-            return
         try:
-            subprocess.Popen([sys.executable, world_view_path])
+            spawn_module("src.overworld.world_view")
             self.status_message = "Opened world view."
         except Exception as e:
             self.status_message = f"Failed to open world view: {e}"

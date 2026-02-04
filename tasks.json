@@ -217,7 +217,7 @@
   {
     "id": "INFRA-1",
     "title": "Create Distribution Build Script (PyInstaller)",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],

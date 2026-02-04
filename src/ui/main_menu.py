@@ -1,4 +1,6 @@
+import os
 import runpy
+import sys
 
 import pygame
 
@@ -31,6 +33,28 @@ def run_module(module_name: str) -> None:
         pass
 
 
+def _dispatch_module_from_cli() -> bool:
+    module_name = None
+    module_args = []
+    if "--run-module" in sys.argv:
+        idx = sys.argv.index("--run-module")
+        if idx + 1 >= len(sys.argv):
+            raise SystemExit("Missing module name for --run-module")
+        module_name = sys.argv[idx + 1]
+        module_args = sys.argv[idx + 2 :]
+        if module_args[:1] == ["--"]:
+            module_args = module_args[1:]
+    else:
+        module_name = os.environ.get("POKECLONE_RUN_MODULE")
+
+    if not module_name:
+        return False
+
+    sys.argv = [module_name] + module_args
+    run_module(module_name)
+    return True
+
+
 def draw_menu(screen, title_font, option_font, selected_index):
     screen.fill(config.MENU_BG_COLOR)
     title_surf = title_font.render("PokeClone", True, config.MENU_TEXT_COLOR)
@@ -52,6 +76,8 @@ def draw_menu(screen, title_font, option_font, selected_index):
 
 
 def main() -> None:
+    if _dispatch_module_from_cli():
+        return
     screen, title_font, option_font, clock = init_menu()
     selected_index = 0
     running = True

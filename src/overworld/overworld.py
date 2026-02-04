@@ -1,6 +1,5 @@
 import json
 import os
-import subprocess
 import sys
 from typing import Dict, Optional
 
@@ -9,6 +8,7 @@ import pygame
 from src.core import config
 from src.core.tileset import TileSet
 from src.overworld.state import MapData, MapLayer, OverworldSession
+from src.core.launcher import run_module
 
 
 class OverworldAudio:
@@ -378,7 +378,7 @@ def build_battle_launcher(session: OverworldSession) -> callable:
             env["POKECLONE_OPPONENT_ID"] = str(payload.get("opponent_id"))
         session.audio.stop_music()
         try:
-            subprocess.run([sys.executable, "-m", "src.battle.battle_simulator"], env=env)
+            run_module("src.battle.battle_simulator", env=env)
         finally:
             session.current_music_id = None
             session._ensure_music()

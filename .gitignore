@@ -11,3 +11,8 @@ __pycache__/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Build artifacts
+build/
+dist/
+*.spec
