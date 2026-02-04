@@ -215,6 +215,14 @@ class Editor:
         self.canvas_rect = None
 
         self.buttons = [] # Start with empty buttons
+        self.button_panel_rect = None
+        self.button_panel_content_height = 0
+        self.button_scroll_offset = 0
+        self.button_scroll_max = 0
+        self.button_scroll_step = 0
+        self._button_panel_context = None
+        self.button_scrollbar_rect = None
+        self.button_scroll_thumb_rect = None
 
         self.font = pygame.font.Font(config.DEFAULT_FONT, config.EDITOR_INFO_FONT_SIZE)
         self.font_small = pygame.font.Font(config.DEFAULT_FONT, 12)
@@ -1207,6 +1215,93 @@ class Editor:
         # print("Editor window refocused.") - REMOVED
         pass # No longer needed
 
+    def _button_panel_context_key(self):
+        return (self.edit_mode, getattr(self, "asset_edit_target", None))
+
+    def _apply_button_scroll(self, buttons):
+        for button in buttons:
+            if hasattr(button, "base_rect"):
+                button.rect = button.base_rect.move(0, -self.button_scroll_offset)
+
+    def _set_button_scroll_offset(self, buttons, offset):
+        if self.button_scroll_max <= 0:
+            self.button_scroll_offset = 0
+            self._apply_button_scroll(buttons)
+            return False
+        clamped = max(0, min(offset, self.button_scroll_max))
+        if clamped == self.button_scroll_offset:
+            return False
+        self.button_scroll_offset = clamped
+        self._apply_button_scroll(buttons)
+        return True
+
+    def _configure_button_panel(self, buttons, start_x, start_y, button_width, button_height, padding):
+        context = self._button_panel_context_key()
+        if context != self._button_panel_context:
+            self.button_scroll_offset = 0
+            self._button_panel_context = context
+
+        bottom_limit = None
+        if isinstance(getattr(self, "brush_slider", None), pygame.Rect):
+            bottom_limit = self.brush_slider.top - 10
+        if bottom_limit is None:
+            bottom_limit = config.EDITOR_HEIGHT - 60
+        panel_height = max(0, bottom_limit - start_y)
+        self.button_panel_rect = pygame.Rect(start_x, start_y, button_width, panel_height)
+        self.button_scroll_step = button_height + padding
+
+        if buttons:
+            last_bottom = max(button.base_rect.bottom for button in buttons)
+            self.button_panel_content_height = last_bottom - start_y
+        else:
+            self.button_panel_content_height = 0
+
+        self.button_scroll_max = max(0, self.button_panel_content_height - panel_height)
+        self._set_button_scroll_offset(buttons, self.button_scroll_offset)
+
+    def scroll_button_panel(self, pos, direction):
+        if not isinstance(getattr(self, "button_panel_rect", None), pygame.Rect):
+            return False
+        if not self.button_panel_rect.collidepoint(pos):
+            return False
+        if self.button_scroll_max <= 0:
+            return False
+        step = self.button_scroll_step or 1
+        new_offset = self.button_scroll_offset - (direction * step)
+        return self._set_button_scroll_offset(self.buttons, new_offset)
+
+    def _draw_button_panel(self, surface):
+        if not self.buttons:
+            return
+        if not isinstance(getattr(self, "button_panel_rect", None), pygame.Rect):
+            for button in self.buttons:
+                button.draw(surface)
+            return
+
+        panel_rect = self.button_panel_rect
+        pygame.draw.rect(surface, config.GRAY_LIGHT, panel_rect)
+        pygame.draw.rect(surface, config.BLACK, panel_rect, 1)
+
+        prior_clip = surface.get_clip()
+        surface.set_clip(panel_rect)
+        for button in self.buttons:
+            if panel_rect.colliderect(button.rect):
+                button.draw(surface)
+        surface.set_clip(prior_clip)
+
+        if self.button_scroll_max > 0:
+            track_width = 4
+            track_rect = pygame.Rect(panel_rect.right + 1, panel_rect.top + 2, track_width, panel_rect.height - 4)
+            pygame.draw.rect(surface, config.GRAY_LIGHT, track_rect)
+            thumb_height = max(20, int(track_rect.height * (panel_rect.height / self.button_panel_content_height)))
+            max_thumb_travel = max(1, track_rect.height - thumb_height)
+            thumb_y = track_rect.top
+            if self.button_scroll_max > 0:
+                thumb_y = track_rect.top + int((self.button_scroll_offset / self.button_scroll_max) * max_thumb_travel)
+            self.button_scrollbar_rect = track_rect
+            self.button_scroll_thumb_rect = pygame.Rect(track_rect.x, thumb_y, track_rect.width, thumb_height)
+            pygame.draw.rect(surface, config.GRAY_MEDIUM, self.button_scroll_thumb_rect)
+
     def create_buttons(self):
         """
         Create the buttons for the editor UI.
@@ -1315,6 +1410,7 @@ class Editor:
             rect = (start_x, start_y + i * (button_height + padding), button_width, button_height)
             buttons.append(Button(rect, text, action))
 
+        self._configure_button_panel(buttons, start_x, start_y, button_width, button_height, padding)
         return buttons
 
     def save_current_monster_sprites(self):
@@ -2246,8 +2342,7 @@ class Editor:
     def _draw_common_ui(self, surface):
         self.palette.draw(surface, self.current_color)
         if hasattr(self, 'buttons') and self.buttons:
-            for button in self.buttons:
-                button.draw(surface)
+            self._draw_button_panel(surface)
         pygame.draw.rect(surface, config.GRAY_LIGHT, self.brush_slider)
         pygame.draw.rect(surface, config.BLACK, self.brush_slider, 1)
         brush_text = f"Brush: {self.brush_size}"

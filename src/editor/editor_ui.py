@@ -39,6 +39,7 @@ class Button:
             value (any, optional): The value to be stored with the button.
         """
         self.rect = pygame.Rect(rect)
+        self.base_rect = self.rect.copy()
         self.text = text
         self.action = action
         self.value = value

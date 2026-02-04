@@ -74,9 +74,11 @@ class EventHandler:
                          self.editor._scale_reference_image() # Rescale after zoom
                          return True # Consumed event
              # --- End Reference Image Scaling ---
-             
+             if hasattr(self.editor, "scroll_button_panel"):
+                 if self.editor.scroll_button_panel(pygame.mouse.get_pos(), event.y):
+                     return True
              # TODO: Implement background zoom/scroll or palette scroll here if needed
-             pass # Pass if not handled by ref img scaling
+             pass # Pass if not handled
 
         return False # Event not handled by this function
 
@@ -318,6 +320,9 @@ class EventHandler:
              if palette_rect.collidepoint(event.pos):
                  editor.palette.scroll_offset = max(0, editor.palette.scroll_offset - 1)
                  return True
+             if hasattr(editor, "scroll_button_panel"):
+                 if editor.scroll_button_panel(event.pos, 1):
+                     return True
              # TODO: Add zoom or other scroll behavior here if needed
 
         elif event.button == 5: # Mouse wheel down
@@ -328,6 +333,9 @@ class EventHandler:
              if palette_rect.collidepoint(event.pos):
                  editor.palette.scroll_offset = min(editor.palette.total_pages - 1, editor.palette.scroll_offset + 1)
                  return True
+             if hasattr(editor, "scroll_button_panel"):
+                 if editor.scroll_button_panel(event.pos, -1):
+                     return True
              # TODO: Add zoom or other scroll behavior here if needed
 
         # Handle Middle Mouse Button for Panning Start

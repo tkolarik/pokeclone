@@ -33,3 +33,6 @@ If `python server.py` is running on localhost:8000:
 
 ## Setup
 To initialize the board from the legacy `ToDo.md`, run: `python convert.py`
+
+## Ticket quality rule
+Every new ticket created must include automated unit testing in the acceptance criteria to the extent reasonable for the change.

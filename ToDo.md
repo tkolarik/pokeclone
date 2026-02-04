@@ -6,58 +6,6 @@
 
 ### Highest Priority
 
-* **[OVERWORLD-1] Implement Basic Overworld Functionality (Completed)**
-    * **Type:** Feature
-    * **Priority:** Highest
-    * **Description:** Establish the foundational overworld gameplay loop and architecture. This milestone introduces a new "Overworld" game mode, distinct from the battle simulator and pixel art editor, and accessible via a main menu. The overworld will serve as the player's primary navigation and exploration interface, laying the groundwork for future features such as encounters, NPCs, and map-based events.
-    * **Scope:**
-        * **Game Loop & State Management:**  
-          - Create a dedicated overworld state within the main application, with clear transitions to/from other modes (battle, editor, main menu).
-          - Implement a basic game loop for the overworld, handling input, updates, and rendering.
-        * **Player Character:**  
-          - Define a player avatar (sprite or placeholder) that can be moved around the map using keyboard input (e.g., arrow keys or WASD).
-          - Track player position and direction.
-        * **Map Structure:**  
-          - Design a simple tile-based map system (e.g., 2D grid of tiles, loaded from a JSON or CSV file).
-          - Support for at least one sample map with walkable and non-walkable tiles (e.g., walls, grass, water).
-          - Render the map and player character to the screen.
-        * **Movement & Collision:**  
-          - Implement basic movement logic, including collision detection with impassable tiles.
-          - Smooth or grid-based movement (choose one for initial implementation).
-        * **Interactions:**  
-          - Allow the player to interact with the environment (e.g., pressing a key to trigger an action or display a message when facing an interactive tile).
-          - Placeholder for future NPC or object interactions.
-        * **Mode Switching:**  
-          - Add a main menu option to enter the overworld mode.
-          - Provide a way to exit back to the main menu.
-    * **Acceptance Criteria:**
-        * The player can enter the overworld mode from the main menu.
-        * The overworld displays a map and a controllable player character.
-        * Player movement is responsive and respects map boundaries/collisions.
-        * At least one type of interactive tile or object is present (even if only as a placeholder).
-        * The player can return to the main menu from the overworld.
-        * The code is organized to allow future expansion (e.g., adding NPCs, wild encounters, map transitions).
-    * **Testing:**
-        * Manual testing confirms all acceptance criteria.
-        * Unit tests cover overworld state movement, collision, and interaction logic.
-    * **Implementation Notes (Completed):**
-        * Added a dedicated overworld state module (map, player, movement, interactions).
-        * Implemented a pygame overworld runner with a tile map, player movement, and message prompts.
-        * Added a main menu entrypoint that can launch overworld, battle simulator, or pixel art editor.
-        * Added a basic message box for interactive tiles and ESC to return to the main menu.
-    * **Labels:** `feature`, `overworld`, `gameplay`, `architecture`, `core`, `map`, `player`, `input`
-
-* **[OVERWORLD-6] Implement Overworld Runtime (per design doc)**
-    * **Type:** Feature
-    * **Priority:** Highest
-    * **Description:** Implement/align the overworld runtime systems according to `docs/overworld-system-design.md` so the game has a stable, testable contract that tooling (map editor, tile manager, audio) can target.
-    * **Acceptance Criteria:**
-        * The runtime behavior matches `docs/overworld-system-design.md` for movement, collision, interactions, triggers/actions, connections/portals, and per-map audio.
-        * The overworld consumes the map schema defined in `docs/map-editor-design.md` without manual data edits.
-        * **Testing:** Unit/integration tests cover collision, trigger ordering, connection transitions, and music switching as described in the design doc.
-    * **Labels:** `feature`, `overworld`, `runtime`, `architecture`, `gameplay`
-
-
 ### High Priority
 
 * **[OVERWORLD-3] Implement Map Editor (per design doc)**
@@ -306,20 +254,6 @@
 
 ## In Progress
 
-* **[POKE-10] Refactor Pixel Art Editor for Modularity (Completed)**
-    * **Type:** Task / Improvement
-    * **Priority:** Medium
-    * **Description:** The main file for the pixel art editor, `pixle_art_editor.py`, has grown very large... (previous description remains) ...Refactor the `Editor` class and `handle_event` method to delegate responsibilities to these new components.
-    * **Acceptance Criteria:**
-        * The codebase for the pixel editor is organized into multiple smaller, well-defined modules/classes.
-        * The main editor file (`pixle_art_editor.py` or its replacement) is significantly shorter and less complex.
-        * Responsibilities are clearly separated (e.g., tool logic is separate from UI drawing).
-        * The editor's functionality remains intact or is improved.
-        * Code is more readable and maintainable.
-        * **Testing:** Integration tests are *written and pass*, confirming that the refactored modules work together correctly within the main application loop.
-        * **Testing:** Manual regression testing confirms all previous editor functionalities work as expected after refactoring.
-    * **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`
-
 ***
 ##### POKE-10 Sub-Tasks:
 
@@ -377,6 +311,13 @@
     * **Outcome:** Design doc created at `docs/map-editor-design.md` covering UX/tools, data model, file format, validation, and runtime integration; ticket requirements relocated to the doc.
     * **Labels:** `feature`, `overworld`, `map`, `editor`, `tools`
 
+* **[OVERWORLD-7] Add NPC Team Editor in Map Editor (Completed)**
+    * **Type:** Feature
+    * **Priority:** Medium
+    * **Description:** Allow map editor users to configure NPC battle teams and mark NPCs as battleable, per the map editor design doc.
+    * **Outcome:** Map editor includes an NPC team editor UI; overworld battles can use configured teams.
+    * **Labels:** `feature`, `overworld`, `map`, `editor`, `npc`, `battle`
+
 * **[FEAT-REFIMG-PANZOOM] Implement Reference Image Panning and Scaling**
     * **Type:** Feature
     * **Priority:** Medium
@@ -392,6 +333,18 @@
         * **Testing:** Manual testing confirms transparency and clearing functions work correctly with the transformed image.
         * **Testing:** Unit/integration tests are *written and pass* for the panning/scaling logic, verifying correct transformation calculations and state updates (potentially mocking user input/GUI elements).
     * **Labels:** `feature`, `editor`, `ui`, `ux`, `reference-image`, `input`, `enhancement`, `testing`
+
+* **[POKE-24] Add Scrollable Right-Side Button Panel in Pixel Art Editor**
+    * **Type:** Improvement
+    * **Priority:** High
+    * **Description:** The right-side button stack in the pixel art editor does not scroll, so in tile mode several buttons are cut off and inaccessible. Add a scrollbar or auto-scroll behavior to ensure all buttons remain reachable in all modes.
+    * **Acceptance Criteria:**
+        * The right-side button panel scrolls when its contents exceed the viewport.
+        * Buttons are never clipped off-screen; all actions remain accessible in tile mode.
+        * Scroll behavior is consistent across monster, background, and tile modes.
+        * **Automated:** Unit test verifies right-side button layout is fully visible within window bounds for each mode.
+        * **Testing:** Manual verification confirms all buttons can be reached and clicked in each mode.
+    * **Labels:** `editor`, `ui`, `ux`, `scroll`, `buttons`
 
 *   **[POKE-10.3] Refactor Core Drawing/Tool Logic**
     *   **Type:** Refactoring Task
@@ -494,3 +447,71 @@
     * **Labels:** `refactoring`, `architecture`, `code-quality`, `maintainability`
 
 ---
+
+* **[OVERWORLD-1] Implement Basic Overworld Functionality (Completed)**
+    * **Type:** Feature
+    * **Priority:** Highest
+    * **Description:** Establish the foundational overworld gameplay loop and architecture. This milestone introduces a new "Overworld" game mode, distinct from the battle simulator and pixel art editor, and accessible via a main menu. The overworld will serve as the player's primary navigation and exploration interface, laying the groundwork for future features such as encounters, NPCs, and map-based events.
+    * **Scope:**
+        * **Game Loop & State Management:**  
+          - Create a dedicated overworld state within the main application, with clear transitions to/from other modes (battle, editor, main menu).
+          - Implement a basic game loop for the overworld, handling input, updates, and rendering.
+        * **Player Character:**  
+          - Define a player avatar (sprite or placeholder) that can be moved around the map using keyboard input (e.g., arrow keys or WASD).
+          - Track player position and direction.
+        * **Map Structure:**  
+          - Design a simple tile-based map system (e.g., 2D grid of tiles, loaded from a JSON or CSV file).
+          - Support for at least one sample map with walkable and non-walkable tiles (e.g., walls, grass, water).
+          - Render the map and player character to the screen.
+        * **Movement & Collision:**  
+          - Implement basic movement logic, including collision detection with impassable tiles.
+          - Smooth or grid-based movement (choose one for initial implementation).
+        * **Interactions:**  
+          - Allow the player to interact with the environment (e.g., pressing a key to trigger an action or display a message when facing an interactive tile).
+          - Placeholder for future NPC or object interactions.
+        * **Mode Switching:**  
+          - Add a main menu option to enter the overworld mode.
+          - Provide a way to exit back to the main menu.
+    * **Acceptance Criteria:**
+        * The player can enter the overworld mode from the main menu.
+        * The overworld displays a map and a controllable player character.
+        * Player movement is responsive and respects map boundaries/collisions.
+        * At least one type of interactive tile or object is present (even if only as a placeholder).
+        * The player can return to the main menu from the overworld.
+        * The code is organized to allow future expansion (e.g., adding NPCs, wild encounters, map transitions).
+    * **Testing:**
+        * Manual testing confirms all acceptance criteria.
+        * Unit tests cover overworld state movement, collision, and interaction logic.
+    * **Implementation Notes (Completed):**
+        * Added a dedicated overworld state module (map, player, movement, interactions).
+        * Implemented a pygame overworld runner with a tile map, player movement, and message prompts.
+        * Added a main menu entrypoint that can launch overworld, battle simulator, or pixel art editor.
+        * Added a basic message box for interactive tiles and ESC to return to the main menu.
+    * **Labels:** `feature`, `overworld`, `gameplay`, `architecture`, `core`, `map`, `player`, `input`
+
+
+* **[OVERWORLD-6] Implement Overworld Runtime (per design doc) (Completed)**
+    * **Type:** Feature
+    * **Priority:** Highest
+    * **Description:** Implement/align the overworld runtime systems according to `docs/overworld-system-design.md` so the game has a stable, testable contract that tooling (map editor, tile manager, audio) can target.
+    * **Acceptance Criteria:**
+        * The runtime behavior matches `docs/overworld-system-design.md` for movement, collision, interactions, triggers/actions, connections/portals, and per-map audio.
+        * The overworld consumes the map schema defined in `docs/map-editor-design.md` without manual data edits.
+        * **Testing:** Unit/integration tests cover collision, trigger ordering, connection transitions, and music switching as described in the design doc.
+    * **Labels:** `feature`, `overworld`, `runtime`, `architecture`, `gameplay`
+
+
+
+* **[POKE-10] Refactor Pixel Art Editor for Modularity (Completed)**
+    * **Type:** Task / Improvement
+    * **Priority:** Medium
+    * **Description:** The main file for the pixel art editor, `pixle_art_editor.py`, has grown very large... (previous description remains) ...Refactor the `Editor` class and `handle_event` method to delegate responsibilities to these new components.
+    * **Acceptance Criteria:**
+        * The codebase for the pixel editor is organized into multiple smaller, well-defined modules/classes.
+        * The main editor file (`pixle_art_editor.py` or its replacement) is significantly shorter and less complex.
+        * Responsibilities are clearly separated (e.g., tool logic is separate from UI drawing).
+        * The editor's functionality remains intact or is improved.
+        * Code is more readable and maintainable.
+        * **Testing:** Integration tests are *written and pass*, confirming that the refactored modules work together correctly within the main application loop.
+        * **Testing:** Manual regression testing confirms all previous editor functionalities work as expected after refactoring.
+    * **Labels:** `refactoring`, `editor`, `code-quality`, `maintainability`, `architecture`
