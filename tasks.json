@@ -186,7 +186,7 @@
   {
     "id": "TEST-4",
     "title": "Add Integration Test for Editor Startup",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
