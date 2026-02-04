@@ -2,7 +2,7 @@ import copy
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from src.core import config
 from src.core.tileset import TileSet
@@ -554,7 +554,13 @@ class NullAudioController:
 class OverworldSession:
     """Runtime controller for overworld logic (movement, triggers, connections)."""
 
-    def __init__(self, map_data: MapData, tileset: Optional[TileSet] = None, audio_controller: Optional[object] = None) -> None:
+    def __init__(
+        self,
+        map_data: MapData,
+        tileset: Optional[TileSet] = None,
+        audio_controller: Optional[object] = None,
+        battle_launcher: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> None:
         self.map: MapData = map_data
         self.tileset: Optional[TileSet] = tileset
         self.tile_behaviors: Dict[str, TileBehavior] = self._build_tile_behaviors(tileset)
@@ -565,6 +571,8 @@ class OverworldSession:
         self.message_queue: List[str] = []
         self.audio = audio_controller or NullAudioController()
         self.current_music_id: Optional[str] = None
+        self.battle_launcher = battle_launcher
+        self.pending_battle: Optional[Dict[str, Any]] = None
         self._ensure_music()
 
     # Map + tile handling --------------------------------------------------
@@ -620,6 +628,10 @@ class OverworldSession:
     def acknowledge_message(self) -> None:
         if self.message_queue:
             self.message_queue.pop(0)
+        if not self.message_queue and self.pending_battle:
+            payload = self.pending_battle
+            self.pending_battle = None
+            self._launch_battle(payload)
 
     # Collision + helpers --------------------------------------------------
     def _cell_walkable(self, x: int, y: int) -> bool:
@@ -730,12 +742,22 @@ class OverworldSession:
     def _run_entity_interaction(self, entity: EntityDef) -> Optional[str]:
         if entity.hidden or not self._conditions_met(entity.conditions):
             return None
-        if entity.actions:
-            self._run_actions(entity.actions)
+        actions = entity.actions or []
+        if actions:
+            self._run_actions(actions)
         elif entity.dialog is not None:
             self.queue_message(entity.dialog)
         elif entity.dialog_id:
             self.queue_message(f"[Dialog: {entity.dialog_id}]")
+        team = None
+        battle_enabled = True
+        if entity.properties and isinstance(entity.properties, dict):
+            team = entity.properties.get("team") or entity.properties.get("battleTeam")
+            battle_enabled = entity.properties.get("battleable", True)
+        has_battle_action = any((action.get("kind") or action.get("type")) == "startBattle" for action in actions)
+        if team and battle_enabled and not has_battle_action:
+            payload = {"team": team, "opponent_id": entity.id, "label": entity.name or entity.id}
+            self._schedule_battle(payload)
         return self.active_message
 
     def _run_triggers_at(self, x: int, y: int, trigger_type: str) -> None:
@@ -791,8 +813,32 @@ class OverworldSession:
                 position = action.get("position") or {}
                 self._toggle_override(position, action)
             elif kind == "startBattle":
-                opponent = action.get("opponentId") or action.get("battleId") or "Encounter"
-                self.queue_message(f"Battle start: {opponent}")
+                team = action.get("team")
+                opponent_id = action.get("opponentId") or action.get("entityId") or action.get("teamId") or action.get("battleId")
+                if team is None and opponent_id:
+                    for entity in self.map.entities:
+                        if entity.id == opponent_id:
+                            team = (entity.properties or {}).get("team") if entity.properties else None
+                            break
+                payload = {
+                    "team": team,
+                    "opponent_id": opponent_id,
+                    "label": action.get("label") or opponent_id or "Encounter",
+                }
+                self._schedule_battle(payload)
+
+    def _schedule_battle(self, payload: Dict[str, Any]) -> None:
+        if self.active_message or self.message_queue:
+            self.pending_battle = payload
+        else:
+            self._launch_battle(payload)
+
+    def _launch_battle(self, payload: Dict[str, Any]) -> None:
+        if self.battle_launcher:
+            self.battle_launcher(payload)
+        else:
+            label = payload.get("label") or payload.get("opponent_id") or "Encounter"
+            self.queue_message(f"Battle start: {label}")
 
     def _toggle_entity(self, entity_id: str, action: Dict[str, Any]) -> None:
         for entity in self.map.entities:

@@ -113,6 +113,13 @@ class MapEditor:
         self.add_button_rects: List[Tuple[pygame.Rect, str]] = []
         self.palette_tab_rects: List[Tuple[pygame.Rect, str]] = []
         self.new_map_button_rect: Optional[pygame.Rect] = None
+        self.inspector_button_rects: List[Tuple[pygame.Rect, str]] = []
+
+        self.monster_names = self._load_monster_names()
+        self.monster_sprite_cache: Dict[str, pygame.Surface] = {}
+
+        self.context_menu: Optional[Dict[str, object]] = None
+        self.context_menu_rects: List[Tuple[pygame.Rect, str]] = []
 
         self.history: List[MapData] = []
         self.redo_stack: List[MapData] = []
@@ -258,9 +265,13 @@ class MapEditor:
             self._add_connection(self.hover_cell)
         elif event.key == pygame.K_m:
             self._edit_metadata()
+        elif event.key == pygame.K_y and self.mode == "entities" and self.selected_entity:
+            self._edit_entity_team(self.selected_entity)
 
     def _handle_mouse_down(self, event: pygame.event.Event) -> None:
         if event.button == 1:
+            if self._handle_context_menu_click(event.pos):
+                return
             if self._handle_help_or_buttons(event.pos):
                 return
             if self._palette_rect().collidepoint(event.pos):
@@ -289,6 +300,10 @@ class MapEditor:
         if event.button == 3:
             cell = self._cell_from_mouse(event.pos)
             if cell:
+                entities = self.map.find_entities_at(cell[0], cell[1])
+                if entities and not (pygame.key.get_mods() & pygame.KMOD_SHIFT):
+                    self._open_entity_context_menu(event.pos, entities[0])
+                    return
                 self._apply_secondary_action(cell)
 
     def _handle_mouse_up(self, event: pygame.event.Event) -> None:
@@ -377,7 +392,43 @@ class MapEditor:
             else:
                 self._open_world_view()
             return True
+        for rect, key in self.inspector_button_rects:
+            if rect.collidepoint(pos):
+                if self.help_mode:
+                    self.status_message = self._tooltip_for(key)
+                else:
+                    if key == "edit_team" and self.selected_entity:
+                        self._edit_entity_team(self.selected_entity)
+                return True
         return False
+
+    def _open_entity_context_menu(self, pos: Tuple[int, int], entity: EntityDef) -> None:
+        self.selected_entity = entity
+        self.context_menu = {
+            "pos": pos,
+            "entity": entity,
+            "options": [
+                ("Edit NPC Art", "edit_art"),
+                ("Edit Team", "edit_team"),
+            ],
+        }
+
+    def _handle_context_menu_click(self, pos: Tuple[int, int]) -> bool:
+        if not self.context_menu:
+            return False
+        for rect, action in self.context_menu_rects:
+            if rect.collidepoint(pos):
+                entity = self.context_menu.get("entity") if isinstance(self.context_menu, dict) else None
+                if action == "edit_art" and entity:
+                    self._open_art_editor("npc", entity.sprite_id)
+                elif action == "edit_team" and entity:
+                    self._edit_entity_team(entity)
+                self.context_menu = None
+                self.context_menu_rects = []
+                return True
+        self.context_menu = None
+        self.context_menu_rects = []
+        return True
 
     # Coordinate helpers ---------------------------------------------------
     def _canvas_rect(self) -> pygame.Rect:
@@ -688,6 +739,7 @@ class MapEditor:
         self._draw_inspector()
         self._draw_canvas()
         self._draw_status()
+        self._draw_context_menu()
 
     def _draw_palette(self) -> None:
         panel = pygame.Rect(0, 0, PALETTE_WIDTH, self.screen.get_height())
@@ -806,6 +858,35 @@ class MapEditor:
                 y += 18
 
         y += 10
+        self.inspector_button_rects = []
+        if self.selected_entity and self.mode == "entities":
+            entity = self.selected_entity
+            props = entity.properties or {}
+            team = props.get("team") or []
+            battleable = props.get("battleable", bool(team))
+            self.screen.blit(self.font.render("Selected Entity", True, PANEL_TEXT), (panel.x + 10, y))
+            y += 20
+            entity_lines = [
+                f"ID: {entity.id}",
+                f"Name: {entity.name}",
+                f"Sprite: {entity.sprite_id}",
+                f"Battleable: {battleable}",
+                f"Team size: {len(team)}",
+            ]
+            for line in entity_lines:
+                surf = self.font_small.render(line, True, PANEL_TEXT)
+                self.screen.blit(surf, (panel.x + 10, y))
+                y += 18
+
+            button_rect = pygame.Rect(panel.x + 10, y + 4, INSPECTOR_WIDTH - 20, 26)
+            pygame.draw.rect(self.screen, HIGHLIGHT, button_rect, 1)
+            label = self.font_small.render("Edit Team", True, PANEL_TEXT)
+            label_rect = label.get_rect(center=button_rect.center)
+            self.screen.blit(label, label_rect)
+            self.inspector_button_rects.append((button_rect, "edit_team"))
+            y += 34
+
+        y += 6
         self.screen.blit(self.font.render("Shortcuts", True, PANEL_TEXT), (panel.x + 10, y))
         y += 20
         shortcuts = [
@@ -817,6 +898,7 @@ class MapEditor:
             "Ctrl+Z/Y: Undo/Redo",
             "+/-: Zoom",
             "A: add (mode)",
+            "Y: edit team (entity)",
         ]
         for sc in shortcuts:
             surf = self.font_small.render(sc, True, PANEL_TEXT)
@@ -903,6 +985,34 @@ class MapEditor:
         pygame.draw.rect(self.screen, PANEL_BG, bar_rect)
         text = self.font_small.render(self.status_message, True, PANEL_TEXT)
         self.screen.blit(text, (bar_rect.x + 6, bar_rect.y + 4))
+
+    def _draw_context_menu(self) -> None:
+        if not self.context_menu:
+            return
+        options = self.context_menu.get("options", [])
+        if not options:
+            return
+        x, y = self.context_menu.get("pos", (0, 0))
+        width = 170
+        item_height = 26
+        height = item_height * len(options) + 8
+        if x + width > self.screen.get_width():
+            x = self.screen.get_width() - width - 5
+        if y + height > self.screen.get_height():
+            y = self.screen.get_height() - height - 5
+        menu_rect = pygame.Rect(x, y, width, height)
+        pygame.draw.rect(self.screen, PANEL_BG, menu_rect)
+        pygame.draw.rect(self.screen, config.GRAY_DARK, menu_rect, 1)
+
+        self.context_menu_rects = []
+        mouse_pos = pygame.mouse.get_pos()
+        for idx, (label, action) in enumerate(options):
+            item_rect = pygame.Rect(x + 4, y + 4 + idx * item_height, width - 8, item_height - 4)
+            if item_rect.collidepoint(mouse_pos):
+                pygame.draw.rect(self.screen, HIGHLIGHT, item_rect, 1)
+            text = self.font_small.render(label, True, PANEL_TEXT)
+            self.screen.blit(text, (item_rect.x + 6, item_rect.y + 4))
+            self.context_menu_rects.append((item_rect, action))
 
     def _draw_toolbar(self) -> None:
         toolbar = pygame.Rect(
@@ -994,6 +1104,7 @@ class MapEditor:
             "add_npc": "Add a new NPC sprite to the tileset with autogenerated frames.",
             "new_map": "Create a new map and optionally connect it to the current map.",
             "world_view": "Open world view to arrange maps, zoom, and auto-connect edges.",
+            "edit_team": "Edit the selected NPC's battle team.",
         }
         return tips.get(key, "No help available.")
 
@@ -1106,6 +1217,173 @@ class MapEditor:
             self.selected_tile = self.tileset.tiles[0].id
         self.status_message = "Updated metadata."
 
+    def _load_monster_names(self) -> List[str]:
+        path = os.path.join(config.DATA_DIR, "monsters.json")
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            names = [entry.get("name") for entry in data if entry.get("name")]
+            return sorted(set(names))
+        except (OSError, json.JSONDecodeError):
+            return []
+
+    def _get_monster_sprite(self, name: str, size: int = 48) -> Optional[pygame.Surface]:
+        cached = self.monster_sprite_cache.get(name)
+        if cached:
+            return cached
+        path = os.path.join(config.SPRITE_DIR, f"{name}_front.png")
+        if not os.path.exists(path):
+            return None
+        try:
+            sprite = pygame.image.load(path).convert_alpha()
+            sprite = pygame.transform.scale(sprite, (size, size))
+            self.monster_sprite_cache[name] = sprite
+            return sprite
+        except pygame.error:
+            return None
+
+    def _select_team_monsters(self, preselected: List[str], max_size: int) -> Optional[List[str]]:
+        if not self.monster_names:
+            return None
+        grid_cols = 3
+        grid_rows = 2
+        per_page = grid_cols * grid_rows
+        button_width = 260
+        button_height = 70
+        button_spacing = 16
+        start_x = (self.screen.get_width() - (button_width * grid_cols + button_spacing * (grid_cols - 1))) // 2
+        start_y = 140
+        current_page = 0
+        total_pages = (len(self.monster_names) + per_page - 1) // per_page
+        selected_index = 0
+        selected_names = list(preselected)
+
+        done_rect = pygame.Rect(self.screen.get_width() - 200, self.screen.get_height() - 70, 160, 36)
+        clear_rect = pygame.Rect(40, self.screen.get_height() - 70, 140, 36)
+        cancel_rect = pygame.Rect(200, self.screen.get_height() - 70, 140, 36)
+
+        while True:
+            self.screen.fill((15, 15, 20))
+            title = self.font.render(f"Select up to {max_size} monsters", True, PANEL_TEXT)
+            self.screen.blit(title, (self.screen.get_width() // 2 - title.get_width() // 2, 30))
+
+            selected_text = ", ".join(selected_names) if selected_names else "None"
+            selected_label = self.font_small.render(f"Selected ({len(selected_names)}/{max_size}): {selected_text}", True, PANEL_TEXT)
+            self.screen.blit(selected_label, (40, 80))
+
+            buttons = []
+            start_idx = current_page * per_page
+            end_idx = min(start_idx + per_page, len(self.monster_names))
+            for i in range(start_idx, end_idx):
+                row = (i - start_idx) // grid_cols
+                col = (i - start_idx) % grid_cols
+                x = start_x + col * (button_width + button_spacing)
+                y = start_y + row * (button_height + button_spacing)
+                rect = pygame.Rect(x, y, button_width, button_height)
+                pygame.draw.rect(self.screen, config.GRAY_DARK, rect)
+                name = self.monster_names[i]
+                if name in selected_names:
+                    pygame.draw.rect(self.screen, HIGHLIGHT, rect, 3)
+                elif (i - start_idx) == selected_index:
+                    pygame.draw.rect(self.screen, config.GRAY_MEDIUM, rect, 2)
+
+                sprite = self._get_monster_sprite(name, size=48)
+                if sprite:
+                    self.screen.blit(sprite, (rect.x + 6, rect.y + (button_height - 48) // 2))
+                label = self.font_small.render(name, True, PANEL_TEXT)
+                self.screen.blit(label, (rect.x + 62, rect.y + 22))
+                buttons.append((rect, name))
+
+            page_label = self.font_small.render(f"Page {current_page + 1}/{max(1, total_pages)}", True, PANEL_TEXT)
+            self.screen.blit(page_label, (self.screen.get_width() // 2 - page_label.get_width() // 2, self.screen.get_height() - 110))
+
+            for rect, text in ((done_rect, "Done"), (clear_rect, "Clear"), (cancel_rect, "Cancel")):
+                pygame.draw.rect(self.screen, HIGHLIGHT if rect == done_rect else config.GRAY_DARK, rect, 1)
+                label = self.font_small.render(text, True, PANEL_TEXT)
+                label_rect = label.get_rect(center=rect.center)
+                self.screen.blit(label, label_rect)
+
+            pygame.display.flip()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    raise SystemExit
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return None
+                    if event.key == pygame.K_RIGHTBRACKET and current_page < total_pages - 1:
+                        current_page += 1
+                        selected_index = 0
+                    elif event.key == pygame.K_LEFTBRACKET and current_page > 0:
+                        current_page -= 1
+                        selected_index = 0
+                    elif event.key == pygame.K_DOWN:
+                        if selected_index + grid_cols < min(per_page, end_idx - start_idx):
+                            selected_index += grid_cols
+                    elif event.key == pygame.K_UP:
+                        if selected_index - grid_cols >= 0:
+                            selected_index -= grid_cols
+                    elif event.key == pygame.K_RIGHT:
+                        if selected_index + 1 < min(per_page, end_idx - start_idx):
+                            selected_index += 1
+                    elif event.key == pygame.K_LEFT:
+                        if selected_index - 1 >= 0:
+                            selected_index -= 1
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        if 0 <= selected_index < len(buttons):
+                            name = buttons[selected_index][1]
+                            if name in selected_names:
+                                selected_names.remove(name)
+                            elif len(selected_names) < max_size:
+                                selected_names.append(name)
+                    elif event.key == pygame.K_c:
+                        selected_names = []
+                    elif event.key == pygame.K_d:
+                        return selected_names
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if done_rect.collidepoint(event.pos):
+                        return selected_names
+                    if clear_rect.collidepoint(event.pos):
+                        selected_names = []
+                    if cancel_rect.collidepoint(event.pos):
+                        return None
+                    for rect, name in buttons:
+                        if rect.collidepoint(event.pos):
+                            if name in selected_names:
+                                selected_names.remove(name)
+                            elif len(selected_names) < max_size:
+                                selected_names.append(name)
+                            break
+
+    def _edit_entity_team(self, entity: EntityDef) -> None:
+        props = entity.properties or {}
+        current_team = props.get("team") or []
+        existing_names = [member.get("name") for member in current_team if member.get("name")]
+        selected = self._select_team_monsters(existing_names, config.DEFAULT_TEAM_SIZE)
+        if selected is None:
+            return
+        if not selected:
+            self.push_history()
+            props = dict(props)
+            props["team"] = []
+            props["battleable"] = False
+            entity.properties = props
+            self.status_message = "Cleared battle team."
+            return
+
+        level_by_name = {member.get("name"): member.get("level", config.DEFAULT_TEAM_LEVEL) for member in current_team}
+        team_entries = [
+            {"name": name, "level": clamp(level_by_name.get(name, config.DEFAULT_TEAM_LEVEL), config.MIN_MONSTER_LEVEL, config.MAX_MONSTER_LEVEL)}
+            for name in selected
+        ]
+        self.push_history()
+        props = dict(props)
+        props["team"] = team_entries
+        props["battleable"] = True
+        entity.properties = props
+        self.status_message = f"Updated team ({len(team_entries)})."
+
     # Utility --------------------------------------------------------------
     def _bresenham_line(self, start: Tuple[int, int], end: Tuple[int, int]) -> List[Tuple[int, int]]:
         x1, y1 = start
@@ -1202,7 +1480,14 @@ class MapEditor:
                     self._ensure_npc_frames(npc)
                     break
         try:
-            subprocess.Popen([sys.executable, editor_path])
+            args = [sys.executable, editor_path]
+            env = os.environ.copy()
+            if kind == "npc":
+                args += ["--mode", "tile", "--asset", "npc", "--npc", identifier]
+                env["POKECLONE_EDITOR_MODE"] = "tile"
+                env["POKECLONE_EDITOR_ASSET"] = "npc"
+                env["POKECLONE_EDITOR_NPC"] = identifier
+            subprocess.Popen(args, env=env)
             self.status_message = f"Opening pixel editor for {kind} '{identifier}'..."
         except Exception as e:
             self.status_message = f"Failed to open editor: {e}"

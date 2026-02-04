@@ -70,6 +70,7 @@ These buttons appear in a vertical stack on the right.
 - Ctrl/Cmd+Y: Redo
 - Ctrl/Cmd+C: Copy selection (only in Select mode)
 - Ctrl/Cmd+V: Paste (uses the current copy buffer)
+- Ctrl/Cmd+M: Mirror selection
 
 ## Mouse input (global)
 

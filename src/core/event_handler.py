@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import pygame
-from pygame.locals import MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP, KEYDOWN, QUIT, KMOD_META, KMOD_CTRL, KMOD_ALT, K_z, K_y, K_c, K_v, K_RETURN, K_BACKSPACE, K_ESCAPE, K_UP, K_DOWN, MOUSEWHEEL
+from pygame.locals import MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP, KEYDOWN, QUIT, KMOD_META, KMOD_CTRL, KMOD_ALT, K_z, K_y, K_c, K_v, K_RETURN, K_BACKSPACE, K_ESCAPE, K_UP, K_DOWN, K_m, MOUSEWHEEL
 from src.core import config
 # Import the Button class from editor_ui
 # from ..editor.editor_ui import Button, Palette # Relative import
@@ -517,6 +517,9 @@ class EventHandler:
                 return True
             if event.key == K_y:
                 editor.redo()
+                return True
+            if event.key == K_m:
+                editor.mirror_selection()
                 return True
             if event.key == K_c and editor.mode == 'select':
                  editor.copy_selection()

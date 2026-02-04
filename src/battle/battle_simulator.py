@@ -254,6 +254,68 @@ def load_creatures(moves_dict=None):
     
     return creatures
 
+def parse_team_env(var_name):
+    raw = os.environ.get(var_name)
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(parsed, list):
+        return parsed
+    if isinstance(parsed, dict):
+        return [parsed]
+    return None
+
+def build_team_entries(creatures, entries, size, default_level, fill_random=True):
+    by_name = {c.name: c for c in creatures}
+    team = []
+    for entry in entries or []:
+        name = None
+        level = default_level
+        if isinstance(entry, str):
+            name = entry
+        elif isinstance(entry, dict):
+            name = entry.get("name") or entry.get("id")
+            level = clamp_level(entry.get("level", default_level))
+        if name and name in by_name:
+            team.append((by_name[name], level))
+    if fill_random:
+        used = {t[0].name for t in team}
+        pool = [c for c in creatures if c.name not in used]
+        while len(team) < size and pool:
+            pick = random.choice(pool)
+            pool.remove(pick)
+            team.append((pick, default_level))
+        while len(team) < size:
+            team.append((random.choice(creatures), default_level))
+    if len(team) > size:
+        team = team[:size]
+    return team
+
+def build_random_team(creatures, size, level):
+    if len(creatures) >= size:
+        picks = random.sample(creatures, size)
+    else:
+        picks = [random.choice(creatures) for _ in range(size)]
+    return [(creature, level) for creature in picks]
+
+def build_battle_team(team_entries, moves_dict):
+    battle_team = []
+    for template, level in team_entries:
+        sprite_path = os.path.join(config.SPRITE_DIR, f"{template.name}_front.png")
+        sprite = create_sprite_from_file(sprite_path)
+        battle_team.append(
+            create_battle_creature(
+                template=template,
+                level=level,
+                moves_dict=moves_dict,
+                sprite=sprite
+            )
+        )
+    return battle_team
+
 def create_battle_creature(template, level, moves_dict, sprite):
     base_stats = getattr(template, "base_stats", {
         "max_hp": template.max_hp,
@@ -443,7 +505,168 @@ def prompt_for_level(prompt_text, default_level):
 
         clock.tick(config.FPS)
 
-def battle(creature1, creature2):
+def prompt_for_team_size(prompt_text, default_size, max_size):
+    input_text = ""
+    hint_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - 6)
+    clock = pygame.time.Clock()
+
+    while True:
+        SCREEN.fill(config.BATTLE_BG_COLOR)
+        prompt_surf = FONT.render(prompt_text, True, config.BLACK)
+        prompt_rect = prompt_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT // 2 - 60))
+        SCREEN.blit(prompt_surf, prompt_rect)
+
+        value_text = input_text if input_text else str(default_size)
+        value_surf = FONT.render(f"Team size: {value_text}", True, config.BLACK)
+        value_rect = value_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT // 2))
+        SCREEN.blit(value_surf, value_rect)
+
+        hint_surf = hint_font.render("Enter = confirm, Esc = default", True, config.GRAY_DARK)
+        hint_rect = hint_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT // 2 + 50))
+        SCREEN.blit(hint_surf, hint_rect)
+
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    try:
+                        size_value = int(input_text) if input_text else default_size
+                    except ValueError:
+                        size_value = default_size
+                    size_value = max(1, min(max_size, size_value))
+                    return size_value
+                if event.key == pygame.K_ESCAPE:
+                    return max(1, min(max_size, default_size))
+                if event.key == pygame.K_BACKSPACE:
+                    input_text = input_text[:-1]
+                elif event.unicode.isdigit() and len(input_text) < 2:
+                    input_text += event.unicode
+
+        clock.tick(config.FPS)
+
+def select_team(creatures, team_size):
+    if not creatures:
+        return []
+    grid_cols = 3
+    grid_rows = 2
+    per_page = grid_cols * grid_rows
+    button_width = 350
+    button_height = 80
+    button_spacing = 20
+    start_x = (config.BATTLE_WIDTH - (button_width * grid_cols + button_spacing * (grid_cols - 1))) // 2
+    start_y = (config.BATTLE_HEIGHT - (button_height * grid_rows + button_spacing * (grid_rows - 1))) // 2
+
+    current_page = 0
+    total_pages = (len(creatures) + per_page - 1) // per_page
+    selected_index = 0
+    selected_names = []
+    info_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - 6)
+
+    done_button = Button((config.BATTLE_WIDTH - 220, config.BATTLE_HEIGHT - 70, 200, 40), "Done")
+    clear_button = Button((20, config.BATTLE_HEIGHT - 70, 140, 40), "Clear")
+
+    while True:
+        SCREEN.fill(config.BATTLE_BG_COLOR)
+        title = FONT.render(f"Pick up to {team_size} monsters", True, config.BLACK)
+        SCREEN.blit(title, (config.BATTLE_WIDTH // 2 - title.get_width() // 2, 20))
+
+        page_info = info_font.render(f"Page {current_page + 1}/{total_pages}", True, config.BLACK)
+        SCREEN.blit(page_info, (config.BATTLE_WIDTH // 2 - page_info.get_width() // 2, config.BATTLE_HEIGHT - 110))
+
+        selected_text = ", ".join(selected_names) if selected_names else "None"
+        selected_label = info_font.render(f"Selected ({len(selected_names)}/{team_size}): {selected_text}", True, config.BLACK)
+        SCREEN.blit(selected_label, (40, 60))
+
+        buttons = []
+        start_idx = current_page * per_page
+        end_idx = min(start_idx + per_page, len(creatures))
+        num_buttons = end_idx - start_idx
+
+        for i in range(num_buttons):
+            creature_index = start_idx + i
+            creature = creatures[creature_index]
+            row = i // grid_cols
+            col = i % grid_cols
+            x = start_x + col * (button_width + button_spacing)
+            y = start_y + row * (button_height + button_spacing)
+            button = Button((x, y, button_width, button_height), creature.name, action=creature)
+            buttons.append(button)
+            button.draw(SCREEN)
+
+            if creature.name in selected_names:
+                pygame.draw.rect(SCREEN, config.GREEN, button.rect, 3)
+            elif i == selected_index:
+                pygame.draw.rect(SCREEN, config.RED, button.rect, 2)
+
+            creature_sprite = pygame.transform.scale(creature.sprite, (64, 64))
+            SCREEN.blit(creature_sprite, (x + 5, y + (button_height - 64) // 2))
+
+        done_button.draw(SCREEN)
+        clear_button.draw(SCREEN)
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if num_buttons == 0:
+                    continue
+                if event.key == pygame.K_DOWN:
+                    if selected_index + grid_cols < num_buttons:
+                        selected_index += grid_cols
+                elif event.key == pygame.K_UP:
+                    if selected_index - grid_cols >= 0:
+                        selected_index -= grid_cols
+                elif event.key == pygame.K_RIGHT:
+                    if selected_index + 1 < num_buttons:
+                        selected_index += 1
+                elif event.key == pygame.K_LEFT:
+                    if selected_index - 1 >= 0:
+                        selected_index -= 1
+                elif event.key == pygame.K_RIGHTBRACKET:
+                    if current_page < total_pages - 1:
+                        current_page += 1
+                        selected_index = 0
+                elif event.key == pygame.K_LEFTBRACKET:
+                    if current_page > 0:
+                        current_page -= 1
+                        selected_index = 0
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    if 0 <= selected_index < num_buttons:
+                        creature = buttons[selected_index].action
+                        if creature.name in selected_names:
+                            selected_names.remove(creature.name)
+                        elif len(selected_names) < team_size:
+                            selected_names.append(creature.name)
+                elif event.key == pygame.K_BACKSPACE and selected_names:
+                    selected_names.pop()
+                elif event.key == pygame.K_c:
+                    selected_names = []
+                elif event.key == pygame.K_d:
+                    if selected_names:
+                        return selected_names
+                elif event.key == pygame.K_ESCAPE:
+                    return None
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if done_button.is_clicked(event):
+                    if selected_names:
+                        return selected_names
+                if clear_button.is_clicked(event):
+                    selected_names = []
+                for button in buttons:
+                    if button.rect.collidepoint(event.pos):
+                        creature = button.action
+                        if creature.name in selected_names:
+                            selected_names.remove(creature.name)
+                        elif len(selected_names) < team_size:
+                            selected_names.append(creature.name)
+                        break
+def battle(creature1, creature2, show_end_menu=True):
     clock = pygame.time.Clock()
     running = True
     turn = 0  # 0 for player's turn, 1 for opponent's turn
@@ -514,13 +737,16 @@ def battle(creature1, creature2):
 
         # Check for win condition
         if not creature1.is_alive() or not creature2.is_alive():
-            winner = creature1.name if creature1.is_alive() else creature2.name
-            message = FONT.render(f"{winner} wins!", True, config.BLACK)
+            winner = "player" if creature1.is_alive() else "opponent"
+            winner_name = creature1.name if creature1.is_alive() else creature2.name
+            message = FONT.render(f"{winner_name} wins!", True, config.BLACK)
             SCREEN.blit(message, (config.BATTLE_WIDTH // 2 - message.get_width() // 2, config.BATTLE_HEIGHT // 2 - message.get_height() // 2))
             pygame.display.flip()
-            pygame.time.delay(3000)
+            pygame.time.delay(1500 if not show_end_menu else 3000)
             stop_music()
-            return show_end_options()
+            if show_end_menu:
+                return show_end_options()
+            return winner
 
         clock.tick(config.FPS) # Use FPS from config
 
@@ -550,203 +776,66 @@ def main():
     if len(creatures) < 2:
         print("Not enough creatures to battle. Please add more creature data.")
         return
-
-    # Font for hints (can reuse FONT or create a specific one)
-    hint_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - 2) # Slightly smaller
-
     while True:
-        # Constants for grid layout
-        GRID_COLS = 3
-        GRID_ROWS = 2
-        CREATURES_PER_PAGE = GRID_COLS * GRID_ROWS
-        BUTTON_WIDTH = 350
-        BUTTON_HEIGHT = 80
-        BUTTON_SPACING = 20
-        
-        # Calculate grid positions based on battle screen size
-        start_x = (config.BATTLE_WIDTH - (BUTTON_WIDTH * GRID_COLS + BUTTON_SPACING * (GRID_COLS - 1))) // 2
-        start_y = (config.BATTLE_HEIGHT - (BUTTON_HEIGHT * GRID_ROWS + BUTTON_SPACING * (GRID_ROWS - 1))) // 2
-
-        # Pagination variables
-        current_page = 0
-        total_pages = (len(creatures) + CREATURES_PER_PAGE - 1) // CREATURES_PER_PAGE
-
-        player_creature = None
-        selected_index = 0
-        selected_player_creature = None
-
-        # Hint variables
-        nav_hint_text = ""
-        hint_display_start_time = 0
-        HINT_DURATION_MS = 1500 # Display hint for 1.5 seconds
-
-        while selected_player_creature is None:
-            current_time = pygame.time.get_ticks() # Get current time for hint timer
-            SCREEN.fill(config.BATTLE_BG_COLOR)
-            title = FONT.render("Choose your monster:", True, config.BLACK)
-            SCREEN.blit(title, (config.BATTLE_WIDTH // 2 - title.get_width() // 2, 20))
-
-            # Display page number
-            page_info = FONT.render(f"Page {current_page + 1}/{total_pages}", True, config.BLACK)
-            SCREEN.blit(page_info, (config.BATTLE_WIDTH // 2 - page_info.get_width() // 2, config.BATTLE_HEIGHT - 30))
-
-            # Create and draw buttons for the current page
-            buttons = []
-            start_creature_index = current_page * CREATURES_PER_PAGE
-            end_creature_index = min(start_creature_index + CREATURES_PER_PAGE, len(creatures))
-            num_buttons_on_page = end_creature_index - start_creature_index
-
-            for i in range(num_buttons_on_page):
-                creature_index = start_creature_index + i
-                creature = creatures[creature_index]
-                row = i // GRID_COLS
-                col = i % GRID_COLS
-                x = start_x + col * (BUTTON_WIDTH + BUTTON_SPACING)
-                y = start_y + row * (BUTTON_HEIGHT + BUTTON_SPACING)
-
-                button = Button((x, y, BUTTON_WIDTH, BUTTON_HEIGHT), creature.name, action=creature)
-                buttons.append(button)
-                button.draw(SCREEN)
-
-                # Highlight the selected button
-                if i == selected_index:
-                    pygame.draw.rect(SCREEN, config.GREEN, button.rect, 3)  # Green border
-
-                # Display the creature's sprite next to the button
-                creature_sprite = pygame.transform.scale(creature.sprite, (64, 64))
-                SCREEN.blit(creature_sprite, (x + 5 , y + (BUTTON_HEIGHT - 64) // 2))
-
-            # --- Display Navigation Hint ---
-            if nav_hint_text and (current_time - hint_display_start_time < HINT_DURATION_MS):
-                hint_surf = hint_font.render(nav_hint_text, True, config.RED) # Use a noticeable color
-                # Position hint near the bottom page number
-                hint_rect = hint_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT - 60))
-                SCREEN.blit(hint_surf, hint_rect)
+        player_entries = parse_team_env("POKECLONE_PLAYER_TEAM")
+        if player_entries:
+            team_size = min(config.DEFAULT_TEAM_SIZE, max(1, len(player_entries)))
+            player_team_entries = build_team_entries(
+                creatures,
+                player_entries,
+                team_size,
+                config.DEFAULT_TEAM_LEVEL,
+                fill_random=True,
+            )
+        else:
+            team_size = prompt_for_team_size("Choose team size (1-6)", config.DEFAULT_TEAM_SIZE, config.DEFAULT_TEAM_SIZE)
+            selected_names = select_team(creatures, team_size)
+            if selected_names:
+                manual_entries = [{"name": name, "level": config.DEFAULT_TEAM_LEVEL} for name in selected_names]
+                player_team_entries = build_team_entries(
+                    creatures,
+                    manual_entries,
+                    team_size,
+                    config.DEFAULT_TEAM_LEVEL,
+                    fill_random=True,
+                )
             else:
-                nav_hint_text = "" # Clear hint if time expired
-            # -------------------------------
+                player_team_entries = build_random_team(creatures, team_size, config.DEFAULT_TEAM_LEVEL)
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
+        opponent_entries = parse_team_env("POKECLONE_OPPONENT_TEAM")
+        if not opponent_entries and os.environ.get("POKECLONE_OPPONENT_ID"):
+            opponent_entries = [{"name": os.environ.get("POKECLONE_OPPONENT_ID")}]
+        if opponent_entries:
+            opponent_team_entries = build_team_entries(
+                creatures,
+                opponent_entries,
+                team_size,
+                config.DEFAULT_TEAM_LEVEL,
+                fill_random=True,
+            )
+        else:
+            opponent_team_entries = build_random_team(creatures, team_size, config.DEFAULT_TEAM_LEVEL)
 
-                # Check KEYDOWN first
-                elif event.type == pygame.KEYDOWN:
-                    # Clear previous hint on NEW key press
-                    nav_hint_text = ""
-                    # num_buttons_on_page calculated above
-                    if num_buttons_on_page == 0: continue
+        player_team = build_battle_team(player_team_entries, moves_dict)
+        opponent_team = build_battle_team(opponent_team_entries, moves_dict)
 
-                    # --- Intra-page Navigation --- 
-                    if event.key == pygame.K_DOWN:
-                        # Move down, wrapping around columns
-                        if selected_index + GRID_COLS < num_buttons_on_page:
-                            selected_index += GRID_COLS
-                        else:
-                            # Wrap to top row if possible, otherwise stay in last row
-                            new_index = selected_index % GRID_COLS
-                            if new_index < num_buttons_on_page:
-                                selected_index = new_index
-                            # else: stay at current index if wrapping leads nowhere valid
-                    elif event.key == pygame.K_UP:
-                        # Move up, wrapping around columns
-                        if selected_index - GRID_COLS >= 0:
-                            selected_index -= GRID_COLS
-                        else:
-                            # Wrap to bottom-most item in the same column
-                            col = selected_index % GRID_COLS
-                            last_row_items = num_buttons_on_page % GRID_COLS
-                            last_full_row_index = num_buttons_on_page - last_row_items if last_row_items != 0 else num_buttons_on_page - GRID_COLS
-                            target_index = last_full_row_index + col
-                            if target_index >= num_buttons_on_page:
-                                # If the target in the last row doesn't exist, go to the row above it
-                                target_index -= GRID_COLS 
-                            if target_index >= 0:
-                                selected_index = target_index
-                            # else: stay at current index if wrapping leads nowhere valid
-                    elif event.key == pygame.K_RIGHT:
-                        # Check if already at the last item on the page
-                        if selected_index == num_buttons_on_page - 1:
-                            if current_page < total_pages - 1:
-                                nav_hint_text = "Press ] for Next Page"
-                                hint_display_start_time = current_time
-                            # Don't wrap around selection index if at edge and hint shown
-                        elif selected_index + 1 < num_buttons_on_page:
-                            selected_index += 1
-                        # else: # Original wrap logic removed, hint handles the edge case
-                        #     selected_index = 0 
-                    elif event.key == pygame.K_LEFT:
-                        # Check if already at the first item on the page
-                        if selected_index == 0:
-                            if current_page > 0:
-                                nav_hint_text = "Press [ for Prev Page"
-                                hint_display_start_time = current_time
-                            # Don't wrap around selection index if at edge and hint shown
-                        elif selected_index - 1 >= 0:
-                            selected_index -= 1
-                        # else: # Original wrap logic removed, hint handles the edge case
-                        #      selected_index = num_buttons_on_page - 1
-                    
-                    # --- Page Navigation (Existing) --- 
-                    elif event.key == pygame.K_RIGHTBRACKET: # Use ] for next page
-                        if current_page < total_pages - 1:
-                            current_page += 1
-                            selected_index = 0 # Reset index on page change
-                    elif event.key == pygame.K_LEFTBRACKET: # Use [ for previous page
-                        if current_page > 0:
-                            current_page -= 1
-                            selected_index = 0 # Reset index on page change
+        player_index = 0
+        opponent_index = 0
+        while player_index < len(player_team) and opponent_index < len(opponent_team):
+            result = battle(player_team[player_index], opponent_team[opponent_index], show_end_menu=False)
+            if result == "player":
+                opponent_index += 1
+            else:
+                player_index += 1
 
-                    # --- Selection (Existing) --- 
-                    elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
-                        if 0 <= selected_index < num_buttons_on_page:
-                            # Check if buttons list is valid for the index
-                            if selected_index < len(buttons):
-                                selected_player_creature = buttons[selected_index].action
-                            else:
-                                print(f"Error: selected_index {selected_index} out of range for buttons list (len {len(buttons)}).")
+        final_winner = "player" if player_index < len(player_team) else "opponent"
+        end_message = FONT.render(f"{final_winner.title()} team wins!", True, config.BLACK)
+        SCREEN.fill(config.BATTLE_BG_COLOR)
+        SCREEN.blit(end_message, (config.BATTLE_WIDTH // 2 - end_message.get_width() // 2, config.BATTLE_HEIGHT // 2 - end_message.get_height() // 2))
+        pygame.display.flip()
+        pygame.time.delay(2000)
 
-                # Check MOUSEBUTTONDOWN next
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    # Clear previous hint on mouse click
-                    nav_hint_text = ""
-                    if event.button == 1:  # Left mouse button
-                        for i, button in enumerate(buttons):
-                            if button.rect.collidepoint(event.pos):
-                                selected_player_creature = button.action
-                                break
-                
-                # Can add other elif event checks here if needed
-
-            pygame.display.flip()
-
-        # Create NEW instances for the battle to avoid deepcopy issues with Surface
-        # and ensure stats/HP are reset.
-        player_sprite_path = os.path.join(config.SPRITE_DIR, f"{selected_player_creature.name}_front.png")
-        player_sprite = create_sprite_from_file(player_sprite_path)
-        player_level = prompt_for_level("Choose your monster level", config.DEFAULT_MONSTER_LEVEL)
-        player_for_battle = create_battle_creature(
-            template=selected_player_creature,
-            level=player_level,
-            moves_dict=moves_dict,
-            sprite=player_sprite
-        )
-
-        # Choose a random opponent that isn't the player's creature
-        selected_opponent_creature = random.choice([c for c in creatures if c.name != selected_player_creature.name])
-        opponent_sprite_path = os.path.join(config.SPRITE_DIR, f"{selected_opponent_creature.name}_front.png")
-        opponent_sprite = create_sprite_from_file(opponent_sprite_path)
-        opponent_for_battle = create_battle_creature(
-            template=selected_opponent_creature,
-            level=config.DEFAULT_MONSTER_LEVEL,
-            moves_dict=moves_dict,
-            sprite=opponent_sprite
-        )
-        
-        # Pass the new instances to the battle function
-        continue_game = battle(player_for_battle, opponent_for_battle)
-        
+        continue_game = show_end_options()
         if not continue_game:
             break
 

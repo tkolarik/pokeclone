@@ -71,6 +71,8 @@ MAX_MONSTER_LEVEL = 100
 DEFAULT_MONSTER_LEVEL = 25
 LEVEL_STAT_GROWTH = 0.02
 MAX_BATTLE_MOVES = 4
+DEFAULT_TEAM_SIZE = 6
+DEFAULT_TEAM_LEVEL = 50
 
 # UI Elements Fonts (Using None uses default pygame font)
 DEFAULT_FONT = None # Pygame default

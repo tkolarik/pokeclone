@@ -1,3 +1,4 @@
+import argparse
 import pygame
 from pygame.locals import *
 import tkinter as tk
@@ -128,7 +129,7 @@ class Editor:
             return
         object.__setattr__(self, name, value)
 
-    def __init__(self):
+    def __init__(self, skip_initial_dialog: bool = False):
         """
         Initialize a new Editor instance.
         """
@@ -256,8 +257,8 @@ class Editor:
 
         self.tk_root = None # Initialize instance variable for Tkinter root
 
-        # <<< --- ADD THE CALL HERE --- >>>
-        self.dialog_manager.choose_edit_mode() # Setup the initial dialog state
+        if not skip_initial_dialog:
+            self.dialog_manager.choose_edit_mode() # Setup the initial dialog state
 
     def _ensure_tkinter_root(self):
         """Return a Tkinter root if available, otherwise None."""
@@ -2386,5 +2387,32 @@ if __name__ == "__main__":
               sys.exit(1)
     config.monsters = monsters 
 
-    editor = Editor()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", choices=["monster", "background", "tile"], help="Start editor in a specific mode.")
+    parser.add_argument("--asset", choices=["tile", "npc"], help="When in tile mode, select asset type.")
+    parser.add_argument("--npc", dest="npc_id", help="When in tile mode, preselect NPC id.")
+    args = parser.parse_args()
+
+    env_mode = os.environ.get("POKECLONE_EDITOR_MODE")
+    env_asset = os.environ.get("POKECLONE_EDITOR_ASSET")
+    env_npc = os.environ.get("POKECLONE_EDITOR_NPC")
+
+    mode = args.mode or env_mode
+    asset = args.asset or env_asset
+    npc_id = args.npc_id or env_npc
+
+    editor = Editor(skip_initial_dialog=bool(mode))
+    if mode:
+        editor.dialog_manager.state.reset()
+        editor._set_edit_mode_and_continue(mode)
+        editor.dialog_manager.state.reset()
+        if mode == "tile":
+            if npc_id:
+                editor.selected_npc_id = npc_id
+            if asset:
+                editor.set_asset_edit_target(asset)
+            elif npc_id:
+                editor.set_asset_edit_target("npc")
+            if npc_id:
+                editor._load_current_npc_frame()
     editor.run()

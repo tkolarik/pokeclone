@@ -19,7 +19,7 @@
   {
     "id": "OVERWORLD-6",
     "title": "Implement Overworld Runtime (per design doc)",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
@@ -587,6 +587,20 @@
       "The main application entry points (e.g., `pixle_art_editor.py`, `battle_simulator.py`, potentially moved/adjusted) still launch the application correctly.",
       "All unit tests pass after the reorganization (adjusting imports in tests as needed).",
       "Directory structure is cleaner and easier to navigate."
+    ]
+  },
+  {
+    "id": "OVERWORLD-7",
+    "title": "Add NPC Team Editor in Map Editor",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Feature",
+    "labels": [],
+    "description": "Allow map editor users to configure NPC battle teams and mark NPCs as battleable, per the map editor design doc.",
+    "acceptanceCriteria": [
+      "Map editor provides a team editor for NPC entities.",
+      "Team data is saved with map entities and reloaded correctly.",
+      "Overworld runtime can start battles using the configured NPC team."
     ]
   }
 ]

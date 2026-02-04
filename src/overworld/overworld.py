@@ -1,4 +1,6 @@
+import json
 import os
+import subprocess
 import sys
 from typing import Dict, Optional
 
@@ -363,6 +365,27 @@ def load_default_map() -> MapData:
     )
 
 
+def build_battle_launcher(session: OverworldSession) -> callable:
+    def _launch_battle(payload: Dict[str, object]) -> None:
+        team = payload.get("team")
+        env = os.environ.copy()
+        if team:
+            try:
+                env["POKECLONE_OPPONENT_TEAM"] = json.dumps(team)
+            except TypeError:
+                pass
+        if payload.get("opponent_id"):
+            env["POKECLONE_OPPONENT_ID"] = str(payload.get("opponent_id"))
+        session.audio.stop_music()
+        try:
+            subprocess.run([sys.executable, "-m", "src.battle.battle_simulator"], env=env)
+        finally:
+            session.current_music_id = None
+            session._ensure_music()
+
+    return _launch_battle
+
+
 def main() -> None:
     pygame.init()
     screen = pygame.display.set_mode((config.OVERWORLD_WIDTH, config.OVERWORLD_HEIGHT))
@@ -376,6 +399,7 @@ def main() -> None:
     npc_images = load_npc_images(tileset, map_data.tile_size)
     audio = OverworldAudio()
     session = OverworldSession(map_data, tileset=tileset, audio_controller=audio)
+    session.battle_launcher = build_battle_launcher(session)
 
     font = pygame.font.Font(config.DEFAULT_FONT, config.OVERWORLD_FONT_SIZE)
     font_small = pygame.font.Font(config.DEFAULT_FONT, 14)

@@ -789,7 +789,35 @@
       "dialogId": null,
       "actions": [],
       "conditions": {},
-      "properties": {},
+      "properties": {
+        "team": [
+          {
+            "name": "Boombox",
+            "level": 50
+          },
+          {
+            "name": "Boulderax",
+            "level": 50
+          },
+          {
+            "name": "Cerebron",
+            "level": 50
+          },
+          {
+            "name": "Aquafin",
+            "level": 50
+          },
+          {
+            "name": "Frostbite",
+            "level": 50
+          },
+          {
+            "name": "Lumina",
+            "level": 50
+          }
+        ],
+        "battleable": true
+      },
       "hidden": false
     }
   ],
