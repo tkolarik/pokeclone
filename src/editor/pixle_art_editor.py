@@ -129,10 +129,11 @@ class Editor:
             return
         object.__setattr__(self, name, value)
 
-    def __init__(self, skip_initial_dialog: bool = False):
+    def __init__(self, monsters, skip_initial_dialog: bool = False):
         """
         Initialize a new Editor instance.
         """
+        self.monsters = monsters if isinstance(monsters, list) else []
         self.state = EditorState()
         self.file_io = FileIOManager(self)
         self.undo_redo = UndoRedoManager(self)
@@ -1417,14 +1418,14 @@ class Editor:
         """Saves both front and back sprites for the current monster."""
         try:
             # Ensure monsters list and index are valid
-            if not hasattr(config, 'monsters') or not isinstance(config.monsters, list):
+            if not isinstance(self.monsters, list) or not self.monsters:
                 print("Error: Monster data not loaded or invalid. Cannot save.")
                 return
-            if not (0 <= self.current_monster_index < len(config.monsters)):
+            if not (0 <= self.current_monster_index < len(self.monsters)):
                 print(f"Error: current_monster_index {self.current_monster_index} out of range. Cannot save.")
                 return
 
-            monster_name = config.monsters[self.current_monster_index].get('name')
+            monster_name = self.monsters[self.current_monster_index].get('name')
             if not monster_name:
                 print(f"Error: Monster name not found at index {self.current_monster_index}. Cannot save.")
                 return
@@ -1870,14 +1871,14 @@ class Editor:
         """
         try:
             # Ensure monsters list and index are valid
-            if not hasattr(config, 'monsters') or not isinstance(config.monsters, list):
+            if not isinstance(self.monsters, list) or not self.monsters:
                 print("Error: Monster data not loaded or invalid.")
                 return
-            if not (0 <= self.current_monster_index < len(config.monsters)):
+            if not (0 <= self.current_monster_index < len(self.monsters)):
                 print(f"Error: current_monster_index {self.current_monster_index} out of range.")
                 return
 
-            monster_name = config.monsters[self.current_monster_index]['name']
+            monster_name = self.monsters[self.current_monster_index]['name']
             # Corrected Indentation:
             for sprite in self.sprites.values():
                 sprite.load_sprite(monster_name) # Pass monster_name here
@@ -1905,10 +1906,14 @@ class Editor:
         This method decrements the current monster index and loads the previous
         monster's sprites. It prints a status message.
         """
+        if not isinstance(self.monsters, list) or not self.monsters:
+            print("Error: Monster data not loaded or invalid. Cannot switch.")
+            return
+
         if self.current_monster_index > 0:
             self.current_monster_index -= 1
             self.load_monster()
-            print(f"Switched to previous monster: {config.monsters[self.current_monster_index]['name']}")
+            print(f"Switched to previous monster: {self.monsters[self.current_monster_index]['name']}")
         else:
             print("Already at the first monster.")
 
@@ -1920,14 +1925,14 @@ class Editor:
         monster's sprites. It prints a status message.
         """
         # Ensure monsters list is loaded and valid
-        if not hasattr(config, 'monsters') or not isinstance(config.monsters, list):
+        if not isinstance(self.monsters, list) or not self.monsters:
             print("Error: Monster data not loaded or invalid. Cannot switch.")
             return
         
-        if self.current_monster_index < len(config.monsters) - 1:
+        if self.current_monster_index < len(self.monsters) - 1:
             self.current_monster_index += 1
             self.load_monster()
-            print(f"Switched to next monster: {config.monsters[self.current_monster_index].get('name', 'Unknown')}")
+            print(f"Switched to next monster: {self.monsters[self.current_monster_index].get('name', 'Unknown')}")
         else:
             print("Already at the last monster.")
 
@@ -2242,7 +2247,9 @@ class Editor:
         active_sprite_editor = self.sprites.get(self.current_sprite)
         if active_sprite_editor:
             active_sprite_editor.draw_highlight(surface, self.current_sprite)
-        monster_name = config.monsters[self.current_monster_index].get('name', 'Unknown')
+        monster_name = "Unknown"
+        if isinstance(self.monsters, list) and 0 <= self.current_monster_index < len(self.monsters):
+            monster_name = self.monsters[self.current_monster_index].get('name', 'Unknown')
         info_text = f"Editing: {monster_name} ({self.current_sprite})"
         info_surf = self.font.render(info_text, True, config.BLACK)
         surface.blit(info_surf, (50, 50))
@@ -2480,8 +2487,6 @@ if __name__ == "__main__":
          if not monsters:
               print("Fatal: Could not load monster data. Exiting.")
               sys.exit(1)
-    config.monsters = monsters 
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["monster", "background", "tile"], help="Start editor in a specific mode.")
     parser.add_argument("--asset", choices=["tile", "npc"], help="When in tile mode, select asset type.")
@@ -2496,7 +2501,7 @@ if __name__ == "__main__":
     asset = args.asset or env_asset
     npc_id = args.npc_id or env_npc
 
-    editor = Editor(skip_initial_dialog=bool(mode))
+    editor = Editor(monsters=monsters, skip_initial_dialog=bool(mode))
     if mode:
         editor.dialog_manager.state.reset()
         editor._set_edit_mode_and_continue(mode)

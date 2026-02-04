@@ -65,7 +65,6 @@ def mock_editor(temp_sprite_dir):
     # Mock problematic parts to avoid GUI popups or complex setup during tests
     mock_monster_data = [{'name': 'TestMon', 'type': 'Test', 'max_hp': 10, 'moves': []}] # Define mock data
     with patch('src.editor.pixle_art_editor.Editor._get_background_files', return_value=['bg1.png', 'bg2.png'], create=True), \
-         patch('src.editor.pixle_art_editor.load_monsters', return_value=mock_monster_data), \
          patch('pygame.display.set_mode', return_value=pygame.Surface((10, 10))), \
          patch('pygame.display.set_caption', return_value=None), \
          patch('pygame.font.Font', return_value=MagicMock(render=MagicMock(return_value=pygame.Surface((10, 10))))), \
@@ -76,15 +75,12 @@ def mock_editor(temp_sprite_dir):
         # Configure the tk.Tk mock if needed (e.g., mock withdraw method)
         mock_tk.return_value.withdraw = MagicMock()
 
-        # --- Assign mock data to config BEFORE editor init --- 
-        config.monsters = mock_monster_data 
-
         original_sprite_dir = config.SPRITE_DIR
         config.SPRITE_DIR = temp_sprite_dir
         try:
             # Mock load_backgrounds BEFORE Editor init if it affects choose_background_action logic
             with patch('src.editor.pixle_art_editor.Editor.load_backgrounds', return_value=[('existing_bg.png', pygame.Surface((10,10)))]) as mock_load_bgs:
-                editor = Editor()
+                editor = Editor(monsters=mock_monster_data)
             # Initial state should be dialog_mode = 'choose_edit_mode'
             # edit_mode should be None
             # No buttons should be created yet
@@ -96,9 +92,6 @@ def mock_editor(temp_sprite_dir):
             yield editor
         finally:
             config.SPRITE_DIR = original_sprite_dir
-            # Clean up config.monsters if necessary
-            if hasattr(config, 'monsters'):
-                 del config.monsters
 
 # Helper function to simulate clicking a button in a list (UI or Dialog)
 def simulate_button_click(editor, button_list, button_text):
@@ -137,11 +130,8 @@ def test_sprite_editor_save_current_behavior(mock_editor, temp_sprite_dir):
     sprite_editor.load_sprite(monster_name) # Load the dummy sprite
     # Manually set the editor's current monster index for saving
     mock_editor.current_monster_index = 0 
-    # Patch the global `monsters` variable specifically for the save call
-    mock_monster_data = [{'name': monster_name, 'type': 'Test', 'max_hp': 10, 'moves': []}]
-    with patch('src.editor.pixle_art_editor.monsters', mock_monster_data):
-        # Pass monster_name to save_sprite
-        sprite_editor.save_sprite(monster_name) # Save (this is the method being tested)
+    # Pass monster_name to save_sprite
+    sprite_editor.save_sprite(monster_name) # Save (this is the method being tested)
 
     # Assert - Check the dimensions of the *saved* file
     # The current save_sprite scales UP, so the saved file should NOT match native res
@@ -588,11 +578,12 @@ class TestReferenceImage(unittest.TestCase):
         # Basic editor setup without problematic patches
         # Mock choose_edit_mode directly during init maybe?
         # Or just manually set states after init.
+        mock_monsters = [{"name": "TestMon", "type": "Normal", "max_hp": 100, "attack": 10, "defense": 10, "moves": []}]
         with patch('src.editor.pixle_art_editor.tk.Tk', return_value=mock_root), \
              patch('src.editor.pixle_art_editor.Editor.choose_edit_mode', return_value='monster'), \
-             patch('src.editor.pixle_art_editor.load_monsters', return_value=[{"name": "TestMon", "type": "Normal", "max_hp": 100, "attack": 10, "defense": 10, "moves": []}]), \
+             patch('src.editor.pixle_art_editor.load_monsters', return_value=mock_monsters), \
              patch('pygame.image.load', side_effect=self.mock_pygame_load_basic): # Basic mock for init
-                 self.editor = Editor()
+                 self.editor = Editor(monsters=mock_monsters)
 
         # Manually set required states after init
         self.editor.edit_mode = 'monster'

@@ -201,7 +201,7 @@
   {
     "id": "REFACTOR-1",
     "title": "Inject Dependencies into Editor Class",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
