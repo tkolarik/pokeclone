@@ -183,6 +183,12 @@ pip install -r requirements.txt
 python battle_simulator.py
 ```
 
+### Testing
+```bash
+python3 -m pip install -r requirements-dev.txt
+python3 -m pytest
+```
+
 ### Contributing
 1. **Fork the repository**
 2. **Create a feature branch**

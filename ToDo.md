@@ -50,18 +50,6 @@
         * **Testing:** Unit tests confirm all windows expose UI elements either on-screen or via a scrollable container (e.g., button panel scroll).
     * **Labels:** `ui`, `ux`, `editor`, `improvement`, `input`
 
-* **[POKE-12] Enhance Opponent Battle AI**
-    * **Type:** Improvement
-    * **Priority:** Medium
-    * **Description:** The current AI for the opponent in `battle_simulator.py` (`opponent_choose_move` function) is extremely basic... (previous description remains) ...Start by implementing basic type effectiveness considerations and perhaps HP awareness.
-    * **Acceptance Criteria:**
-        * The `opponent_choose_move` function uses game state information (e.g., types, HP) to make move decisions.
-        * The opponent's behavior is noticeably more strategic than pure random selection.
-        * The complexity can be increased incrementally.
-        * **Testing:** Manual playtesting across several battles confirms the AI makes decisions that are more strategic than random.
-        * **Testing:** Unit/integration tests (if applicable to the AI logic modules) are *written and pass*, verifying correct processing of game state.
-    * **Labels:** `battle-system`, `ai`, `improvement`, `gameplay`
-
 * **[POKE-13] Implement Battle Sound Effects**
     * **Type:** Task
     * **Priority:** Medium
@@ -108,44 +96,6 @@
           - (If separable) Hotkey/UI selection: selecting next/prev clipboard item updates active paste source state without mutating history.
     * **Labels:** `editor`, `feature`, `ux`, `clipboard`, `pasting`, `persistence`
 
-* **[TEST-1] Set up Unit Testing Framework**
-    * **Type:** Task
-    * **Priority:** Medium
-    * **Description:** The project currently lacks automated tests... (previous description remains) ...Ensure basic setup allows tests to be written and executed easily.
-    * **Acceptance Criteria:**
-        * A testing framework (`unittest` or `pytest`) is added as a development dependency.
-        * Project structure includes a dedicated `tests/` directory.
-        * A sample test runs successfully using the framework's runner (e.g., `python -m unittest discover` or `pytest`).
-        * Instructions for running tests are added (e.g., to README or a CONTRIBUTING guide).
-        * **Testing:** Running the test runner executes the sample test and reports success. (AC inherently covers testing).
-    * **Labels:** `testing`, `infrastructure`, `code-quality`
-
-* **[TEST-2] Write Unit Tests for Damage Calculation Logic**
-    * **Type:** Task
-    * **Priority:** Medium
-    * **Description:** The `calculate_damage` function in `battle_simulator.py` contains critical game logic... (previous description remains) ...(Optional) Mocking `random.uniform` to test the damage range calculation deterministically.
-    * **Acceptance Criteria:**
-        * A test suite exists for `calculate_damage`.
-        * Tests cover various type effectiveness scenarios.
-        * Tests cover stat-changing moves (0 power).
-        * Tests pass reliably.
-        * **Testing:** Running the test suite executes all *written* damage calculation tests and reports success. (AC inherently covers testing).
-    * **Labels:** `testing`, `battle-system`, `code-quality`
-    * **Depends On:** TEST-1, POKE-5 (for effectiveness values)
-
-* **[TEST-3] Write Unit Tests for Stat Modification Logic**
-    * **Type:** Task
-    * **Priority:** Medium
-    * **Description:** The `apply_stat_change` function (and potentially the underlying formula if POKE-7 is done) in `battle_simulator.py` modifies creature stats... (previous description remains) ...Potential edge cases (e.g., hitting max/min stat stages if implemented).
-    * **Acceptance Criteria:**
-        * A test suite exists for stat modification logic.
-        * Tests cover buffs and debuffs for relevant stats.
-        * Tests validate the calculated stat values against expected outcomes based on the implemented formula/stage system.
-        * Tests pass reliably.
-        * **Testing:** Running the test suite executes all *written* stat modification tests and reports success. (AC inherently covers testing).
-    * **Labels:** `testing`, `battle-system`, `code-quality`
-    * **Depends On:** TEST-1
-
 * **[TEST-4] Add Integration Test for Editor Startup**
     * **Type:** Task / Testing
     * **Priority:** Medium
@@ -168,18 +118,6 @@
         * Existing functionality remains unchanged.
         * Unit tests for `Editor` are potentially easier to write/maintain.
     * **Labels:** `refactoring`, `architecture`, `code-quality`, `maintainability`, `editor`, `dependency-injection`, `testing`
-
-* **[INFRA-1] Create Distribution Build Script (PyInstaller)**
-    * **Type:** Task
-    * **Priority:** Medium
-    * **Description:** Python games are notoriously difficult to distribute to non-technical users. Set up a build script using PyInstaller to generate a standalone executable (e.g., `.exe` on Windows, binary on Mac/Linux) for the main game. This mitigates the risk of "it only runs on my machine."
-    * **Acceptance Criteria:**
-        * A build script (e.g., `build.sh` or `build.bat`) exists.
-        * Running the script produces a standalone executable in a `dist/` folder.
-        * The executable runs the game (Main Menu) correctly on the host OS without requiring a system Python installation.
-        * Assets (images, json) are correctly bundled or loaded relative to the executable.
-        * **Testing:** Run the generated executable on a clean environment (or just outside the venv) and verify the game launches.
-    * **Labels:** `infrastructure`, `distribution`, `risk-mitigation`
 
 ### Low Priority
 
@@ -304,6 +242,88 @@
 ---
 
 ## Done
+
+* **[POKE-26] Document + Test Battle AI (Completed)**
+    * **Type:** Task
+    * **Priority:** Medium
+    * **Description:** Document the current opponent AI behavior and add unit tests to validate its decision-making.
+    * **Acceptance Criteria:**
+        * A design doc describes the current opponent AI heuristics and selection logic.
+        * Unit tests cover super-effective preference and stat-move heuristics.
+        * Tests pass reliably.
+    * **Labels:** `battle-system`, `testing`, `documentation`
+
+* **[POKE-25] Battle UI Effectiveness + Type Indicators (Completed)**
+    * **Type:** Feature
+    * **Priority:** Medium
+    * **Description:** Add in-battle UI hints showing which player moves are super effective or not very effective, and display type indicators for both combatants under their HP bars.
+    * **Acceptance Criteria:**
+        * Player move buttons show a green outline when super effective and red when not very effective against the opponent.
+        * The player and opponent types are displayed under their HP bars (text or simple indicator).
+        * **Automated:** Unit test verifies effectiveness outlines render for super/not effective moves.
+    * **Labels:** `ui`, `battle-system`, `ux`
+
+* **[POKE-12] Enhance Opponent Battle AI (Completed)**
+    * **Type:** Improvement
+    * **Priority:** Medium
+    * **Description:** The current AI for the opponent in `battle_simulator.py` (`opponent_choose_move` function) is extremely basic... (previous description remains) ...Start by implementing basic type effectiveness considerations and perhaps HP awareness.
+    * **Acceptance Criteria:**
+        * The `opponent_choose_move` function uses game state information (e.g., types, HP) to make move decisions.
+        * The opponent's behavior is noticeably more strategic than pure random selection.
+        * The complexity can be increased incrementally.
+        * **Testing:** Manual playtesting across several battles confirms the AI makes decisions that are more strategic than random.
+        * **Testing:** Unit/integration tests (if applicable to the AI logic modules) are *written and pass*, verifying correct processing of game state.
+    * **Labels:** `battle-system`, `ai`, `improvement`, `gameplay`
+
+* **[TEST-1] Set up Unit Testing Framework**
+    * **Type:** Task
+    * **Priority:** Medium
+    * **Description:** The project currently lacks automated tests... (previous description remains) ...Ensure basic setup allows tests to be written and executed easily.
+    * **Acceptance Criteria:**
+        * A testing framework (`unittest` or `pytest`) is added as a development dependency.
+        * Project structure includes a dedicated `tests/` directory.
+        * A sample test runs successfully using the framework's runner (e.g., `python -m unittest discover` or `pytest`).
+        * Instructions for running tests are added (e.g., to README or a CONTRIBUTING guide).
+        * **Testing:** Running the test runner executes the sample test and reports success. (AC inherently covers testing).
+    * **Labels:** `testing`, `infrastructure`, `code-quality`
+
+* **[TEST-2] Write Unit Tests for Damage Calculation Logic**
+    * **Type:** Task
+    * **Priority:** Medium
+    * **Description:** The `calculate_damage` function in `battle_simulator.py` contains critical game logic... (previous description remains) ...(Optional) Mocking `random.uniform` to test the damage range calculation deterministically.
+    * **Acceptance Criteria:**
+        * A test suite exists for `calculate_damage`.
+        * Tests cover various type effectiveness scenarios.
+        * Tests cover stat-changing moves (0 power).
+        * Tests pass reliably.
+        * **Testing:** Running the test suite executes all *written* damage calculation tests and reports success. (AC inherently covers testing).
+    * **Labels:** `testing`, `battle-system`, `code-quality`
+    * **Depends On:** TEST-1, POKE-5 (for effectiveness values)
+
+* **[TEST-3] Write Unit Tests for Stat Modification Logic**
+    * **Type:** Task
+    * **Priority:** Medium
+    * **Description:** The `apply_stat_change` function (and potentially the underlying formula if POKE-7 is done) in `battle_simulator.py` modifies creature stats... (previous description remains) ...Potential edge cases (e.g., hitting max/min stat stages if implemented).
+    * **Acceptance Criteria:**
+        * A test suite exists for stat modification logic.
+        * Tests cover buffs and debuffs for relevant stats.
+        * Tests validate the calculated stat values against expected outcomes based on the implemented formula/stage system.
+        * Tests pass reliably.
+        * **Testing:** Running the test suite executes all *written* stat modification tests and reports success. (AC inherently covers testing).
+    * **Labels:** `testing`, `battle-system`, `code-quality`
+    * **Depends On:** TEST-1
+
+* **[INFRA-1] Create Distribution Build Script (PyInstaller)**
+    * **Type:** Task
+    * **Priority:** Medium
+    * **Description:** Python games are notoriously difficult to distribute to non-technical users. Set up a build script using PyInstaller to generate a standalone executable (e.g., `.exe` on Windows, binary on Mac/Linux) for the main game. This mitigates the risk of "it only runs on my machine."
+    * **Acceptance Criteria:**
+        * A build script (e.g., `build.sh` or `build.bat`) exists.
+        * Running the script produces a standalone executable in a `dist/` folder.
+        * The executable runs the game (Main Menu) correctly on the host OS without requiring a system Python installation.
+        * Assets (images, json) are correctly bundled or loaded relative to the executable.
+        * **Testing:** Run the generated executable on a clean environment (or just outside the venv) and verify the game launches.
+    * **Labels:** `infrastructure`, `distribution`, `risk-mitigation`
 
 * **[OVERWORLD-2] Add Map Editor Functionality (Design Doc Complete)**
     * **Type:** Feature
@@ -490,7 +510,6 @@
         * Added a basic message box for interactive tiles and ESC to return to the main menu.
     * **Labels:** `feature`, `overworld`, `gameplay`, `architecture`, `core`, `map`, `player`, `input`
 
-
 * **[OVERWORLD-6] Implement Overworld Runtime (per design doc) (Completed)**
     * **Type:** Feature
     * **Priority:** Highest
@@ -500,8 +519,6 @@
         * The overworld consumes the map schema defined in `docs/map-editor-design.md` without manual data edits.
         * **Testing:** Unit/integration tests cover collision, trigger ordering, connection transitions, and music switching as described in the design doc.
     * **Labels:** `feature`, `overworld`, `runtime`, `architecture`, `gameplay`
-
-
 
 * **[POKE-10] Refactor Pixel Art Editor for Modularity (Completed)**
     * **Type:** Task / Improvement

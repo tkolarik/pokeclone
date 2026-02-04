@@ -81,7 +81,7 @@
   {
     "id": "POKE-12",
     "title": "Enhance Opponent Battle AI",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
@@ -141,7 +141,7 @@
   {
     "id": "TEST-1",
     "title": "Set up Unit Testing Framework",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
@@ -156,7 +156,7 @@
   {
     "id": "TEST-2",
     "title": "Write Unit Tests for Damage Calculation Logic",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
@@ -171,7 +171,7 @@
   {
     "id": "TEST-3",
     "title": "Write Unit Tests for Stat Modification Logic",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
@@ -617,6 +617,42 @@
       "Scroll behavior is consistent across monster, background, and tile modes.",
       "Manual verification confirms all buttons can be reached and clicked in each mode.",
       "Automated: unit test verifies right-side button layout is fully visible within window bounds for each mode."
+    ]
+  },
+  {
+    "id": "POKE-25",
+    "title": "Battle UI Effectiveness + Type Indicators",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Feature",
+    "labels": [
+      "ui",
+      "battle-system",
+      "ux"
+    ],
+    "description": "Add in-battle UI hints showing which player moves are super effective or not very effective, and display type indicators for both combatants under their HP bars.",
+    "acceptanceCriteria": [
+      "Player move buttons show a green outline when super effective and red when not very effective against the opponent.",
+      "The player and opponent types are displayed under their HP bars (text or simple indicator).",
+      "Automated: unit test verifies effectiveness outlines render for super/not effective moves."
+    ]
+  },
+  {
+    "id": "POKE-26",
+    "title": "Document + Test Battle AI",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [
+      "battle-system",
+      "testing",
+      "documentation"
+    ],
+    "description": "Document the current opponent AI behavior and add unit tests to validate its decision-making.",
+    "acceptanceCriteria": [
+      "A design doc describes the current opponent AI heuristics and selection logic.",
+      "Unit tests cover super-effective preference and stat-move heuristics.",
+      "Tests pass reliably."
     ]
   }
 ]

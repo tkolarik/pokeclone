@@ -394,16 +394,27 @@ def draw_battle(creature1, creature2, buttons, background):
     SCREEN.blit(name1, (100, 80))
     SCREEN.blit(name2, (config.BATTLE_WIDTH - 100 - hp_bar_width, 80))
 
+    # Draw type labels under HP bars
+    type_font_size = max(12, config.BATTLE_FONT_SIZE - 14)
+    type_font = pygame.font.Font(config.DEFAULT_FONT, type_font_size)
+    type1 = type_font.render(f"Type: {creature1.type}", True, config.BLACK)
+    type2 = type_font.render(f"Type: {creature2.type}", True, config.BLACK)
+    type_y = 122
+    SCREEN.blit(type1, (100, type_y))
+    SCREEN.blit(type2, (config.BATTLE_WIDTH - 100 - hp_bar_width, type_y))
+
     # Draw attack and defense stats
+    attack_y = type_y + type_font_size + 6
+    defense_y = attack_y + 30
     attack1 = FONT.render(f"ATK: {creature1.attack}", True, config.BLACK)
     defense1 = FONT.render(f"DEF: {creature1.defense}", True, config.BLACK)
     attack2 = FONT.render(f"ATK: {creature2.attack}", True, config.BLACK)
     defense2 = FONT.render(f"DEF: {creature2.defense}", True, config.BLACK)
     
-    SCREEN.blit(attack1, (100, 130))
-    SCREEN.blit(defense1, (100, 160))
-    SCREEN.blit(attack2, (config.BATTLE_WIDTH - 100 - hp_bar_width, 130))
-    SCREEN.blit(defense2, (config.BATTLE_WIDTH - 100 - hp_bar_width, 160))
+    SCREEN.blit(attack1, (100, attack_y))
+    SCREEN.blit(defense1, (100, defense_y))
+    SCREEN.blit(attack2, (config.BATTLE_WIDTH - 100 - hp_bar_width, attack_y))
+    SCREEN.blit(defense2, (config.BATTLE_WIDTH - 100 - hp_bar_width, defense_y))
 
     # Draw move buttons (smaller and at the bottom)
     button_width = 150
@@ -419,11 +430,87 @@ def draw_battle(creature1, creature2, buttons, background):
         button.rect.width = button_width
         button.rect.height = button_height
         button.draw(SCREEN)
+        move = getattr(button, "action", None)
+        if move and getattr(move, "type", None):
+            effectiveness = type_chart.get(move.type, {}).get(creature2.type, 1)
+            if effectiveness > 1:
+                pygame.draw.rect(SCREEN, config.GREEN, button.rect, 3)
+            elif effectiveness < 1:
+                pygame.draw.rect(SCREEN, config.RED, button.rect, 3)
 
     pygame.display.flip()
 
-def opponent_choose_move(creature):
-    return random.choice(creature.moves)
+def _expected_damage(attacker, defender, move):
+    effectiveness = type_chart.get(move.type, {}).get(defender.type, 1)
+    base_damage = (10 * attacker.attack * move.power) / (30 * defender.defense)
+    expected = (base_damage + 2) * effectiveness * 0.925
+    return expected, effectiveness
+
+
+def _stat_move_score(attacker, defender, move):
+    if not move.effect:
+        return 0
+    target = move.effect.get("target")
+    stat = move.effect.get("stat")
+    change = move.effect.get("change", 0)
+    if not target or not stat or change == 0:
+        return 0
+
+    if target == "self":
+        base = attacker.base_stats.get(stat, getattr(attacker, stat, 0))
+        current = getattr(attacker, stat, base)
+        if current < base * 1.2:
+            score = 8 * change
+        elif current < base * 1.5:
+            score = 4 * change
+        else:
+            score = 1 * change
+    else:
+        base = defender.base_stats.get(stat, getattr(defender, stat, 0))
+        current = getattr(defender, stat, base)
+        if current > base * 1.2:
+            score = 7 * change
+        elif current > base * 1.05:
+            score = 3 * change
+        else:
+            score = 1 * change
+
+    attacker_hp_ratio = attacker.current_hp / attacker.max_hp if attacker.max_hp else 0
+    defender_hp_ratio = defender.current_hp / defender.max_hp if defender.max_hp else 0
+    if attacker_hp_ratio < 0.35:
+        score *= 0.5
+    if defender_hp_ratio < 0.3:
+        score *= 0.25
+    return score
+
+
+def opponent_choose_move(attacker, defender):
+    if not attacker.moves:
+        return None
+
+    scored_moves = []
+    for move in attacker.moves:
+        if move.power > 0:
+            expected, effectiveness = _expected_damage(attacker, defender, move)
+            score = expected
+            if expected >= defender.current_hp:
+                score += 50
+            if effectiveness > 1:
+                score += 10
+            elif effectiveness == 0:
+                score -= 20
+        else:
+            score = _stat_move_score(attacker, defender, move)
+        scored_moves.append((score, move))
+
+    scored_moves.sort(key=lambda item: item[0], reverse=True)
+    best_score = scored_moves[0][0]
+    if best_score == 0:
+        return random.choice(attacker.moves)
+
+    threshold = best_score * 0.95
+    top_moves = [move for score, move in scored_moves if score >= threshold]
+    return random.choice(top_moves)
 
 def play_random_song():
     # Use path from config
@@ -718,7 +805,9 @@ def battle(creature1, creature2, show_end_menu=True):
 
         if turn == 1 and creature2.is_alive() and creature1.is_alive():
             pygame.time.delay(1000)  # Pause before opponent's move
-            move = opponent_choose_move(creature2)
+            move = opponent_choose_move(creature2, creature1)
+            if move is None:
+                continue
             damage, effectiveness = calculate_damage(creature2, creature1, move)
             creature1.current_hp -= damage
             if creature1.current_hp < 0:

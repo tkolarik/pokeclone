@@ -268,6 +268,52 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         mock_scale.assert_has_calls(calls, any_order=True)
         assert mock_scale.call_count == 2
 
+    def test_draw_battle_effectiveness_indicators(self):
+        """Verify super/not-effective move outlines are drawn."""
+        # Arrange
+        native_sprite1 = MockSurface(config.NATIVE_SPRITE_RESOLUTION)
+        creature1 = Creature("Mon1", "Fire", 100, 50, 50, [], native_sprite1)
+
+        native_sprite2 = MockSurface(config.NATIVE_SPRITE_RESOLUTION)
+        creature2 = Creature("Mon2", "Nature", 100, 50, 50, [], native_sprite2)
+
+        move_super = Move("FireBlast", "Fire", 90)
+        move_weak = Move("WaterSplash", "Water", 40)
+
+        import src.battle.battle_simulator as battle_simulator
+
+        class DummyButton:
+            def __init__(self, action):
+                self.action = action
+                self.rect = battle_simulator.pygame.Rect(0, 0, 10, 10)
+            def draw(self, surface):
+                pass
+
+        buttons = [DummyButton(move_super), DummyButton(move_weak)]
+        mock_background = MockSurface((config.BATTLE_WIDTH, config.BATTLE_HEIGHT))
+        mock_screen = MockSurface((config.BATTLE_WIDTH, config.BATTLE_HEIGHT))
+
+        # Mock SCREEN object used within draw_battle
+        with unittest.mock.patch('src.battle.battle_simulator.SCREEN', mock_screen):
+            with unittest.mock.patch.object(mock_screen, 'blit') as mock_blit:
+                mock_font_instance = MagicMock()
+                mock_font_instance.render.return_value = MockSurface((10, 10))
+                with unittest.mock.patch('src.battle.battle_simulator.pygame.font.Font', return_value=mock_font_instance):
+                    with unittest.mock.patch('src.battle.battle_simulator.pygame.draw.rect') as mock_draw_rect:
+                        from src.battle.battle_simulator import draw_battle
+                        draw_battle(creature1, creature2, buttons, mock_background)
+
+        green_outline = False
+        red_outline = False
+        for args, kwargs in mock_draw_rect.call_args_list:
+            if len(args) >= 4 and args[1] == config.GREEN and args[3] == 3:
+                green_outline = True
+            if len(args) >= 4 and args[1] == config.RED and args[3] == 3:
+                red_outline = True
+
+        self.assertTrue(green_outline, "Expected a green outline for super effective moves.")
+        self.assertTrue(red_outline, "Expected a red outline for not very effective moves.")
+
     # --- Tests for TEST-2 (Damage Calculation) ---
 
     def test_calculate_damage_super_effective(self):
