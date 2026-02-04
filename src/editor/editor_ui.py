@@ -28,7 +28,7 @@ class Button:
         is_clicked(event: pygame.event.Event) -> bool
     """
 
-    def __init__(self, rect, text, action=None, value=None):
+    def __init__(self, rect, text, action=None, value=None, is_active=None, active_color=None, active_text_color=None):
         """
         Initialize a new Button instance.
 
@@ -43,8 +43,11 @@ class Button:
         self.text = text
         self.action = action
         self.value = value
+        self.is_active = is_active
         self.color = config.BUTTON_COLOR
         self.hover_color = config.BUTTON_HOVER_COLOR
+        self.active_color = active_color or getattr(config, "BUTTON_ACTIVE_COLOR", self.color)
+        self.active_text_color = active_text_color or getattr(config, "BUTTON_ACTIVE_TEXT_COLOR", config.BLACK)
         self.font = pygame.font.Font(config.DEFAULT_FONT, config.BUTTON_FONT_SIZE)
 
     def draw(self, surface):
@@ -56,10 +59,23 @@ class Button:
         """
         mouse_pos = pygame.mouse.get_pos()
         is_hover = self.rect.collidepoint(mouse_pos)
-        color = self.hover_color if is_hover else self.color
+        active = False
+        if callable(self.is_active):
+            try:
+                active = bool(self.is_active())
+            except Exception:
+                active = False
+        elif self.is_active is not None:
+            active = bool(self.is_active)
+
+        if active:
+            color = self.active_color
+        else:
+            color = self.hover_color if is_hover else self.color
         pygame.draw.rect(surface, color, self.rect)
         pygame.draw.rect(surface, config.BLACK, self.rect, 2)
-        text_surf = self.font.render(self.text, True, config.BLACK)
+        text_color = self.active_text_color if active else config.BLACK
+        text_surf = self.font.render(self.text, True, text_color)
         text_rect = text_surf.get_rect(center=self.rect.center)
         surface.blit(text_surf, text_rect)
 

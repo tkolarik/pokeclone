@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import pygame
-from pygame.locals import MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP, KEYDOWN, QUIT, KMOD_META, KMOD_CTRL, KMOD_ALT, K_z, K_y, K_c, K_v, K_RETURN, K_BACKSPACE, K_ESCAPE, K_UP, K_DOWN, K_m, MOUSEWHEEL
+from pygame.locals import MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP, KEYDOWN, QUIT, KMOD_META, KMOD_CTRL, KMOD_ALT, K_SPACE, K_z, K_y, K_c, K_v, K_RETURN, K_BACKSPACE, K_ESCAPE, K_UP, K_DOWN, K_m, MOUSEWHEEL
 from src.core import config
 # Import the Button class from editor_ui
 # from ..editor.editor_ui import Button, Palette # Relative import
@@ -21,6 +21,7 @@ class EventHandler:
         self.editor = editor
         self.left_mouse_button_down = False # <<< Add flag to track mouse state
         self.ref_img_panning = False # <<< Flag for panning reference image
+        self.panning_button = None
 
     def process_event(self, event):
         """
@@ -34,6 +35,9 @@ class EventHandler:
             bool: True if the event was handled, False otherwise. 
                   Returning False for QUIT allows the main loop to catch it.
         """
+        if event.type == MOUSEBUTTONUP and event.button == 1:
+            self.left_mouse_button_down = False
+
         # Handle dialog events first if a dialog is active
         if self.editor.dialog_mode:
             return self._handle_dialog_event(event)
@@ -58,26 +62,9 @@ class EventHandler:
         
         # --- Handle Mouse Wheel for Zoom/Scroll ---
         elif event.type == pygame.MOUSEWHEEL:
-             # --- Reference Image Scaling --- 
-             mods = pygame.key.get_mods()
-             if self.editor.edit_mode in ['monster', 'tile'] and (mods & KMOD_ALT):
-                 active_sprite_editor = self.editor.get_active_canvas()
-                 if active_sprite_editor:
-                     editor_rect = pygame.Rect(active_sprite_editor.position,
-                                                (active_sprite_editor.display_width, active_sprite_editor.display_height))
-                     if editor_rect.collidepoint(pygame.mouse.get_pos()): # Check if mouse is over editor
-                         scale_factor = 1.1 if event.y > 0 else (1 / 1.1)
-                         self.editor.ref_img_scale *= scale_factor
-                         # Clamp scale
-                         self.editor.ref_img_scale = max(0.1, min(self.editor.ref_img_scale, 10.0))
-                         print(f"Reference image scale: {self.editor.ref_img_scale:.2f}")
-                         self.editor._scale_reference_image() # Rescale after zoom
-                         return True # Consumed event
-             # --- End Reference Image Scaling ---
-             if hasattr(self.editor, "scroll_button_panel"):
-                 if self.editor.scroll_button_panel(pygame.mouse.get_pos(), event.y):
-                     return True
-             # TODO: Implement background zoom/scroll or palette scroll here if needed
+             mouse_pos = pygame.mouse.get_pos()
+             if self._handle_mouse_wheel(event.y, mouse_pos):
+                 return True
              pass # Pass if not handled
 
         return False # Event not handled by this function
@@ -256,6 +243,15 @@ class EventHandler:
                         print("Reference image panning started.")
                         return True # Event handled by starting ref image pan
 
+            # 0d. Background panning with space + drag
+            if editor.edit_mode == 'background' and editor.canvas_rect and editor.canvas_rect.collidepoint(event.pos):
+                keys = pygame.key.get_pressed()
+                if keys[K_SPACE]:
+                    editor.panning = True
+                    self.panning_button = 1
+                    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+                    return True
+
             # 1. Check UI Buttons
             for button in editor.buttons:
                 if button.is_clicked(event):
@@ -313,35 +309,18 @@ class EventHandler:
                  return True # Consume click outside relevant areas
 
         elif event.button == 4: # Mouse wheel up
-             # Handle palette scroll if mouse is over it
-             palette_rect = pygame.Rect(editor.palette.position[0], editor.palette.position[1],
-                                         config.PALETTE_COLS * (editor.palette.block_size + editor.palette.padding) + 30, # Rough width including scroll
-                                         config.PALETTE_ROWS * (editor.palette.block_size + editor.palette.padding))
-             if palette_rect.collidepoint(event.pos):
-                 editor.palette.scroll_offset = max(0, editor.palette.scroll_offset - 1)
+             if self._handle_mouse_wheel(1, event.pos):
                  return True
-             if hasattr(editor, "scroll_button_panel"):
-                 if editor.scroll_button_panel(event.pos, 1):
-                     return True
-             # TODO: Add zoom or other scroll behavior here if needed
 
         elif event.button == 5: # Mouse wheel down
-              # Handle palette scroll if mouse is over it
-             palette_rect = pygame.Rect(editor.palette.position[0], editor.palette.position[1],
-                                         config.PALETTE_COLS * (editor.palette.block_size + editor.palette.padding) + 30, # Rough width
-                                         config.PALETTE_ROWS * (editor.palette.block_size + editor.palette.padding))
-             if palette_rect.collidepoint(event.pos):
-                 editor.palette.scroll_offset = min(editor.palette.total_pages - 1, editor.palette.scroll_offset + 1)
+             if self._handle_mouse_wheel(-1, event.pos):
                  return True
-             if hasattr(editor, "scroll_button_panel"):
-                 if editor.scroll_button_panel(event.pos, -1):
-                     return True
-             # TODO: Add zoom or other scroll behavior here if needed
 
         # Handle Middle Mouse Button for Panning Start
         elif event.button == 2: # Middle mouse button
             if self.editor.edit_mode == 'background' and self.editor.canvas_rect and self.editor.canvas_rect.collidepoint(event.pos):
                 self.editor.panning = True
+                self.panning_button = 2
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND) # Change cursor to hand
                 return True # Panning started
                 
@@ -413,20 +392,14 @@ class EventHandler:
                  return True
 
         # Handle Panning Drag
-        if editor.panning and (event.buttons[1] == 1): # Check if middle button is held
-            dx, dy = event.rel # Get relative motion
-            editor.view_offset_x -= dx # Adjust view offset (inverse of mouse motion)
-            editor.view_offset_y -= dy
-            
-            # Clamp view offset (ensure this logic matches draw_ui clamping)
-            if editor.current_background:
-                scaled_width = int(editor.current_background.get_width() * editor.editor_zoom)
-                scaled_height = int(editor.current_background.get_height() * editor.editor_zoom)
-                max_offset_x = max(0, scaled_width - editor.canvas_rect.width)
-                max_offset_y = max(0, scaled_height - editor.canvas_rect.height)
-                editor.view_offset_x = max(0, min(editor.view_offset_x, max_offset_x))
-                editor.view_offset_y = max(0, min(editor.view_offset_y, max_offset_y))
-            return True # Panning motion handled
+        if editor.panning and self.panning_button:
+            if (self.panning_button == 1 and event.buttons[0] == 1) or (self.panning_button == 2 and event.buttons[1] == 1):
+                dx, dy = event.rel # Get relative motion
+                editor.view_offset_x -= dx # Adjust view offset (inverse of mouse motion)
+                editor.view_offset_y -= dy
+                if hasattr(editor, "_clamp_view_offset"):
+                    editor._clamp_view_offset()
+                return True # Panning motion handled
 
         # Handle Reference alpha slider drag
         if editor.adjusting_alpha and (event.buttons[0] == 1): # Check if left button is held
@@ -503,14 +476,78 @@ class EventHandler:
                  # pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
                  print("Reference image panning stopped.")
                  return True
+            if editor.panning and self.panning_button == 1:
+                editor.panning = False
+                self.panning_button = None
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+                return True
 
         elif event.button == 2: # Middle button release
             if editor.panning:
                 editor.panning = False
+                self.panning_button = None
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW) # Change cursor back
                 return True # Panning stopped
 
         return False # Event not handled
+
+    def _handle_mouse_wheel(self, direction, mouse_pos):
+        """Handles mouse wheel input with standard event.y semantics."""
+        if direction == 0:
+            return False
+
+        editor = self.editor
+        mods = pygame.key.get_mods()
+
+        # Background zoom (Ctrl/Cmd + wheel) centered on cursor
+        if editor.edit_mode == 'background' and editor.canvas_rect and editor.canvas_rect.collidepoint(mouse_pos):
+            if mods & (KMOD_CTRL | KMOD_META):
+                zoom_factor = 1.1 if direction > 0 else (1 / 1.1)
+                if hasattr(editor, "adjust_zoom"):
+                    editor.adjust_zoom(zoom_factor, focus_pos=mouse_pos)
+                    return True
+
+        # Reference image scaling (Alt + wheel)
+        if editor.edit_mode in ['monster', 'tile'] and (mods & KMOD_ALT):
+            active_sprite_editor = editor.get_active_canvas()
+            if active_sprite_editor:
+                editor_rect = pygame.Rect(
+                    active_sprite_editor.position,
+                    (active_sprite_editor.display_width, active_sprite_editor.display_height),
+                )
+                if editor_rect.collidepoint(mouse_pos):
+                    scale_factor = 1.1 if direction > 0 else (1 / 1.1)
+                    editor.ref_img_scale *= scale_factor
+                    editor.ref_img_scale = max(0.1, min(editor.ref_img_scale, 10.0))
+                    print(f"Reference image scale: {editor.ref_img_scale:.2f}")
+                    editor._scale_reference_image()
+                    return True
+
+        # Tile/NPC panels
+        if hasattr(editor, "scroll_tile_panel"):
+            if editor.scroll_tile_panel(direction, mouse_pos):
+                return True
+
+        # Palette scroll
+        palette_rect = pygame.Rect(
+            editor.palette.position[0],
+            editor.palette.position[1],
+            config.PALETTE_COLS * (editor.palette.block_size + editor.palette.padding) + 30,
+            config.PALETTE_ROWS * (editor.palette.block_size + editor.palette.padding),
+        )
+        if palette_rect.collidepoint(mouse_pos):
+            if direction > 0:
+                editor.palette.scroll_offset = max(0, editor.palette.scroll_offset - 1)
+            else:
+                editor.palette.scroll_offset = min(editor.palette.total_pages - 1, editor.palette.scroll_offset + 1)
+            return True
+
+        # Button panel scroll
+        if hasattr(editor, "scroll_button_panel"):
+            if editor.scroll_button_panel(mouse_pos, direction):
+                return True
+
+        return False
 
     def _handle_key_down(self, event):
         """Handles key down events when no dialog is active."""
@@ -561,12 +598,8 @@ class EventHandler:
                 if panned:
                     # Clamp view offset after panning
                     if editor.current_background:
-                        scaled_width = int(editor.current_background.get_width() * editor.editor_zoom)
-                        scaled_height = int(editor.current_background.get_height() * editor.editor_zoom)
-                        max_offset_x = max(0, scaled_width - editor.canvas_rect.width)
-                        max_offset_y = max(0, scaled_height - editor.canvas_rect.height)
-                        editor.view_offset_x = max(0, min(editor.view_offset_x, max_offset_x))
-                        editor.view_offset_y = max(0, min(editor.view_offset_y, max_offset_y))
+                        if hasattr(editor, "_clamp_view_offset"):
+                            editor._clamp_view_offset()
                     return True # Arrow key handled for panning
             # --- End Background Panning ---
             

@@ -36,7 +36,7 @@
 
 ### Medium Priority
 
-* **[POKE-11] Improve Pixel Editor UI/UX Feedback**
+* ~~**[POKE-11] Improve Pixel Editor UI/UX Feedback**~~ **(Completed)**
     * **Type:** Improvement
     * **Priority:** Medium
     * **Description:** The pixel art editor currently lacks some key visual feedback... (previous description remains) ...Review and correct the panning logic to use standard mouse wheel events (`event.y` for vertical) and potentially implement panning via middle-mouse drag or keyboard modifiers + mouse drag for more control.
@@ -47,6 +47,7 @@
         * **Testing:** Manual testing confirms that the visual indicator for the active tool is present and updates correctly.
         * **Testing:** Manual testing confirms that zoom behavior is intuitive and centers correctly (either on view or cursor, as implemented).
         * **Testing:** Manual testing confirms that panning controls work as expected and feel natural.
+        * **Testing:** Unit tests confirm all windows expose UI elements either on-screen or via a scrollable container (e.g., button panel scroll).
     * **Labels:** `ui`, `ux`, `editor`, `improvement`, `input`
 
 * **[POKE-12] Enhance Opponent Battle AI**

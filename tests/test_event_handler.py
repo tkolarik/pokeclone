@@ -46,6 +46,8 @@ class TestEventHandlerPaletteInteraction(unittest.TestCase):
         self.mock_editor.npc_state_dragging_scrollbar = False
         self.mock_editor.npc_angle_dragging_scrollbar = False
         self.mock_editor.panning = False
+        self.mock_editor.scroll_tile_panel = MagicMock(return_value=False)
+        self.mock_editor.scroll_button_panel = MagicMock(return_value=False)
 
         # --- Mock Palette --- 
         self.mock_editor.palette = MagicMock(spec=Palette)
@@ -97,6 +99,28 @@ class TestEventHandlerPaletteInteraction(unittest.TestCase):
 
         # Assert: palette.handle_click was called once with (event.pos, editor)
         self.mock_editor.palette.handle_click.assert_called_once_with(click_pos, self.mock_editor)
+
+    def test_mouse_wheel_scrolls_palette(self):
+        """Verify MOUSEWHEEL uses event.y to scroll the palette."""
+        self.mock_editor.palette.scroll_offset = 1
+        self.mock_editor.palette.total_pages = 3
+        mouse_pos = (
+            self.palette_pos[0] + self.mock_editor.palette.block_size // 2,
+            self.palette_pos[1] + self.mock_editor.palette.block_size // 2,
+        )
+        with patch("pygame.mouse.get_pos", return_value=mouse_pos):
+            wheel_event = pygame.event.Event(pygame.MOUSEWHEEL, {"y": 1, "x": 0})
+            self.event_handler.process_event(wheel_event)
+
+        self.assertEqual(self.mock_editor.palette.scroll_offset, 0)
+
+    def test_mouse_up_resets_left_button_during_dialog(self):
+        """Ensure mouse-up clears left_mouse_button_down even with dialog active."""
+        self.event_handler.left_mouse_button_down = True
+        self.mock_editor.dialog_mode = "load_ref"
+        mouse_up = pygame.event.Event(pygame.MOUSEBUTTONUP, {"button": 1, "pos": (10, 10)})
+        self.event_handler.process_event(mouse_up)
+        self.assertFalse(self.event_handler.left_mouse_button_down)
 
 # TODO: Add more tests for EventHandler logic (button clicks, canvas clicks, key presses etc.)
 
@@ -163,6 +187,8 @@ class TestEventHandlerOtherInteractions(unittest.TestCase):
         self.mock_editor.npc_state_dragging_scrollbar = False
         self.mock_editor.npc_angle_dragging_scrollbar = False
         self.mock_editor.panning = False
+        self.mock_editor.scroll_tile_panel = MagicMock(return_value=False)
+        self.mock_editor.scroll_button_panel = MagicMock(return_value=False)
 
         # Mock Palette interaction to prevent interference
         self.mock_editor.palette = MagicMock(spec=Palette)

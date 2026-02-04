@@ -228,8 +228,6 @@ class Editor:
         self.font = pygame.font.Font(config.DEFAULT_FONT, config.EDITOR_INFO_FONT_SIZE)
         self.font_small = pygame.font.Font(config.DEFAULT_FONT, 12)
 
-        self.brush_slider = pygame.Rect(50, config.EDITOR_HEIGHT - 40, 200, 20)
-
         # --- Reference Image Attributes ---
         self.reference_image_path = None
         self.reference_image = None # Original loaded surface
@@ -243,26 +241,8 @@ class Editor:
         self.ref_img_offset = pygame.Vector2(0, 0) # Pan offset (x, y)
         self.ref_img_scale = 1.0 # Scale factor
 
-        # Define slider rect (adjust position/size as needed)
-        # Reference Alpha Slider
-        ref_slider_x = 300 # Position next to brush slider for now
-        ref_slider_y = config.EDITOR_HEIGHT - 40
-        ref_slider_width = 150
-        ref_slider_height = 20
-        self.ref_alpha_slider_rect = pygame.Rect(ref_slider_x, ref_slider_y, ref_slider_width, ref_slider_height)
-        ref_knob_slider_width = self.ref_alpha_slider_rect.width - 10 # Available track width
-        initial_ref_knob_x = self.ref_alpha_slider_rect.x + int((self.reference_alpha / 255) * ref_knob_slider_width)
-        self.ref_alpha_knob_rect = pygame.Rect(initial_ref_knob_x, ref_slider_y, 10, ref_slider_height)
-
-        # Subject Alpha Slider (Position below reference slider)
-        subj_slider_x = ref_slider_x 
-        subj_slider_y = ref_slider_y + ref_slider_height + 10 # Place below ref slider
-        subj_slider_width = ref_slider_width
-        subj_slider_height = ref_slider_height
-        self.subj_alpha_slider_rect = pygame.Rect(subj_slider_x, subj_slider_y, subj_slider_width, subj_slider_height)
-        subj_knob_slider_width = self.subj_alpha_slider_rect.width - 10
-        initial_subj_knob_x = self.subj_alpha_slider_rect.x + int((self.subject_alpha / 255) * subj_knob_slider_width)
-        self.subj_alpha_knob_rect = pygame.Rect(initial_subj_knob_x, subj_slider_y, 10, subj_slider_height)
+        # Slider layout (brush/ref/subject alpha)
+        self._configure_sliders()
 
         self.tk_root = None # Initialize instance variable for Tkinter root
 
@@ -275,6 +255,29 @@ class Editor:
         if tk_root is None and _tk_init_error is not None:
             print(f"Tkinter root unavailable. Init error: {_tk_init_error}")
         return tk_root
+
+    def _configure_sliders(self):
+        slider_height = 20
+        slider_gap = 10
+        bottom_padding = 10
+        ref_slider_y = config.EDITOR_HEIGHT - bottom_padding - (slider_height * 2 + slider_gap)
+        ref_slider_x = 300
+        ref_slider_width = 150
+        brush_slider_x = 50
+        brush_slider_width = 200
+
+        self.brush_slider = pygame.Rect(brush_slider_x, ref_slider_y, brush_slider_width, slider_height)
+
+        self.ref_alpha_slider_rect = pygame.Rect(ref_slider_x, ref_slider_y, ref_slider_width, slider_height)
+        ref_knob_slider_width = self.ref_alpha_slider_rect.width - 10
+        initial_ref_knob_x = self.ref_alpha_slider_rect.x + int((self.reference_alpha / 255) * ref_knob_slider_width)
+        self.ref_alpha_knob_rect = pygame.Rect(initial_ref_knob_x, ref_slider_y, 10, slider_height)
+
+        subj_slider_y = ref_slider_y + slider_height + slider_gap
+        self.subj_alpha_slider_rect = pygame.Rect(ref_slider_x, subj_slider_y, ref_slider_width, slider_height)
+        subj_knob_slider_width = self.subj_alpha_slider_rect.width - 10
+        initial_subj_knob_x = self.subj_alpha_slider_rect.x + int((self.subject_alpha / 255) * subj_knob_slider_width)
+        self.subj_alpha_knob_rect = pygame.Rect(initial_subj_knob_x, subj_slider_y, 10, slider_height)
 
     def choose_edit_mode(self):
         """
@@ -888,6 +891,62 @@ class Editor:
             return True
         return False
 
+    def scroll_tile_panel(self, direction, pos):
+        """Handle mouse wheel scrolling for tile/NPC panels."""
+        if self.edit_mode != 'tile' or not self.tile_panel_rect or not self.tile_panel_rect.collidepoint(pos):
+            return False
+        if self.asset_edit_target == 'tile':
+            if self.tile_frame_tray_rect and self.tile_frame_tray_rect.collidepoint(pos):
+                return self._scroll_tile_frames(direction)
+            return self._scroll_tile_list(direction)
+        if self.npc_state_tray_rect and self.npc_state_tray_rect.collidepoint(pos):
+            return self._scroll_npc_states(direction)
+        if self.npc_angle_tray_rect and self.npc_angle_tray_rect.collidepoint(pos):
+            return self._scroll_npc_angles(direction)
+        return self._scroll_npc_list(direction)
+
+    def _scroll_tile_list(self, direction):
+        if not self.tile_set:
+            return False
+        tray_height = 110
+        list_height = self.tile_panel_rect.height - tray_height - 20
+        item_height = 60
+        visible = max(1, list_height // item_height)
+        max_scroll = max(0, len(self.tile_set.tiles) - visible)
+        if max_scroll <= 0:
+            return False
+        delta = -1 if direction > 0 else 1
+        new_scroll = max(0, min(self.tile_list_scroll + delta, max_scroll))
+        if new_scroll == self.tile_list_scroll:
+            return False
+        self.tile_list_scroll = new_scroll
+        return True
+
+    def _scroll_tile_frames(self, direction):
+        tile = self.current_tile()
+        if not tile or not self.tile_frame_tray_rect:
+            return False
+        frames = tile.frames or []
+        if not frames:
+            return False
+        visible = self.tile_frame_visible
+        if visible <= 0:
+            item_size = 48
+            padding = 6
+            usable_width = self.tile_frame_tray_rect.width - 12
+            cols = max(1, usable_width // (item_size + padding))
+            rows_visible = max(1, (self.tile_frame_tray_rect.height - 30) // (item_size + padding))
+            visible = cols * rows_visible
+        max_scroll = max(0, len(frames) - visible)
+        if max_scroll <= 0:
+            return False
+        delta = -1 if direction > 0 else 1
+        new_scroll = max(0, min(self.tile_frame_scroll + delta, max_scroll))
+        if new_scroll == self.tile_frame_scroll:
+            return False
+        self.tile_frame_scroll = new_scroll
+        return True
+
     def draw_npc_panel(self, surface):
         """Render NPC list and basic info."""
         if not self.tile_set:
@@ -1190,6 +1249,67 @@ class Editor:
             if self.npc_angle_scroll_thumb_rect:
                 pygame.draw.rect(surface, config.GRAY_DARK, self.npc_angle_scroll_thumb_rect)
 
+    def _scroll_npc_list(self, direction):
+        if not self.tile_set or not self.tile_panel_rect:
+            return False
+        tray_height = 160
+        list_height = self.tile_panel_rect.height - tray_height - 20
+        item_height = 60
+        visible = max(1, list_height // item_height)
+        max_scroll = max(0, len(self.tile_set.npcs) - visible)
+        if max_scroll <= 0:
+            return False
+        delta = -1 if direction > 0 else 1
+        new_scroll = max(0, min(self.npc_list_scroll + delta, max_scroll))
+        if new_scroll == self.npc_list_scroll:
+            return False
+        self.npc_list_scroll = new_scroll
+        return True
+
+    def _scroll_npc_states(self, direction):
+        npc = self.current_npc()
+        if not npc or not self.npc_state_tray_rect:
+            return False
+        states = list(npc.states.keys())
+        if not states:
+            return False
+        item_height = 28
+        visible = max(1, (self.npc_state_tray_rect.height - 24) // item_height)
+        max_scroll = max(0, len(states) - visible)
+        if max_scroll <= 0:
+            return False
+        delta = -1 if direction > 0 else 1
+        new_scroll = max(0, min(self.npc_state_scroll + delta, max_scroll))
+        if new_scroll == self.npc_state_scroll:
+            return False
+        self.npc_state_scroll = new_scroll
+        return True
+
+    def _scroll_npc_angles(self, direction):
+        npc = self.current_npc()
+        if not npc or not self.npc_angle_tray_rect:
+            return False
+        angles = list(npc.states.get(self.current_npc_state, {}).keys())
+        if not angles:
+            return False
+        visible = self.npc_angle_visible
+        if visible <= 0:
+            item_size = 48
+            padding = 6
+            usable_width = self.npc_angle_tray_rect.width - 12
+            cols = max(1, usable_width // (item_size + padding))
+            rows_visible = max(1, (self.npc_angle_tray_rect.height - 30) // (item_size + padding))
+            visible = cols * rows_visible
+        max_scroll = max(0, len(angles) - visible)
+        if max_scroll <= 0:
+            return False
+        delta = -1 if direction > 0 else 1
+        new_scroll = max(0, min(self.npc_angle_scroll + delta, max_scroll))
+        if new_scroll == self.npc_angle_scroll:
+            return False
+        self.npc_angle_scroll = new_scroll
+        return True
+
     def set_asset_edit_target(self, target: str):
         if target not in ['tile', 'npc']:
             return
@@ -1319,6 +1439,19 @@ class Editor:
         padding = 5
         start_x = config.EDITOR_WIDTH - button_width - padding
         start_y = 50
+        def _tool_active(name):
+            tool_manager = getattr(self, "tool_manager", None)
+            return tool_manager is not None and tool_manager.active_tool_name == name
+
+        active_predicates = {
+            "Eyedropper": lambda: _tool_active("eyedropper"),
+            "Fill": lambda: _tool_active("fill"),
+            "Paste": lambda: _tool_active("paste"),
+            "Select": lambda: self.mode == "select",
+            "Eraser": lambda: _tool_active("draw") and self.eraser_mode,
+            "Edit Tiles": lambda: self.edit_mode == "tile" and self.asset_edit_target == "tile",
+            "Edit NPCs": lambda: self.edit_mode == "tile" and self.asset_edit_target == "npc",
+        }
 
         shared_buttons = [
             ("Clear", self.clear_current),
@@ -1409,7 +1542,7 @@ class Editor:
 
         for i, (text, action) in enumerate(all_buttons):
             rect = (start_x, start_y + i * (button_height + padding), button_width, button_height)
-            buttons.append(Button(rect, text, action))
+            buttons.append(Button(rect, text, action, is_active=active_predicates.get(text)))
 
         self._configure_button_panel(buttons, start_x, start_y, button_width, button_height, padding)
         return buttons
@@ -1623,26 +1756,52 @@ class Editor:
     def zoom_in(self):
         """Zoom in on the background canvas."""
         if self.edit_mode == 'background':
-            # Increase zoom level, potentially up to a max limit
-            self.editor_zoom *= 1.2 # Example: Increase by 20%
-            max_zoom = 8.0 # Example maximum zoom
-            self.editor_zoom = min(self.editor_zoom, max_zoom)
+            self.adjust_zoom(1.2)
             print(f"Zoom In: Level {self.editor_zoom:.2f}x")
-            # TODO: Adjust view offset based on mouse position
         else:
             print("Zoom only available in background mode.")
 
     def zoom_out(self):
         """Zoom out on the background canvas."""
         if self.edit_mode == 'background':
-            # Decrease zoom level, potentially down to a min limit
-            self.editor_zoom /= 1.2 # Example: Decrease by 20%
-            min_zoom = 0.25 # Example minimum zoom
-            self.editor_zoom = max(self.editor_zoom, min_zoom)
+            self.adjust_zoom(1 / 1.2)
             print(f"Zoom Out: Level {self.editor_zoom:.2f}x")
-            # TODO: Adjust view offset based on mouse position
         else:
              print("Zoom only available in background mode.")
+
+    def _clamp_view_offset(self):
+        if not self.current_background or not self.canvas_rect:
+            return
+        scaled_width = int(self.current_background.get_width() * self.editor_zoom)
+        scaled_height = int(self.current_background.get_height() * self.editor_zoom)
+        max_offset_x = max(0, scaled_width - self.canvas_rect.width)
+        max_offset_y = max(0, scaled_height - self.canvas_rect.height)
+        self.view_offset_x = max(0, min(self.view_offset_x, max_offset_x))
+        self.view_offset_y = max(0, min(self.view_offset_y, max_offset_y))
+
+    def adjust_zoom(self, zoom_factor, focus_pos=None):
+        """Adjust background zoom while keeping the focus position stable."""
+        if self.edit_mode != 'background' or not self.canvas_rect or not self.current_background:
+            return
+        old_zoom = self.editor_zoom
+        min_zoom = 0.25
+        max_zoom = 8.0
+        new_zoom = max(min(old_zoom * zoom_factor, max_zoom), min_zoom)
+        if new_zoom == old_zoom:
+            return
+
+        if focus_pos is None or not self.canvas_rect.collidepoint(focus_pos):
+            focus_pos = self.canvas_rect.center
+
+        screen_x_rel = focus_pos[0] - self.canvas_rect.x
+        screen_y_rel = focus_pos[1] - self.canvas_rect.y
+        world_x = (screen_x_rel + self.view_offset_x) / old_zoom
+        world_y = (screen_y_rel + self.view_offset_y) / old_zoom
+
+        self.editor_zoom = new_zoom
+        self.view_offset_x = world_x * new_zoom - screen_x_rel
+        self.view_offset_y = world_y * new_zoom - screen_y_rel
+        self._clamp_view_offset()
 
     def increase_brush_size(self):
         """Increase brush size."""
