@@ -701,15 +701,31 @@
       "to": {
         "mapId": "demo_tiles_new",
         "spawn": {
+          "x": 27,
+          "y": 0
+        },
+        "facing": "down"
+      },
+      "auto": "world",
+      "sourceEdgeCoord": 8
+    },
+    {
+      "id": "auto_down_demo_tiles_new_9",
+      "type": "edge",
+      "from": "down",
+      "to": {
+        "mapId": "demo_tiles_new",
+        "spawn": {
           "x": 28,
           "y": 0
         },
         "facing": "down"
       },
-      "auto": "world"
+      "auto": "world",
+      "sourceEdgeCoord": 9
     },
     {
-      "id": "auto_down_demo_tiles_new_9",
+      "id": "auto_down_demo_tiles_new_10",
       "type": "edge",
       "from": "down",
       "to": {
@@ -720,10 +736,11 @@
         },
         "facing": "down"
       },
-      "auto": "world"
+      "auto": "world",
+      "sourceEdgeCoord": 10
     },
     {
-      "id": "auto_down_demo_tiles_new_10",
+      "id": "auto_down_demo_tiles_new_11",
       "type": "edge",
       "from": "down",
       "to": {
@@ -734,21 +751,8 @@
         },
         "facing": "down"
       },
-      "auto": "world"
-    },
-    {
-      "id": "auto_down_demo_tiles_new_11",
-      "type": "edge",
-      "from": "down",
-      "to": {
-        "mapId": "demo_tiles_new",
-        "spawn": {
-          "x": 31,
-          "y": 0
-        },
-        "facing": "down"
-      },
-      "auto": "world"
+      "auto": "world",
+      "sourceEdgeCoord": 11
     }
   ],
   "entities": [
