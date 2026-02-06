@@ -371,6 +371,7 @@ class Button:
 def draw_battle(creature1, creature2, buttons, background, *, flip_display=True):
     screen = _get_screen()
     font = _get_font()
+    screen.fill(config.BATTLE_BG_COLOR)
     screen.blit(background, (0, 0))
 
     display_size = config.BATTLE_SPRITE_DISPLAY_SIZE
@@ -832,8 +833,9 @@ def _build_move_buttons(creature):
 def _build_scene_teams(creatures, moves_dict, payload):
     payload = payload or {}
     raw_opponent = payload.get("team")
-    opponent_id = payload.get("opponent_id")
+    opponent_id = payload.get("opponent_id") or os.environ.get("POKECLONE_OPPONENT_ID")
     player_entries = parse_team_env("POKECLONE_PLAYER_TEAM")
+    env_opponent_entries = parse_team_env("POKECLONE_OPPONENT_TEAM")
 
     team_size = config.DEFAULT_TEAM_SIZE
     if isinstance(player_entries, list) and player_entries:
@@ -855,7 +857,9 @@ def _build_scene_teams(creatures, moves_dict, payload):
         player_team_entries = build_random_team(creatures, team_size, config.DEFAULT_TEAM_LEVEL)
 
     opponent_entries = None
-    if isinstance(raw_opponent, dict):
+    if env_opponent_entries:
+        opponent_entries = env_opponent_entries
+    elif isinstance(raw_opponent, dict):
         opponent_entries = [raw_opponent]
     elif isinstance(raw_opponent, list):
         opponent_entries = raw_opponent
@@ -963,7 +967,38 @@ class BattleScene(Scene):
             self.state = "error"
             self.final_deadline_ms = pygame.time.get_ticks() + 900
             return
-        self.player_team, self.opponent_team = _build_scene_teams(creatures, moves_dict, self.payload)
+        payload_has_constraints = bool(
+            self.payload.get("team")
+            or self.payload.get("opponent_id")
+            or parse_team_env("POKECLONE_PLAYER_TEAM")
+            or parse_team_env("POKECLONE_OPPONENT_TEAM")
+            or os.environ.get("POKECLONE_OPPONENT_ID")
+        )
+
+        if payload_has_constraints:
+            self.player_team, self.opponent_team = _build_scene_teams(creatures, moves_dict, self.payload)
+        else:
+            team_size = prompt_for_team_size(
+                "Choose team size (1-6)",
+                config.DEFAULT_TEAM_SIZE,
+                config.DEFAULT_TEAM_SIZE,
+            )
+            selected_names = select_team(creatures, team_size)
+            if selected_names:
+                manual_entries = [{"name": name, "level": config.DEFAULT_TEAM_LEVEL} for name in selected_names]
+                player_team_entries = build_team_entries(
+                    creatures,
+                    manual_entries,
+                    team_size,
+                    config.DEFAULT_TEAM_LEVEL,
+                    fill_random=True,
+                )
+            else:
+                player_team_entries = build_random_team(creatures, team_size, config.DEFAULT_TEAM_LEVEL)
+            opponent_team_entries = build_random_team(creatures, team_size, config.DEFAULT_TEAM_LEVEL)
+            self.player_team = build_battle_team(player_team_entries, moves_dict)
+            self.opponent_team = build_battle_team(opponent_team_entries, moves_dict)
+
         if not self.player_team or not self.opponent_team:
             self.error_message = "Could not build battle teams."
             self.state = "error"
