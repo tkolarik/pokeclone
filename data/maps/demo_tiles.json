@@ -147,7 +147,7 @@
         [
           "wall",
           "path",
-          "path",
+          "grass",
           "path",
           "path",
           "path",
@@ -822,6 +822,24 @@
         ],
         "battleable": true
       },
+      "hidden": false
+    },
+    {
+      "id": "player",
+      "type": "npc",
+      "name": "player",
+      "spriteId": "player",
+      "position": {
+        "x": 2,
+        "y": 6
+      },
+      "facing": "down",
+      "collision": true,
+      "dialog": null,
+      "dialogId": null,
+      "actions": [],
+      "conditions": {},
+      "properties": {},
       "hidden": false
     }
   ],
