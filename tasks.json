@@ -798,7 +798,7 @@
   {
     "id": "DATA-1",
     "title": "Normalize Monster Data Schema to Single Source of Truth",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Highest",
     "type": "Task",
     "labels": [],

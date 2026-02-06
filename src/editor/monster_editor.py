@@ -4,6 +4,7 @@ import os
 import pygame
 
 from src.core import config
+from src.core.monster_schema import normalize_monster, normalize_monsters
 from src.editor.editor_ui import Button
 
 LIST_PANEL_WIDTH = 320
@@ -17,9 +18,10 @@ def load_monsters():
     try:
         with open(monsters_file, "r") as f:
             monsters = json.load(f)
-        if not isinstance(monsters, list):
-            raise ValueError("monsters.json should contain a list of monsters.")
-        return monsters
+        normalized_monsters, warnings = normalize_monsters(monsters, strict_conflicts=False)
+        for warning in warnings:
+            print(f"Monster schema warning: {warning}")
+        return normalized_monsters
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Error loading monsters: {exc}")
         return []
@@ -27,9 +29,12 @@ def load_monsters():
 
 def save_monsters(monsters):
     monsters_file = os.path.join(config.DATA_DIR, "monsters.json")
+    normalized_monsters, warnings = normalize_monsters(monsters, strict_conflicts=False)
+    for warning in warnings:
+        print(f"Monster schema warning: {warning}")
     with open(monsters_file, "w") as f:
-        json.dump(monsters, f, indent=4)
-    print(f"Saved {len(monsters)} monsters to {monsters_file}")
+        json.dump(normalized_monsters, f, indent=4)
+    print(f"Saved {len(normalized_monsters)} monsters to {monsters_file}")
 
 
 def load_move_names():
@@ -44,33 +49,11 @@ def load_move_names():
 
 
 def ensure_monster_structure(monster):
-    base_stats = monster.get("base_stats")
-    if not base_stats:
-        base_stats = {
-            "max_hp": monster.get("max_hp", 1),
-            "attack": monster.get("attack", 1),
-            "defense": monster.get("defense", 1),
-        }
-    monster["base_stats"] = {
-        "max_hp": int(base_stats.get("max_hp", 1)),
-        "attack": int(base_stats.get("attack", 1)),
-        "defense": int(base_stats.get("defense", 1)),
-    }
-    monster["max_hp"] = monster["base_stats"]["max_hp"]
-    monster["attack"] = monster["base_stats"]["attack"]
-    monster["defense"] = monster["base_stats"]["defense"]
-
-    move_pool = monster.get("move_pool")
-    if not move_pool:
-        move_pool = monster.get("moves", [])
-    monster["move_pool"] = list(move_pool)
-
-    learnset = monster.get("learnset")
-    if not learnset:
-        learnset = [{"level": 1, "move": move} for move in monster["move_pool"]]
-    monster["learnset"] = learnset
-
-    monster["moves"] = list(monster["move_pool"])
+    normalized_monster, warnings = normalize_monster(monster, strict_conflicts=False)
+    for warning in warnings:
+        print(f"Monster schema warning: {warning}")
+    monster.clear()
+    monster.update(normalized_monster)
 
 
 def clamp_scroll(selected_index, scroll_offset, visible_count, total_count):
@@ -411,9 +394,6 @@ def main():
                             selected_monster["base_stats"]["max_hp"] = max(1, int(hp_text))
                             selected_monster["base_stats"]["attack"] = max(1, int(atk_text))
                             selected_monster["base_stats"]["defense"] = max(1, int(def_text))
-                            selected_monster["max_hp"] = selected_monster["base_stats"]["max_hp"]
-                            selected_monster["attack"] = selected_monster["base_stats"]["attack"]
-                            selected_monster["defense"] = selected_monster["base_stats"]["defense"]
                         elif action == "edit_moves":
                             current_pool = ", ".join(selected_monster.get("move_pool", []))
                             result = prompt_text(screen, "Move pool (comma-separated)", current_pool)
@@ -422,7 +402,6 @@ def main():
                             new_pool, unknown = parse_move_pool(result, move_names)
                             if new_pool:
                                 selected_monster["move_pool"] = new_pool
-                                selected_monster["moves"] = list(new_pool)
                                 selected_monster["learnset"] = [{"level": 1, "move": move} for move in new_pool]
                             if unknown:
                                 status_message = f"Unknown moves ignored: {', '.join(unknown)}"
@@ -440,7 +419,6 @@ def main():
                                 if move_name and move_name not in move_pool:
                                     move_pool.append(move_name)
                             selected_monster["move_pool"] = move_pool
-                            selected_monster["moves"] = list(move_pool)
                             if unknown or invalid:
                                 message_parts = []
                                 if unknown:

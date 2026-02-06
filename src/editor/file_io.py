@@ -6,6 +6,7 @@ from typing import List, Optional, Tuple
 import pygame
 
 from src.core import config
+from src.core.monster_schema import normalize_monsters
 
 
 def load_monsters():
@@ -18,9 +19,10 @@ def load_monsters():
     try:
         with open(monsters_file, "r") as f:
             monsters = json.load(f)
-        if not isinstance(monsters, list):
-            raise ValueError("monsters.json should contain a list of monsters.")
-        return monsters
+        normalized_monsters, warnings = normalize_monsters(monsters, strict_conflicts=False)
+        for warning in warnings:
+            print(f"Monster schema warning: {warning}")
+        return normalized_monsters
     except FileNotFoundError:
         print(f"Error: Could not find monsters.json in {os.path.dirname(monsters_file)}")
         print("Make sure you've created the data directory and added the monsters.json file.")

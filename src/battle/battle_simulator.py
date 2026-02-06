@@ -8,6 +8,7 @@ import copy
 # Import the centralized config
 # from ..core import config # Relative import
 from src.core import config # Absolute import from src
+from src.core.monster_schema import normalize_monster
 
 # Initialize Pygame
 pygame.init()
@@ -143,30 +144,16 @@ def scale_stats(base_stats, level):
     }
 
 def normalize_base_stats(monster):
-    base_stats = monster.get("base_stats")
-    if not base_stats:
-        base_stats = {
-            "max_hp": monster.get("max_hp", 1),
-            "attack": monster.get("attack", 1),
-            "defense": monster.get("defense", 1),
-        }
-    return {
-        "max_hp": int(base_stats.get("max_hp", 1)),
-        "attack": int(base_stats.get("attack", 1)),
-        "defense": int(base_stats.get("defense", 1)),
-    }
+    normalized, _warnings = normalize_monster(monster, strict_conflicts=False)
+    return dict(normalized["base_stats"])
 
 def normalize_move_pool(monster):
-    move_pool = monster.get("move_pool")
-    if not move_pool:
-        move_pool = monster.get("moves", [])
-    return list(move_pool)
+    normalized, _warnings = normalize_monster(monster, strict_conflicts=False)
+    return list(normalized["move_pool"])
 
 def normalize_learnset(monster, move_pool):
-    learnset = monster.get("learnset")
-    if learnset:
-        return learnset
-    return [{"level": 1, "move": move} for move in move_pool]
+    normalized, _warnings = normalize_monster(monster, strict_conflicts=False)
+    return list(normalized["learnset"])
 
 def flatten_learnset(learnset):
     flattened = []
@@ -306,15 +293,19 @@ def load_creatures(moves_dict=None):
     
     for monster in monsters_data:
         # Use path from config
-        sprite_path = os.path.join(config.SPRITE_DIR, f"{monster['name']}_front.png")
+        normalized_monster, schema_warnings = normalize_monster(monster, strict_conflicts=False)
+        for warning in schema_warnings:
+            print(f"Monster schema warning: {warning}")
+
+        sprite_path = os.path.join(config.SPRITE_DIR, f"{normalized_monster['name']}_front.png")
         sprite = create_sprite_from_file(sprite_path)
-        base_stats = normalize_base_stats(monster)
-        move_pool = normalize_move_pool(monster)
-        learnset = normalize_learnset(monster, move_pool)
+        base_stats = normalized_monster["base_stats"]
+        move_pool = normalized_monster["move_pool"]
+        learnset = normalized_monster["learnset"]
         level = config.MIN_MONSTER_LEVEL
         scaled_stats = scale_stats(base_stats, level)
         moves = build_moves_for_level(learnset, level, moves_dict)
-        creature = Creature(monster['name'], monster['type'], scaled_stats['max_hp'], 
+        creature = Creature(normalized_monster['name'], normalized_monster['type'], scaled_stats['max_hp'], 
                             scaled_stats['attack'], scaled_stats['defense'], moves, sprite,
                             level=level, base_stats=base_stats, move_pool=move_pool, learnset=learnset)
         creatures.append(creature)
