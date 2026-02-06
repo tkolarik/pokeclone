@@ -9,6 +9,34 @@ from src.core import config # Absolute import
 # from .sprite_editor import SpriteEditor # Relative import
 from src.editor.sprite_editor import SpriteEditor # Absolute import
 
+
+def _screen_to_background_pos(editor, screen_pos):
+    """Convert a screen-space click to a background-surface pixel position."""
+    if not editor.canvas_rect:
+        return None
+
+    zoom = float(getattr(editor, "editor_zoom", 0.0) or 0.0)
+    if zoom <= 0:
+        return None
+
+    screen_x_rel = screen_pos[0] - editor.canvas_rect.x
+    screen_y_rel = screen_pos[1] - editor.canvas_rect.y
+    original_x = int((screen_x_rel + editor.view_offset_x) / zoom)
+    original_y = int((screen_y_rel + editor.view_offset_y) / zoom)
+    return (original_x, original_y)
+
+
+def _normalize_rgba(color):
+    """Return an RGBA tuple for tuple-like colors."""
+    if color is None:
+        return None
+    if len(color) >= 4:
+        return (int(color[0]), int(color[1]), int(color[2]), int(color[3]))
+    if len(color) == 3:
+        return (int(color[0]), int(color[1]), int(color[2]), 255)
+    return None
+
+
 # --- Base Tool --- (Optional, but good for structure)
 class BaseTool:
     def __init__(self, name):
@@ -129,11 +157,50 @@ class FillTool(BaseTool):
 
     def _flood_fill_background(self, editor, background_surface, start_screen_pos, fill_color):
         """Perform flood fill on the background surface."""
-        print("Background Fill - Not Implemented Yet")
-        # TODO: Implement background fill logic
-        # Needs to handle zoom/pan to convert screen coords to surface coords
-        # Needs to handle potentially large surfaces efficiently
-        pass
+        start_pos = _screen_to_background_pos(editor, start_screen_pos)
+        if not start_pos:
+            return
+
+        bg_width, bg_height = background_surface.get_size()
+        start_x, start_y = start_pos
+        if not (0 <= start_x < bg_width and 0 <= start_y < bg_height):
+            return
+
+        target_color = _normalize_rgba(background_surface.get_at(start_pos))
+        fill_color_rgba = _normalize_rgba(fill_color)
+        if fill_color_rgba is None:
+            return
+        if target_color == fill_color_rgba:
+            return
+
+        visited = bytearray(bg_width * bg_height)
+        stack = [start_pos]
+
+        background_surface.lock()
+        try:
+            while stack:
+                x, y = stack.pop()
+                idx = y * bg_width + x
+                if visited[idx]:
+                    continue
+                visited[idx] = 1
+
+                if _normalize_rgba(background_surface.get_at((x, y))) != target_color:
+                    continue
+
+                background_surface.set_at((x, y), fill_color_rgba)
+
+                if x > 0:
+                    stack.append((x - 1, y))
+                if x + 1 < bg_width:
+                    stack.append((x + 1, y))
+                if y > 0:
+                    stack.append((x, y - 1))
+                if y + 1 < bg_height:
+                    stack.append((x, y + 1))
+        finally:
+            background_surface.unlock()
+        print("Background fill complete.")
 
     def handle_click(self, editor, pos):
         if editor.edit_mode in ['monster', 'tile']:
@@ -179,11 +246,46 @@ class PasteTool(BaseTool):
 
     def _apply_paste_background(self, editor, background_surface, top_left_screen_pos):
         """Pastes the editor's copy_buffer onto the background frame."""
-        print("Background Paste - Not Implemented Yet")
-        # TODO: Implement background paste logic
-        # Needs to handle zoom/pan for positioning
-        # Needs to handle potentially different data in copy_buffer (if BG copy is added)
-        pass
+        if not editor.copy_buffer:
+            print("Paste Error: Copy buffer is empty.")
+            return
+
+        top_left_pos = _screen_to_background_pos(editor, top_left_screen_pos)
+        if not top_left_pos:
+            return
+
+        bg_width, bg_height = background_surface.get_size()
+        start_x, start_y = top_left_pos
+        pasted_count = 0
+
+        for (rel_x, rel_y), color in editor.copy_buffer.items():
+            rgba = _normalize_rgba(color)
+            if rgba is None:
+                continue
+            alpha = rgba[3]
+            if alpha <= 0:
+                continue
+
+            abs_x = start_x + rel_x
+            abs_y = start_y + rel_y
+            if not (0 <= abs_x < bg_width and 0 <= abs_y < bg_height):
+                continue
+
+            if alpha >= 255:
+                background_surface.set_at((abs_x, abs_y), (rgba[0], rgba[1], rgba[2], 255))
+            else:
+                existing = _normalize_rgba(background_surface.get_at((abs_x, abs_y)))
+                inv_alpha = 255 - alpha
+                blended = (
+                    (rgba[0] * alpha + existing[0] * inv_alpha) // 255,
+                    (rgba[1] * alpha + existing[1] * inv_alpha) // 255,
+                    (rgba[2] * alpha + existing[2] * inv_alpha) // 255,
+                    255,
+                )
+                background_surface.set_at((abs_x, abs_y), blended)
+            pasted_count += 1
+
+        print(f"Pasted {pasted_count} pixel(s) onto background.")
 
     def handle_click(self, editor, pos):
         if not editor.copy_buffer:

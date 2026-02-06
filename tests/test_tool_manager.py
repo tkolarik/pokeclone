@@ -219,10 +219,12 @@ class TestFillTool(unittest.TestCase):
         self.mock_sprite_editor.get_pixel_color.side_effect = mock_get_pixel
         self.mock_sprite_editor.draw_pixel.side_effect = mock_draw_pixel
 
-        # Mock Background related things (less critical as fill is TODO)
-        self.mock_editor.canvas_rect = MagicMock(spec=pygame.Rect)
-        self.mock_editor.canvas_rect.collidepoint.return_value = True # Assume hit for bg test
-        self.mock_editor.current_background = MagicMock(spec=pygame.Surface)
+        # Background-related attributes
+        self.mock_editor.canvas_rect = pygame.Rect(100, 100, 200, 200)
+        self.mock_editor.current_background = pygame.Surface((16, 16), pygame.SRCALPHA)
+        self.mock_editor.view_offset_x = 0
+        self.mock_editor.view_offset_y = 0
+        self.mock_editor.editor_zoom = 1.0
 
     @patch.object(FillTool, '_flood_fill_sprite')
     def test_handle_click_calls_flood_fill_sprite(self, mock_flood_fill_sprite):
@@ -291,6 +293,36 @@ class TestFillTool(unittest.TestCase):
         # Assert grid state is unchanged
         self.assertEqual(self.mock_grid_state, initial_state)
 
+    def test_flood_fill_background_with_zoom_and_pan(self):
+        """Background flood fill should target the correct source pixel with zoom/pan."""
+        background = pygame.Surface((8, 8), pygame.SRCALPHA)
+        background.fill((0, 0, 255, 255))
+        # Build a small connected red region plus one non-connected red pixel.
+        background.set_at((2, 1), (255, 0, 0, 255))
+        background.set_at((3, 1), (255, 0, 0, 255))
+        background.set_at((2, 2), (255, 0, 0, 255))
+        background.set_at((6, 6), (255, 0, 0, 255))
+
+        self.mock_editor.current_background = background
+        self.mock_editor.editor_zoom = 2.0
+        self.mock_editor.view_offset_x = 4
+        self.mock_editor.view_offset_y = 2
+
+        # With rect=(100,100), zoom=2, offsets=(4,2), screen (100,100) maps to bg (2,1).
+        self.fill_tool._flood_fill_background(
+            self.mock_editor,
+            background,
+            (100, 100),
+            (0, 255, 0),
+        )
+
+        self.assertEqual(background.get_at((2, 1))[:3], (0, 255, 0))
+        self.assertEqual(background.get_at((3, 1))[:3], (0, 255, 0))
+        self.assertEqual(background.get_at((2, 2))[:3], (0, 255, 0))
+        # Non-connected region and non-target colors remain unchanged.
+        self.assertEqual(background.get_at((6, 6))[:3], (255, 0, 0))
+        self.assertEqual(background.get_at((0, 0))[:3], (0, 0, 255))
+
     def test_handle_drag_does_nothing(self):
         """Verify handle_drag for FillTool does nothing."""
         # Just call it and ensure no errors and no relevant mocks were called
@@ -321,10 +353,12 @@ class TestPasteTool(unittest.TestCase):
         self.mock_editor._get_sprite_editor_at_pos.return_value = self.mock_sprite_editor
         self.mock_sprite_editor.get_grid_position.return_value = (10, 10) # Mock paste target pos
 
-        # Mock Background related things (less critical as paste is TODO)
-        self.mock_editor.canvas_rect = MagicMock(spec=pygame.Rect)
-        self.mock_editor.canvas_rect.collidepoint.return_value = True
-        self.mock_editor.current_background = MagicMock(spec=pygame.Surface)
+        # Background-related attributes
+        self.mock_editor.canvas_rect = pygame.Rect(100, 50, 200, 200)
+        self.mock_editor.current_background = pygame.Surface((16, 16), pygame.SRCALPHA)
+        self.mock_editor.view_offset_x = 0
+        self.mock_editor.view_offset_y = 0
+        self.mock_editor.editor_zoom = 1.0
 
     @patch.object(PasteTool, '_apply_paste_sprite')
     def test_handle_click_calls_apply_paste_sprite(self, mock_apply_paste_sprite):
@@ -388,6 +422,33 @@ class TestPasteTool(unittest.TestCase):
         self.paste_tool._apply_paste_sprite(self.mock_editor, self.mock_sprite_editor, paste_grid_pos)
 
         self.mock_sprite_editor.draw_pixel.assert_not_called()
+
+    def test_apply_paste_background_with_zoom_pan_and_alpha(self):
+        """Background paste should map through zoom/pan and blend semi-transparent pixels."""
+        self.mock_editor.copy_buffer = {
+            (0, 0): (100, 0, 0, 255),
+            (1, 0): (0, 100, 0, 128),
+            (0, 1): (255, 255, 255, 0),
+        }
+        background = pygame.Surface((10, 10), pygame.SRCALPHA)
+        background.fill((10, 20, 30, 255))
+        self.mock_editor.current_background = background
+        self.mock_editor.editor_zoom = 2.0
+        self.mock_editor.view_offset_x = 4
+        self.mock_editor.view_offset_y = 2
+
+        # With rect=(100,50), zoom=2, offsets=(4,2), screen (102,56) maps to bg (3,4).
+        self.paste_tool._apply_paste_background(self.mock_editor, background, (102, 56))
+
+        self.assertEqual(background.get_at((3, 4))[:3], (100, 0, 0))
+        expected_blend = (
+            (0 * 128 + 10 * 127) // 255,
+            (100 * 128 + 20 * 127) // 255,
+            (0 * 128 + 30 * 127) // 255,
+        )
+        self.assertEqual(background.get_at((4, 4))[:3], expected_blend)
+        # Transparent source pixel should not change destination.
+        self.assertEqual(background.get_at((3, 5))[:3], (10, 20, 30))
 
     def test_handle_drag_does_nothing(self):
         """Verify handle_drag for PasteTool does nothing."""

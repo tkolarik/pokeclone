@@ -293,7 +293,9 @@ class EventHandler:
                          # The SelectionTool.start method should handle the state.
                          editor.selection.start(event.pos, clicked_sprite_editor)
                          # Set selecting flag AFTER calling start
-                         editor.selection.selecting = True 
+                         editor.selection.selecting = True
+                    elif is_bg_click and editor.edit_mode == 'background':
+                         editor._start_background_selection(event.pos)
                 else: # Draw, erase, fill, paste modes
                     editor.tool_manager.handle_click(event.pos) # <<< Use ToolManager
                 return True # Event handled by canvas click
@@ -414,10 +416,13 @@ class EventHandler:
 
         # Handle selection drag
         elif editor.mode == 'select' and editor.selection.selecting and (event.buttons[0] == 1):
-             clicked_sprite_editor = editor._get_sprite_editor_at_pos(event.pos)
-             # Update selection only if dragging over the *same* editor? Or any? For now, any.
-             if clicked_sprite_editor:
-                  editor.selection.update(event.pos, clicked_sprite_editor) # Pass sprite editor
+             if editor.edit_mode == 'background':
+                  editor._update_background_selection(event.pos)
+             else:
+                  clicked_sprite_editor = editor._get_sprite_editor_at_pos(event.pos)
+                  # Update selection only if dragging over the *same* editor? Or any? For now, any.
+                  if clicked_sprite_editor:
+                       editor.selection.update(event.pos, clicked_sprite_editor) # Pass sprite editor
              # Allow drag outside the initial sprite editor? Yes for now.
              # Might need refinement if dragging over the *other* sprite editor.
              return True
@@ -454,17 +459,20 @@ class EventHandler:
 
             # Handle selection end
             elif editor.mode == 'select' and editor.selection.selecting:
-                # End selection regardless of where mouse is released? Or only if over canvas?
-                # Current logic uses position from event. Let's assume release anywhere ends it.
-                clicked_sprite_editor = editor._get_sprite_editor_at_pos(event.pos)
-                # Need the sprite editor instance where selection *started* potentially,
-                # but for now, just use the current one if available. If released outside,
-                # end_selection might use the last known end_pos. This needs selection_manager logic check.
-                # For now, assume end_selection handles release position correctly.
-                # We might need to store which editor the selection started on if it matters.
-                target_editor = clicked_sprite_editor if clicked_sprite_editor else editor.get_active_canvas()
-                if target_editor:
-                    editor.selection.end_selection(event.pos, target_editor) # Pass editor instance, fallback to current if released outside
+                if editor.edit_mode == 'background':
+                    editor._end_background_selection(event.pos)
+                else:
+                    # End selection regardless of where mouse is released? Or only if over canvas?
+                    # Current logic uses position from event. Let's assume release anywhere ends it.
+                    clicked_sprite_editor = editor._get_sprite_editor_at_pos(event.pos)
+                    # Need the sprite editor instance where selection *started* potentially,
+                    # but for now, just use the current one if available. If released outside,
+                    # end_selection might use the last known end_pos. This needs selection_manager logic check.
+                    # For now, assume end_selection handles release position correctly.
+                    # We might need to store which editor the selection started on if it matters.
+                    target_editor = clicked_sprite_editor if clicked_sprite_editor else editor.get_active_canvas()
+                    if target_editor:
+                        editor.selection.end_selection(event.pos, target_editor) # Pass editor instance, fallback to current if released outside
                 editor.selection.selecting = False # Turn off selecting flag
                 # Keep editor.selection.active True
                 return True

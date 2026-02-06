@@ -1072,6 +1072,72 @@ def test_background_draw_erase(mock_editor):
     color_after_erase = editor.current_background.get_at(click_canvas_rel_pos)
     assert color_after_erase == config.WHITE[:3], f"Pixel color after erase mismatch. Expected {config.WHITE[:3]}, got {color_after_erase}"
 
+def test_background_select_and_copy(mock_editor):
+    """Background mode selection should produce a copy buffer that paste can use."""
+    editor = mock_editor
+    editor.edit_mode = 'background'
+    editor.canvas_rect = pygame.Rect(50, 100, 64, 64)
+    editor.current_background = pygame.Surface((64, 64), pygame.SRCALPHA)
+    editor.current_background.fill((0, 0, 0, 255))
+    editor.dialog_mode = None
+    editor.buttons = editor.create_buttons()
+
+    # Seed a 2x2 area to verify copied values.
+    editor.current_background.set_at((10, 12), (10, 20, 30, 255))
+    editor.current_background.set_at((11, 12), (40, 50, 60, 255))
+    editor.current_background.set_at((10, 13), (70, 80, 90, 255))
+    editor.current_background.set_at((11, 13), (100, 110, 120, 255))
+
+    select_button = find_button(editor, "Select")
+    assert select_button is not None
+    editor.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {'button': 1, 'pos': select_button.rect.center}))
+    assert editor.mode == 'select'
+
+    start_screen = (editor.canvas_rect.x + 10, editor.canvas_rect.y + 12)
+    end_screen = (editor.canvas_rect.x + 11, editor.canvas_rect.y + 13)
+    editor.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {'button': 1, 'pos': start_screen}))
+    editor.handle_event(pygame.event.Event(pygame.MOUSEMOTION, {'buttons': (1, 0, 0), 'pos': end_screen}))
+    editor.handle_event(pygame.event.Event(pygame.MOUSEBUTTONUP, {'button': 1, 'pos': end_screen}))
+
+    assert editor.selection.active is True
+    assert editor.selection.rect.topleft == (10, 12)
+    assert editor.selection.rect.size == (2, 2)
+
+    editor.copy_selection()
+    assert editor.copy_buffer is not None
+    assert len(editor.copy_buffer) == 4
+    assert editor.copy_buffer[(0, 0)][:3] == (10, 20, 30)
+    assert editor.copy_buffer[(1, 0)][:3] == (40, 50, 60)
+    assert editor.copy_buffer[(0, 1)][:3] == (70, 80, 90)
+    assert editor.copy_buffer[(1, 1)][:3] == (100, 110, 120)
+
+def test_background_mode_fill_and_paste_tool_activation(mock_editor):
+    """Background mode should expose and activate fill/paste like other edit modes."""
+    editor = mock_editor
+    editor.edit_mode = 'background'
+    editor.canvas_rect = pygame.Rect(50, 100, 64, 64)
+    editor.current_background = pygame.Surface((64, 64), pygame.SRCALPHA)
+    editor.current_background.fill(config.WHITE)
+    editor.dialog_mode = None
+    editor.copy_buffer = {(0, 0): (255, 0, 0, 255)}
+    editor.buttons = editor.create_buttons()
+
+    button_texts = {btn.text for btn in editor.buttons}
+    assert "Fill" in button_texts, "Fill button should be available in background mode"
+    assert "Paste" in button_texts, "Paste button should be available in background mode"
+
+    fill_button = find_button(editor, "Fill")
+    assert fill_button is not None
+    editor.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {'button': 1, 'pos': fill_button.rect.center}))
+    assert editor.fill_mode is True
+    assert editor.tool_manager.active_tool_name == "fill"
+
+    paste_button = find_button(editor, "Paste")
+    assert paste_button is not None
+    editor.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {'button': 1, 'pos': paste_button.rect.center}))
+    assert editor.paste_mode is True
+    assert editor.tool_manager.active_tool_name == "paste"
+
 # --- Main execution for unittest --- (if using unittest classes)
 
 if __name__ == '__main__':

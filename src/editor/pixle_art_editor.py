@@ -1742,12 +1742,14 @@ class Editor:
     def copy_selection(self):
         """Copy the selected pixels to the buffer."""
         if self.selection.active:
-            sprite_editor = self.get_active_canvas()
-            if not sprite_editor:
-                self._set_status("Copy failed: No active canvas.")
-                return
-
-            self.copy_buffer = self.selection.get_selected_pixels(sprite_editor)
+            if self.edit_mode == 'background':
+                self.copy_buffer = self._get_selected_background_pixels()
+            else:
+                sprite_editor = self.get_active_canvas()
+                if not sprite_editor:
+                    self._set_status("Copy failed: No active canvas.")
+                    return
+                self.copy_buffer = self.selection.get_selected_pixels(sprite_editor)
             if self.copy_buffer:
                 entry = self._push_clipboard(self.copy_buffer, favorite=False)
                 if entry:
@@ -2241,6 +2243,68 @@ class Editor:
             return self.tile_canvas
         return None
 
+    def _background_pos_from_screen(self, pos):
+        """Convert a screen position to a background-pixel coordinate."""
+        if self.edit_mode != 'background' or not self.canvas_rect or not self.current_background:
+            return None
+        if self.editor_zoom <= 0:
+            return None
+        screen_x_rel = pos[0] - self.canvas_rect.x
+        screen_y_rel = pos[1] - self.canvas_rect.y
+        bg_x = int((screen_x_rel + self.view_offset_x) / self.editor_zoom)
+        bg_y = int((screen_y_rel + self.view_offset_y) / self.editor_zoom)
+        bg_w, bg_h = self.current_background.get_size()
+        if not (0 <= bg_x < bg_w and 0 <= bg_y < bg_h):
+            return None
+        return (bg_x, bg_y)
+
+    def _start_background_selection(self, pos):
+        bg_pos = self._background_pos_from_screen(pos)
+        if not bg_pos:
+            return False
+        self.selection.start_pos = bg_pos
+        self.selection.end_pos = bg_pos
+        self.selection.update_rect()
+        self.selection.selecting = True
+        self.selection.active = False
+        return True
+
+    def _update_background_selection(self, pos):
+        if not self.selection.selecting:
+            return False
+        bg_pos = self._background_pos_from_screen(pos)
+        if not bg_pos:
+            return False
+        self.selection.end_pos = bg_pos
+        self.selection.update_rect()
+        return True
+
+    def _end_background_selection(self, pos):
+        if not self.selection.selecting:
+            return False
+        bg_pos = self._background_pos_from_screen(pos)
+        if bg_pos:
+            self.selection.end_pos = bg_pos
+        self.selection.update_rect()
+        self.selection.selecting = False
+        self.selection.active = self.selection.rect.width > 0 and self.selection.rect.height > 0
+        return self.selection.active
+
+    def _get_selected_background_pixels(self):
+        if not self.current_background or not self.selection.active:
+            return {}
+        rect = self.selection.rect
+        bg_w, bg_h = self.current_background.get_size()
+        pixels = {}
+        for x in range(rect.width):
+            for y in range(rect.height):
+                src_x = rect.x + x
+                src_y = rect.y + y
+                if 0 <= src_x < bg_w and 0 <= src_y < bg_h:
+                    color = self.current_background.get_at((src_x, src_y))
+                    pixels[(x, y)] = (color[0], color[1], color[2], color[3])
+        return pixels
+
     def _get_sprite_editor_at_pos(self, pos):
         """Return the SpriteEditor instance at the given screen position, or None."""
         if self.edit_mode == 'monster':
@@ -2537,6 +2601,20 @@ class Editor:
                 )
                 surface.blit(zoomed_bg, self.canvas_rect.topleft, source_rect)
             pygame.draw.rect(surface, config.BLACK, self.canvas_rect, 1)
+            if self.mode == 'select' and (
+                self.selection.selecting or self.selection.active
+            ) and self.selection.rect.width > 0 and self.selection.rect.height > 0:
+                rect = self.selection.rect
+                display_rect = pygame.Rect(
+                    self.canvas_rect.x + int(rect.x * self.editor_zoom - self.view_offset_x),
+                    self.canvas_rect.y + int(rect.y * self.editor_zoom - self.view_offset_y),
+                    max(1, int(rect.width * self.editor_zoom)),
+                    max(1, int(rect.height * self.editor_zoom)),
+                )
+                selection_surface = pygame.Surface(display_rect.size, pygame.SRCALPHA)
+                selection_surface.fill(config.SELECTION_FILL_COLOR)
+                surface.blit(selection_surface, display_rect.topleft)
+                pygame.draw.rect(surface, config.BLUE, display_rect, 2)
         bg_name = (
             self.backgrounds[self.current_background_index][0]
             if self.current_background_index != -1
