@@ -738,7 +738,7 @@
   {
     "id": "EDITOR-1",
     "title": "Resolve Background Fill/Paste UX Gap in Pixel Editor",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
