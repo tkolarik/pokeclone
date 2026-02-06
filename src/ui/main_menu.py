@@ -5,6 +5,8 @@ import sys
 import pygame
 
 from src.core import config
+from src.core.input_actions import load_action_map
+from src.core.resource_manager import get_resource_manager
 
 MENU_OPTIONS = [
     ("Overworld", "src.overworld.overworld"),
@@ -20,8 +22,12 @@ def init_menu():
     pygame.init()
     screen = pygame.display.set_mode((config.MENU_WIDTH, config.MENU_HEIGHT))
     pygame.display.set_caption("PokeClone")
-    title_font = pygame.font.Font(config.DEFAULT_FONT, config.MENU_TITLE_FONT_SIZE)
-    option_font = pygame.font.Font(config.DEFAULT_FONT, config.MENU_OPTION_FONT_SIZE)
+    resource_manager = get_resource_manager()
+    # Sub-apps can call pygame.quit(); clear cached assets so fonts/surfaces
+    # are recreated against the active pygame subsystems on re-entry.
+    resource_manager.clear()
+    title_font = resource_manager.get_font(config.DEFAULT_FONT, config.MENU_TITLE_FONT_SIZE)
+    option_font = resource_manager.get_font(config.DEFAULT_FONT, config.MENU_OPTION_FONT_SIZE)
     clock = pygame.time.Clock()
     return screen, title_font, option_font, clock
 
@@ -78,6 +84,7 @@ def draw_menu(screen, title_font, option_font, selected_index):
 def main() -> None:
     if _dispatch_module_from_cli():
         return
+    actions = load_action_map()
     screen, title_font, option_font, clock = init_menu()
     selected_index = 0
     running = True
@@ -88,11 +95,11 @@ def main() -> None:
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_DOWN, pygame.K_s):
+                if actions.matches(event, "down") or actions.matches(event, "move_down"):
                     selected_index = (selected_index + 1) % len(MENU_OPTIONS)
-                elif event.key in (pygame.K_UP, pygame.K_w):
+                elif actions.matches(event, "up") or actions.matches(event, "move_up"):
                     selected_index = (selected_index - 1) % len(MENU_OPTIONS)
-                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                elif actions.matches(event, "confirm"):
                     label, module_name = MENU_OPTIONS[selected_index]
                     if module_name is None:
                         running = False
