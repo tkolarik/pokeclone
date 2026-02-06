@@ -978,7 +978,7 @@
   {
     "id": "INPUT-1",
     "title": "Introduce Input Action Mapping Layer",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Feature",
     "labels": [],
@@ -993,7 +993,7 @@
   {
     "id": "PERF-1",
     "title": "Add Centralized Asset Resource Manager with Caching",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Improvement",
     "labels": [],
@@ -1053,7 +1053,7 @@
   {
     "id": "TOOLS-1",
     "title": "Add Enum-Driven Dropdown Inputs for Schema-Constrained Fields",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Feature",
     "labels": [],
