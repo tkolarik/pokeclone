@@ -13,29 +13,95 @@ LAYOUT_FILE = os.path.join(config.MAP_DIR, "world_layout.json")
 AUTO_FLAG = "world"
 SNAP_STEP = 1  # tiles
 EPS = 0.5
+DISCOVERY_EXCLUDED_FILENAMES = {"world_layout.json"}
+
+
+class LayoutValidationError(ValueError):
+    """Raised when persisted world layout content has an invalid shape/value."""
 
 
 def list_maps() -> List[str]:
     if not os.path.isdir(config.MAP_DIR):
         return []
-    return sorted([f[:-5] for f in os.listdir(config.MAP_DIR) if f.endswith(".json")])
+    discovered: List[str] = []
+    for filename in sorted(os.listdir(config.MAP_DIR)):
+        if not filename.endswith(".json"):
+            continue
+        if filename in DISCOVERY_EXCLUDED_FILENAMES:
+            continue
+        path = os.path.join(config.MAP_DIR, filename)
+        try:
+            with open(path, "r") as f:
+                raw = json.load(f)
+        except (OSError, ValueError):
+            continue
+        if _is_map_definition_payload(raw):
+            discovered.append(filename[:-5])
+    return discovered
+
+
+def _is_map_definition_payload(raw: object) -> bool:
+    if not isinstance(raw, dict):
+        return False
+    map_id = raw.get("id")
+    if not isinstance(map_id, str) or not map_id.strip():
+        return False
+    layers = raw.get("layers")
+    if not isinstance(layers, list) or not layers:
+        return False
+    for layer in layers:
+        if not isinstance(layer, dict):
+            return False
+        if "tiles" not in layer or not isinstance(layer.get("tiles"), list):
+            return False
+    return True
+
+
+def _validate_layout(layout: Dict[str, Dict[str, int]]) -> Dict[str, Dict[str, int]]:
+    if not isinstance(layout, dict):
+        raise LayoutValidationError("Layout 'maps' value must be an object.")
+    normalized: Dict[str, Dict[str, int]] = {}
+    for map_id, pos in layout.items():
+        if not isinstance(map_id, str) or not map_id.strip():
+            raise LayoutValidationError("Layout map IDs must be non-empty strings.")
+        if not isinstance(pos, dict):
+            raise LayoutValidationError(f"Layout position for '{map_id}' must be an object.")
+        if "x" not in pos or "y" not in pos:
+            raise LayoutValidationError(f"Layout position for '{map_id}' must include both 'x' and 'y'.")
+        try:
+            x = int(pos.get("x"))
+            y = int(pos.get("y"))
+        except (TypeError, ValueError):
+            raise LayoutValidationError(f"Layout position for '{map_id}' must use integer x/y values.")
+        normalized[map_id] = {"x": x, "y": y}
+    return normalized
 
 
 def load_layout() -> Dict[str, Dict[str, int]]:
     if not os.path.exists(LAYOUT_FILE):
         return {}
-    try:
-        with open(LAYOUT_FILE, "r") as f:
-            data = json.load(f)
-        return data.get("maps", {})
-    except Exception:
-        return {}
+    with open(LAYOUT_FILE, "r") as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        raise LayoutValidationError("Layout file root must be an object.")
+    maps_raw = data.get("maps", {})
+    return _validate_layout(maps_raw)
 
 
 def save_layout(layout: Dict[str, Dict[str, int]]) -> None:
+    normalized = _validate_layout(layout)
     os.makedirs(config.MAP_DIR, exist_ok=True)
-    with open(LAYOUT_FILE, "w") as f:
-        json.dump({"maps": layout}, f, indent=2)
+    tmp_path = f"{LAYOUT_FILE}.tmp"
+    try:
+        with open(tmp_path, "w") as f:
+            json.dump({"maps": normalized}, f, indent=2)
+        os.replace(tmp_path, LAYOUT_FILE)
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
 
 
 def _tile_walkable(map_data: MapData, tileset: Optional[TileSet], x: int, y: int) -> bool:
@@ -98,12 +164,58 @@ class WorldView:
         self.dragging_map: Optional[str] = None
         self.drag_offset = (0.0, 0.0)
         self.mouse_pan = False
+        self.status_message = ""
+        self.status_kind = "info"
 
-        self.layout = load_layout()
+        self.layout: Dict[str, Dict[str, int]] = {}
+        self._load_layout_with_feedback()
         self.maps: Dict[str, MapData] = {}
         self.tilesets: Dict[str, TileSet] = {}
         self.previews: Dict[str, pygame.Surface] = {}
         self._load_maps()
+
+    def _set_status(self, message: str, kind: str = "info") -> None:
+        self.status_message = message
+        self.status_kind = kind
+        print(message)
+
+    def _load_layout_with_feedback(self) -> bool:
+        try:
+            self.layout = load_layout()
+            self.status_kind = "info"
+            return True
+        except json.JSONDecodeError as exc:
+            self.layout = {}
+            self._set_status(f"Layout parse error: {exc}", kind="error")
+            return False
+        except OSError as exc:
+            self.layout = {}
+            self._set_status(f"Layout I/O error: {exc}", kind="error")
+            return False
+        except LayoutValidationError as exc:
+            self.layout = {}
+            self._set_status(f"Layout validation error: {exc}", kind="error")
+            return False
+
+    def _save_layout_with_feedback(self) -> bool:
+        try:
+            save_layout(self.layout)
+        except OSError as exc:
+            self._set_status(f"Layout I/O error: {exc}", kind="error")
+            return False
+        except LayoutValidationError as exc:
+            self._set_status(f"Layout validation error: {exc}", kind="error")
+            return False
+        self._set_status("Layout saved.", kind="success")
+        return True
+
+    def _reload_maps_with_feedback(self) -> None:
+        existing_layout = dict(self.layout)
+        if not self._load_layout_with_feedback():
+            self.layout = existing_layout
+            return
+        self._load_maps()
+        self._set_status("World view maps reloaded.", kind="success")
 
     def _load_maps(self) -> None:
         self.maps.clear()
@@ -111,7 +223,11 @@ class WorldView:
         self.previews.clear()
         ids = list_maps()
         for idx, map_id in enumerate(ids):
-            map_data, tileset, preview = _load_map_bundle(map_id)
+            try:
+                map_data, tileset, preview = _load_map_bundle(map_id)
+            except (OSError, ValueError) as exc:
+                self._set_status(f"Map load error for '{map_id}': {exc}", kind="error")
+                continue
             self.maps[map_id] = map_data
             if tileset:
                 self.tilesets[map_id] = tileset
@@ -131,9 +247,9 @@ class WorldView:
                     if event.key in (pygame.K_ESCAPE, pygame.K_q):
                         running = False
                     elif event.key == pygame.K_r:
-                        self._load_maps()
+                        self._reload_maps_with_feedback()
                     elif event.key == pygame.K_s:
-                        save_layout(self.layout)
+                        self._save_layout_with_feedback()
                     elif event.key == pygame.K_c:
                         self._auto_connect()
                     elif event.key == pygame.K_p:
@@ -222,6 +338,10 @@ class WorldView:
             status = "Manual: click source map" if not self.manual_src else "Manual: click target map" if not self.manual_dst else "Manual: press Enter to create portal"
             note = self.font_small.render(status, True, (200, 220, 255))
             self.screen.blit(note, (10, y + 4))
+        if self.status_message:
+            status_color = (240, 120, 120) if self.status_kind == "error" else (150, 220, 170)
+            status_text = self.font_small.render(self.status_message, True, status_color)
+            self.screen.blit(status_text, (10, self.screen.get_height() - 24))
 
     def _draw_connections(self) -> None:
         seen = set()
@@ -285,7 +405,14 @@ class WorldView:
     # Auto connection generation ------------------------------------------
     def _auto_connect(self) -> None:
         # Load fresh copies to avoid sharing mutable references
-        bundles = {mid: _load_map_bundle(mid) for mid in self.maps.keys()}
+        try:
+            bundles = {mid: _load_map_bundle(mid) for mid in self.maps.keys()}
+        except OSError as exc:
+            self._set_status(f"Auto-connect I/O error: {exc}", kind="error")
+            return
+        except ValueError as exc:
+            self._set_status(f"Auto-connect validation error: {exc}", kind="error")
+            return
         updated: Dict[str, MapData] = {}
         for map_id, (map_data, tileset, _) in bundles.items():
             # drop previous auto connections
@@ -303,10 +430,18 @@ class WorldView:
                 self._maybe_connect_pair(a_id, a_map, bundles[a_id][1], a_pos, b_id, b_map, bundles[b_id][1], b_pos)
 
         # Save + refresh runtime copies
-        for map_id, map_data in updated.items():
-            map_data.save()
-            self.maps[map_id] = map_data
-        save_layout(self.layout)
+        try:
+            for map_id, map_data in updated.items():
+                map_data.save()
+                self.maps[map_id] = map_data
+            save_layout(self.layout)
+        except OSError as exc:
+            self._set_status(f"Auto-connect I/O error: {exc}", kind="error")
+            return
+        except LayoutValidationError as exc:
+            self._set_status(f"Auto-connect validation error: {exc}", kind="error")
+            return
+        self._set_status("Auto-connect completed.", kind="success")
 
     def _maybe_connect_pair(
         self,
@@ -438,21 +573,72 @@ class WorldView:
             pygame.display.flip()
             clock.tick(30)
 
+    def _reset_manual_mode(self) -> None:
+        self.manual_src = None
+        self.manual_dst = None
+        self.manual_mode = False
+
+    def _prompt_int(self, label: str, default: str, context_name: str) -> Optional[int]:
+        raw = self._prompt_text(label, default)
+        if raw is None:
+            self._set_status("Manual portal cancelled.", kind="info")
+            return None
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            self._set_status(f"Manual portal parse error: {context_name} must be an integer.", kind="error")
+            return None
+
+    def _validate_portal_point(self, map_data: MapData, x: int, y: int, label: str) -> None:
+        if not map_data.in_bounds(x, y):
+            raise LayoutValidationError(
+                f"Manual portal validation error: {label} ({x},{y}) is out of bounds for map '{map_data.id}'."
+            )
+
     def _create_manual_connection(self) -> None:
         if not (self.manual_src and self.manual_dst):
             return
         src = self.manual_src
         dst = self.manual_dst
-        try:
-            sx = int(self._prompt_text(f"{src} portal X:", "0") or "0")
-            sy = int(self._prompt_text(f"{src} portal Y:", "0") or "0")
-            tx = int(self._prompt_text(f"{dst} spawn X:", "0") or "0")
-            ty = int(self._prompt_text(f"{dst} spawn Y:", "0") or "0")
-        except (TypeError, ValueError):
-            self.manual_src = None
-            self.manual_dst = None
-            self.manual_mode = False
+        src_map = self.maps.get(src)
+        dst_map = self.maps.get(dst)
+        if src_map is None or dst_map is None:
+            self._set_status("Manual portal validation error: source/destination map is unavailable.", kind="error")
+            self._reset_manual_mode()
             return
+
+        sx = self._prompt_int(f"{src} portal X:", "0", f"{src} portal X")
+        if sx is None:
+            self._reset_manual_mode()
+            return
+        sy = self._prompt_int(f"{src} portal Y:", "0", f"{src} portal Y")
+        if sy is None:
+            self._reset_manual_mode()
+            return
+        tx = self._prompt_int(f"{dst} spawn X:", "0", f"{dst} spawn X")
+        if tx is None:
+            self._reset_manual_mode()
+            return
+        ty = self._prompt_int(f"{dst} spawn Y:", "0", f"{dst} spawn Y")
+        if ty is None:
+            self._reset_manual_mode()
+            return
+
+        try:
+            self._validate_portal_point(src_map, sx, sy, f"{src} portal")
+            self._validate_portal_point(dst_map, tx, ty, f"{dst} spawn")
+        except LayoutValidationError as exc:
+            self._set_status(str(exc), kind="error")
+            self._reset_manual_mode()
+            return
+
+        add_reverse = False
+        reverse_prompt = self._prompt_text("Add reverse portal? (y/n):", "y")
+        if reverse_prompt and reverse_prompt.lower().startswith("y"):
+            add_reverse = True
+
+        updated_src = src_map.clone()
+        updated_dst = dst_map.clone() if add_reverse else None
         conn = Connection(
             id=f"portal_{src}_to_{dst}_{sx}_{sy}",
             type="portal",
@@ -461,28 +647,46 @@ class WorldView:
             condition=None,
             extra={"manual": True},
         )
-        self.maps[src].connections.append(conn)
-        # optional reciprocal
+        updated_src.connections.append(conn)
+        if updated_dst is not None:
+            back = Connection(
+                id=f"portal_{dst}_to_{src}_{tx}_{ty}",
+                type="portal",
+                from_ref={"x": tx, "y": ty},
+                to={"mapId": src, "spawn": {"x": sx, "y": sy}},
+                condition=None,
+                extra={"manual": True},
+            )
+            updated_dst.connections.append(back)
+
+        src_saved = False
         try:
-            do_back = self._prompt_text("Add reverse portal? (y/n):", "y")
-            if do_back and do_back.lower().startswith("y"):
-                back = Connection(
-                    id=f"portal_{dst}_to_{src}_{tx}_{ty}",
-                    type="portal",
-                    from_ref={"x": tx, "y": ty},
-                    to={"mapId": src, "spawn": {"x": sx, "y": sy}},
-                    condition=None,
-                    extra={"manual": True},
+            updated_src.save()
+            src_saved = True
+            if updated_dst is not None:
+                updated_dst.save()
+        except OSError as exc:
+            rollback_error = None
+            if src_saved:
+                try:
+                    src_map.save()
+                except OSError as rollback_exc:
+                    rollback_error = rollback_exc
+            if rollback_error:
+                self._set_status(
+                    f"Manual portal I/O error: {exc}. Rollback failed: {rollback_error}",
+                    kind="error",
                 )
-                self.maps[dst].connections.append(back)
-        except Exception:
-            pass
-        self.maps[src].save()
-        if dst in self.maps:
-            self.maps[dst].save()
-        self.manual_src = None
-        self.manual_dst = None
-        self.manual_mode = False
+            else:
+                self._set_status(f"Manual portal I/O error: {exc}", kind="error")
+            self._reset_manual_mode()
+            return
+
+        self.maps[src] = updated_src
+        if updated_dst is not None:
+            self.maps[dst] = updated_dst
+        self._set_status(f"Manual portal created: {src} -> {dst}.", kind="success")
+        self._reset_manual_mode()
 
 
 def main() -> None:
