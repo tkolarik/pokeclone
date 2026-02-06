@@ -45,3 +45,26 @@ pip install -r requirements.txt
 - `sprites/`, `tiles/`, `backgrounds/`, `sounds/`, `songs/` for assets
 
 If an action opens the pixel art editor, it launches `pixle_art_editor.py` in a separate process.
+
+## Running tests (non-Conda)
+
+Use the repository-local test workflow:
+
+```bash
+./scripts/bootstrap_test_env.sh
+./scripts/run_tests.sh
+```
+
+`./scripts/run_tests.sh` is the canonical test command.
+To use an existing interpreter (for example, a Conda env), set:
+
+```bash
+POKECLONE_TEST_PYTHON=/path/to/python ./scripts/run_tests.sh
+```
+
+If `.venv` was created with a Python that cannot load `pygame.mixer`, rebuild with Python 3.12:
+
+```bash
+POKECLONE_BOOTSTRAP_PYTHON=$(command -v python3.12) ./scripts/bootstrap_test_env.sh --recreate
+./scripts/run_tests.sh
+```

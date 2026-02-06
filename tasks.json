@@ -674,5 +674,200 @@
       "Doc includes interaction details for timeline, playback, frame duplication, and export formats.",
       "Automated unit testing expectations are defined for any planned tooling logic (e.g., frame ordering, onion-skin toggles, drag transforms)."
     ]
+  },
+  {
+    "id": "OVERWORLD-8",
+    "title": "Fix Edge Auto-Connect Routing Mismatch in Overworld",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "Align world auto-connect generation with runtime edge traversal so crossing an edge uses position-aware routing instead of only the first connection per direction.",
+    "acceptanceCriteria": [
+      "Runtime edge traversal resolves the correct destination spawn for the player's specific edge position.",
+      "Auto-generated edge connections are compatible with runtime lookup semantics and do not silently shadow each other.",
+      "Manual QA confirms crossing at different edge coordinates routes consistently.",
+      "Automated: unit tests cover edge traversal for multiple coordinates on the same edge and validate expected spawn mapping."
+    ]
+  },
+  {
+    "id": "OVERWORLD-9",
+    "title": "Persist Both Maps During Connected New-Map Creation",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "When creating a new connected map from the map editor, persist connection mutations to both the new map and the current map so reciprocal links are not lost.",
+    "acceptanceCriteria": [
+      "Connected map creation writes both the newly created map and any modified existing map connection data to disk.",
+      "On reload, reciprocal edge/portal links are present and functional.",
+      "Failure to save either map is surfaced to the user and does not leave silent partial state.",
+      "Automated: integration/unit tests verify that creating connected maps persists reciprocal connections in both map files."
+    ]
+  },
+  {
+    "id": "API-1",
+    "title": "Harden Kanban API ID Generation and Field Validation",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "Replace length-based task ID generation with collision-safe ID allocation and validate task fields against allowed schema values.",
+    "acceptanceCriteria": [
+      "Task creation generates unique IDs even with deletions, non-contiguous IDs, or manual IDs in the dataset.",
+      "POST/PUT validate allowed fields and allowed values for status/priority/type before persistence.",
+      "Invalid payloads are rejected with clear error responses and do not mutate `tasks.json`.",
+      "Automated: API unit tests cover duplicate-ID avoidance and schema validation/rejection cases."
+    ]
+  },
+  {
+    "id": "API-2",
+    "title": "Add Robust Kanban API Error Handling for Malformed Requests",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "Guard API request parsing and return clean client errors for malformed JSON, missing content length, and invalid update targets.",
+    "acceptanceCriteria": [
+      "Malformed JSON requests return 400-level responses instead of uncaught exceptions.",
+      "Missing/invalid required request metadata is handled safely with explicit error messages.",
+      "PUT to non-existent task IDs returns a deterministic not-found response.",
+      "Automated: API tests cover malformed JSON, missing fields, and not-found update behavior."
+    ]
+  },
+  {
+    "id": "EDITOR-1",
+    "title": "Resolve Background Fill/Paste UX Gap in Pixel Editor",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Either implement background fill/paste logic fully or gate/hide unavailable controls by mode so UI behavior matches actual functionality.",
+    "acceptanceCriteria": [
+      "Background fill and paste are either fully implemented or unavailable actions are disabled/hidden in background mode.",
+      "User feedback is explicit when an action is unavailable.",
+      "No dead-end UI controls remain in the right-side action panel for current mode.",
+      "Automated: unit tests verify tool availability and behavior parity for monster/tile/background modes."
+    ]
+  },
+  {
+    "id": "OVERWORLD-10",
+    "title": "Validate Numeric Prompts in Map Connection Dialogs",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Add input validation and safe fallback handling for numeric map-connection prompts to prevent crashes on invalid text input.",
+    "acceptanceCriteria": [
+      "All numeric prompt inputs in map connection creation are validated before conversion.",
+      "Invalid numeric input does not crash editor flow and results in actionable feedback.",
+      "Cancelled prompts are handled consistently without corrupting state.",
+      "Automated: unit tests cover invalid, empty, and valid numeric input paths for connection dialogs."
+    ]
+  },
+  {
+    "id": "TEST-5",
+    "title": "Improve Test Discoverability and Remove Placeholder Coverage",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "Ensure critical tests are discovered by default test commands, remove placeholder assertions, and raise minimum meaningful coverage for core modules.",
+    "acceptanceCriteria": [
+      "Tests currently hidden by naming conventions are renamed or integrated so default test discovery runs them.",
+      "Placeholder tests (`assert True`, no-op passes) are removed or replaced with behavioral assertions.",
+      "Core modules have meaningful assertions for success and failure paths.",
+      "Automated: CI/local test command executes the full intended suite and fails on regressions."
+    ]
+  },
+  {
+    "id": "DOCS-1",
+    "title": "Align Kanban API Documentation with Runtime Port/Behavior",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Reconcile AGENTS and related docs with actual Kanban server defaults and API behavior to prevent integration errors.",
+    "acceptanceCriteria": [
+      "Documentation references the correct default API port and endpoints used by `server.py`.",
+      "Any intentional port differences are documented with explicit configuration guidance.",
+      "Docs include a quick verification command/path for checking API availability.",
+      "Automated: documentation test or script checks key documented endpoint/port values against runtime constants."
+    ]
+  },
+  {
+    "id": "DATA-1",
+    "title": "Normalize Monster Data Schema to Single Source of Truth",
+    "status": "To Do",
+    "priority": "Highest",
+    "type": "Task",
+    "labels": [],
+    "description": "Refactor monster species data to remove redundant stat and move fields, keeping a single authoritative representation and deriving secondary views at runtime.",
+    "acceptanceCriteria": [
+      "`monsters.json` uses one canonical stats structure (e.g., `base_stats`) with no duplicated root stat fields.",
+      "Species-level move representation is normalized (no redundant `moves`/`move_pool` duplication).",
+      "Runtime loader/backward-compat migration handles existing data safely or includes a one-time conversion path.",
+      "Automated: unit tests validate loader behavior against normalized schema and reject/flag inconsistent duplicated data."
+    ]
+  },
+  {
+    "id": "INFRA-2",
+    "title": "Package Project with pyproject.toml and Editable Install Flow",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "Adopt standard Python packaging so modules are importable without `sys.path` hacks and development tooling works consistently.",
+    "acceptanceCriteria": [
+      "Project includes a valid `pyproject.toml` (or equivalent) with package metadata and src layout configuration.",
+      "`pip install -e .` works locally and module imports resolve without manual `sys.path` mutation.",
+      "Entry points/scripts are updated to use package imports only.",
+      "Automated: tests run in a fresh environment after editable install and pass without path hacks."
+    ]
+  },
+  {
+    "id": "REFACTOR-2",
+    "title": "Split Battle Simulator into Engine and Runner Layers",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "Decouple battle rules/state transitions from Pygame rendering/input by extracting a pure battle engine and keeping UI/event loop in a runner layer.",
+    "acceptanceCriteria": [
+      "Battle engine module has no Pygame dependency and exposes deterministic turn-resolution APIs.",
+      "Runner/view layer handles rendering/input and maps user/AI actions to engine calls.",
+      "Existing battle behavior remains functionally equivalent after refactor.",
+      "Automated: unit tests cover engine turn resolution, damage/stat events, and win/loss transitions without initializing a display."
+    ]
+  },
+  {
+    "id": "POKE-28",
+    "title": "Replace Remaining UI Magic Numbers with Layout Configuration",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Improvement",
+    "labels": [],
+    "description": "Promote UI layout scalability by replacing hardcoded coordinates with named layout constants/anchor rules across battle and editor surfaces.",
+    "acceptanceCriteria": [
+      "Hardcoded UI coordinate literals in key rendering paths are replaced with named layout config values.",
+      "Major UI screens remain usable when base resolution or sprite size constants change.",
+      "Layout intent is documented via semantic names (anchors/margins/gaps) rather than ad-hoc offsets.",
+      "Automated: unit/snapshot-style layout tests verify computed element bounds for at least two screen sizes."
+    ]
+  },
+  {
+    "id": "TEST-6",
+    "title": "Make Automated Unit Tests Runnable Outside Conda (Codex-Compatible)",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "Fix automated unit test execution so Codex can run tests without access to the developer's private Conda environment by providing a repository-local, reproducible test bootstrap and command path.",
+    "acceptanceCriteria": [
+      "The repository provides a documented, non-Conda test workflow (for example `.venv` + `requirements-dev.txt` or equivalent) that works in a clean checkout.",
+      "A single canonical test command/script exists and is used by contributors and automation.",
+      "Running the canonical command does not depend on user-specific shell init or environment managers outside the repo.",
+      "Automated: at least one CI or local bootstrap validation test confirms dependency installation and successful execution of the unit test suite in a fresh non-Conda environment."
+    ]
   }
 ]

@@ -34,5 +34,22 @@ If `python server.py` is running on localhost:8000:
 ## Setup
 To initialize the board from the legacy `ToDo.md`, run: `python convert.py`
 
+## Running tests
+Use the canonical test command:
+
+- `./scripts/run_tests.sh`
+
+If `.venv` is not prepared, bootstrap it first:
+
+- `./scripts/bootstrap_test_env.sh`
+
+If you need to use a specific interpreter (for example, Conda), run:
+
+- `POKECLONE_TEST_PYTHON=/path/to/python ./scripts/run_tests.sh`
+
+If `.venv` was created with an incompatible Python build (e.g., missing `pygame.mixer`), recreate it with Python 3.12:
+
+- `POKECLONE_BOOTSTRAP_PYTHON=$(command -v python3.12) ./scripts/bootstrap_test_env.sh --recreate`
+
 ## Ticket quality rule
 Every new ticket created must include automated unit testing in the acceptance criteria to the extent reasonable for the change.

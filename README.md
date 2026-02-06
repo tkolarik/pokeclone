@@ -188,8 +188,23 @@ python battle_simulator.py
 
 ### Testing
 ```bash
-python3 -m pip install -r requirements-dev.txt
-python3 -m pytest
+./scripts/bootstrap_test_env.sh
+./scripts/run_tests.sh
+```
+
+`./scripts/run_tests.sh` is the canonical test command for local development and automation.
+If you already have a prepared Python environment, you can override the interpreter:
+
+```bash
+POKECLONE_TEST_PYTHON=/path/to/python ./scripts/run_tests.sh
+```
+
+If your local `.venv` was created with an incompatible Python (for example missing `pygame.mixer`),
+recreate it with Python 3.12:
+
+```bash
+POKECLONE_BOOTSTRAP_PYTHON=$(command -v python3.12) ./scripts/bootstrap_test_env.sh --recreate
+./scripts/run_tests.sh
 ```
 
 ### Contributing
