@@ -869,5 +869,140 @@
       "Running the canonical command does not depend on user-specific shell init or environment managers outside the repo.",
       "Automated: at least one CI or local bootstrap validation test confirms dependency installation and successful execution of the unit test suite in a fresh non-Conda environment."
     ]
+  },
+  {
+    "id": "OVERWORLD-11",
+    "title": "Exclude Non-Map JSON Files from World View Map Discovery",
+    "status": "To Do",
+    "priority": "Highest",
+    "type": "Task",
+    "labels": [],
+    "description": "Prevent `world_layout.json` and other metadata files from being treated as playable maps in world view map discovery and auto-connect workflows.",
+    "acceptanceCriteria": [
+      "World view map discovery only includes valid map-definition files and excludes layout/metadata JSON files.",
+      "Running auto-connect cannot overwrite unrelated map files due to metadata file ingestion.",
+      "Map discovery behavior is documented with explicit file inclusion rules.",
+      "Automated: unit tests verify discovery filtering and assert metadata files are never loaded as `MapData`."
+    ]
+  },
+  {
+    "id": "ARCH-1",
+    "title": "Remove Import-Time Pygame/Tk Side Effects from Runtime Modules",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "Refactor battle/editor module initialization so display/audio/Tk setup happens in explicit startup paths, not at import time.",
+    "acceptanceCriteria": [
+      "Importing runtime modules does not create windows, initialize audio devices, or require Tk initialization.",
+      "Initialization happens through explicit bootstrap/main entrypoints.",
+      "Current gameplay/editor behavior remains unchanged when launched normally.",
+      "Automated: unit tests import key modules in a headless environment and assert no display/audio initialization side effects occur."
+    ]
+  },
+  {
+    "id": "BATTLE-3",
+    "title": "Guard Battle Flow Against Empty Move Sets",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "Prevent battle soft-locks when a creature has no usable moves by enforcing move availability or adding a deterministic fallback action.",
+    "acceptanceCriteria": [
+      "Battle turn flow cannot deadlock when a combatant has zero moves.",
+      "Content validation or runtime fallback behavior is explicit and user-visible.",
+      "Engine and runner handle no-move cases consistently for player and opponent turns.",
+      "Automated: unit tests cover empty-move scenarios and verify battle progression remains possible."
+    ]
+  },
+  {
+    "id": "DATA-2",
+    "title": "Eliminate Move Pool and Learnset Duplication in Monster Schema",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "Choose a single canonical move progression source in species data and derive any secondary move lists at runtime to avoid drift.",
+    "acceptanceCriteria": [
+      "Monster schema defines one authoritative move progression field.",
+      "Any secondary move list used by UI/runtime is derived from the canonical field, not duplicated in JSON.",
+      "Migration path preserves existing monster content safely.",
+      "Automated: schema/loader tests verify canonical move data is authoritative and duplicated legacy fields are rejected or normalized."
+    ]
+  },
+  {
+    "id": "OVERWORLD-12",
+    "title": "Replace Silent Exception Handling in World View Persistence Paths",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Task",
+    "labels": [],
+    "description": "Replace broad silent exception handling in world view load/save/manual-portal paths with actionable error reporting and safe failure behavior.",
+    "acceptanceCriteria": [
+      "Layout load and manual portal operations surface actionable error messages instead of silently swallowing failures.",
+      "Failure states preserve data integrity and avoid partial writes.",
+      "User-facing status text distinguishes between parse errors, IO errors, and validation failures.",
+      "Automated: unit tests simulate parse/IO exceptions and assert explicit error handling outcomes."
+    ]
+  },
+  {
+    "id": "ARCH-2",
+    "title": "Implement Unified Scene Manager with Single Pygame Window",
+    "status": "To Do",
+    "priority": "Highest",
+    "type": "Feature",
+    "labels": [],
+    "description": "Introduce a scene/state manager so menu, overworld, and battle run inside one game window with deterministic scene transitions and resume behavior.",
+    "acceptanceCriteria": [
+      "A single top-level game entrypoint owns window lifecycle and main loop.",
+      "Scene abstraction supports `on_enter`, `on_exit`, update, and draw hooks.",
+      "Overworld can push battle and resume prior state after battle pop without process restarts.",
+      "Automated: unit tests validate scene stack transitions (push/pop/replace) and state resume behavior."
+    ]
+  },
+  {
+    "id": "DATA-3",
+    "title": "Adopt Strict Runtime Data Validation with Pydantic Models",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Feature",
+    "labels": [],
+    "description": "Define Pydantic models for monsters, moves, and map-facing data so invalid content fails fast with clear validation errors.",
+    "acceptanceCriteria": [
+      "Primary game data files are validated through explicit Pydantic schemas at load time.",
+      "Validation errors include field-level context sufficient to fix bad data quickly.",
+      "Startup behavior fails fast or enters a safe degraded mode when critical data is invalid.",
+      "Automated: unit tests cover valid payloads, missing fields, wrong types, and invalid numeric bounds."
+    ]
+  },
+  {
+    "id": "INPUT-1",
+    "title": "Introduce Input Action Mapping Layer",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Feature",
+    "labels": [],
+    "description": "Abstract physical device input into logical game actions to enable key rebinding, multi-key defaults, and future controller support.",
+    "acceptanceCriteria": [
+      "Game logic consumes logical actions (confirm/cancel/up/down/etc.) instead of hardcoded key constants.",
+      "Default bindings support multiple equivalent keys where appropriate.",
+      "Input map is centrally configurable and extendable for non-keyboard devices.",
+      "Automated: unit tests verify action resolution for configured key bindings and conflict handling."
+    ]
+  },
+  {
+    "id": "PERF-1",
+    "title": "Add Centralized Asset Resource Manager with Caching",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Improvement",
+    "labels": [],
+    "description": "Create a shared resource manager for images, sounds, and fonts to avoid redundant loads and provide consistent fallback behavior for missing assets.",
+    "acceptanceCriteria": [
+      "Repeated requests for the same asset return cached instances without duplicate disk loads.",
+      "Missing assets resolve to explicit placeholders/fallbacks rather than crashing runtime flows.",
+      "Menu, overworld, and battle paths use the shared manager for core asset types.",
+      "Automated: unit tests verify cache hit behavior, load-once semantics, and missing-asset fallback handling."
+    ]
   }
 ]
