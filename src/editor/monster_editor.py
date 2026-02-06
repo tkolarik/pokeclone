@@ -9,6 +9,13 @@ from src.core.monster_schema import (
     normalize_monster,
     normalize_monsters,
 )
+from src.editor.constrained_fields import (
+    load_move_options,
+    load_type_options,
+    normalize_learnset_entries,
+    normalize_multi_selection,
+    normalize_single_selection,
+)
 from src.editor.editor_ui import Button
 
 LIST_PANEL_WIDTH = 320
@@ -42,14 +49,11 @@ def save_monsters(monsters):
 
 
 def load_move_names():
-    moves_file = os.path.join(config.DATA_DIR, "moves.json")
-    try:
-        with open(moves_file, "r") as f:
-            moves = json.load(f)
-        return sorted({move.get("name") for move in moves if move.get("name")})
-    except (FileNotFoundError, json.JSONDecodeError) as exc:
-        print(f"Error loading moves: {exc}")
-        return []
+    return load_move_options(config.DATA_DIR)
+
+
+def load_type_names():
+    return load_type_options(config.DATA_DIR)
 
 
 def ensure_monster_structure(monster):
@@ -137,45 +141,235 @@ def prompt_text(screen, prompt, default="", numeric=False):
         clock.tick(config.FPS)
 
 
-def parse_move_pool(text, move_names):
-    requested = [move.strip() for move in text.split(",") if move.strip()]
-    if not move_names:
-        return requested, []
-    valid = []
-    unknown = []
-    for move in requested:
-        if move in move_names:
-            valid.append(move)
+def _filter_options(options, query):
+    query = (query or "").strip().lower()
+    if not query:
+        return list(options)
+    return [option for option in options if query in option.lower()]
+
+
+def prompt_choice(screen, prompt, options, default=None):
+    if not options:
+        return None
+
+    font = pygame.font.Font(config.DEFAULT_FONT, 24)
+    small_font = pygame.font.Font(config.DEFAULT_FONT, 16)
+    query = ""
+    filtered = list(options)
+    selected_index = 0
+    if default in filtered:
+        selected_index = filtered.index(default)
+    clock = pygame.time.Clock()
+    visible_rows = 12
+    scroll = 0
+
+    while True:
+        screen.fill(config.EDITOR_BG_COLOR)
+        title_surf = font.render(prompt, True, config.BLACK)
+        screen.blit(title_surf, (60, 40))
+
+        query_text = f"Search: {query}" if query else "Search: (type to filter)"
+        query_surf = small_font.render(query_text, True, config.GRAY_DARK)
+        screen.blit(query_surf, (60, 80))
+
+        filtered = _filter_options(options, query)
+        if not filtered:
+            empty_surf = small_font.render("No matching options.", True, config.RED)
+            screen.blit(empty_surf, (60, 120))
         else:
-            unknown.append(move)
-    return valid, unknown
+            selected_index = max(0, min(selected_index, len(filtered) - 1))
+            if selected_index < scroll:
+                scroll = selected_index
+            if selected_index >= scroll + visible_rows:
+                scroll = selected_index - visible_rows + 1
+
+            start = scroll
+            end = min(len(filtered), scroll + visible_rows)
+            for row, idx in enumerate(range(start, end)):
+                option = filtered[idx]
+                y = 120 + row * 28
+                color = config.BLUE if idx == selected_index else config.BLACK
+                prefix = "> " if idx == selected_index else "  "
+                option_surf = small_font.render(f"{prefix}{option}", True, color)
+                screen.blit(option_surf, (60, y))
+
+        hint_surf = small_font.render(
+            "Up/Down select, Enter confirm, Esc cancel, Backspace delete search",
+            True,
+            config.GRAY_DARK,
+        )
+        screen.blit(hint_surf, (60, config.EDITOR_HEIGHT - 50))
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                raise SystemExit
+            if event.type != pygame.KEYDOWN:
+                continue
+            if event.key == pygame.K_ESCAPE:
+                return None
+            if event.key == pygame.K_RETURN:
+                if filtered:
+                    return filtered[selected_index]
+                return None
+            if event.key == pygame.K_UP and filtered:
+                selected_index = max(0, selected_index - 1)
+            elif event.key == pygame.K_DOWN and filtered:
+                selected_index = min(len(filtered) - 1, selected_index + 1)
+            elif event.key == pygame.K_BACKSPACE:
+                query = query[:-1]
+            elif event.unicode and event.unicode.isprintable():
+                query += event.unicode
+
+        clock.tick(config.FPS)
 
 
-def parse_learnset(text, move_names, move_pool):
-    entries = []
-    unknown = []
-    invalid = 0
-    for part in text.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        if ":" not in part:
-            invalid += 1
-            continue
-        level_text, move_name = part.split(":", 1)
-        move_name = move_name.strip()
+def prompt_multi_choice(screen, prompt, options, selected_defaults=None):
+    if not options:
+        return []
+
+    selected = set(selected_defaults or [])
+    font = pygame.font.Font(config.DEFAULT_FONT, 24)
+    small_font = pygame.font.Font(config.DEFAULT_FONT, 16)
+    query = ""
+    filtered = list(options)
+    selected_index = 0
+    clock = pygame.time.Clock()
+    visible_rows = 12
+    scroll = 0
+
+    while True:
+        screen.fill(config.EDITOR_BG_COLOR)
+        title_surf = font.render(prompt, True, config.BLACK)
+        screen.blit(title_surf, (60, 40))
+
+        query_text = f"Search: {query}" if query else "Search: (type to filter)"
+        query_surf = small_font.render(query_text, True, config.GRAY_DARK)
+        screen.blit(query_surf, (60, 80))
+
+        filtered = _filter_options(options, query)
+        if not filtered:
+            empty_surf = small_font.render("No matching options.", True, config.RED)
+            screen.blit(empty_surf, (60, 120))
+        else:
+            selected_index = max(0, min(selected_index, len(filtered) - 1))
+            if selected_index < scroll:
+                scroll = selected_index
+            if selected_index >= scroll + visible_rows:
+                scroll = selected_index - visible_rows + 1
+
+            start = scroll
+            end = min(len(filtered), scroll + visible_rows)
+            for row, idx in enumerate(range(start, end)):
+                option = filtered[idx]
+                y = 120 + row * 28
+                is_selected = option in selected
+                marker = "[x]" if is_selected else "[ ]"
+                color = config.BLUE if idx == selected_index else config.BLACK
+                prefix = "> " if idx == selected_index else "  "
+                option_surf = small_font.render(
+                    f"{prefix}{marker} {option}",
+                    True,
+                    color,
+                )
+                screen.blit(option_surf, (60, y))
+
+        selected_preview = ", ".join(sorted(selected)) if selected else "(none)"
+        preview_surf = small_font.render(
+            f"Selected: {selected_preview}",
+            True,
+            config.GRAY_DARK,
+        )
+        screen.blit(preview_surf, (60, config.EDITOR_HEIGHT - 78))
+
+        hint_surf = small_font.render(
+            "Up/Down move, Space toggle, Enter confirm, Esc cancel",
+            True,
+            config.GRAY_DARK,
+        )
+        screen.blit(hint_surf, (60, config.EDITOR_HEIGHT - 50))
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                raise SystemExit
+            if event.type != pygame.KEYDOWN:
+                continue
+            if event.key == pygame.K_ESCAPE:
+                return None
+            if event.key == pygame.K_RETURN:
+                ordered = [option for option in options if option in selected]
+                return ordered
+            if event.key == pygame.K_UP and filtered:
+                selected_index = max(0, selected_index - 1)
+            elif event.key == pygame.K_DOWN and filtered:
+                selected_index = min(len(filtered) - 1, selected_index + 1)
+            elif event.key == pygame.K_SPACE and filtered:
+                option = filtered[selected_index]
+                if option in selected:
+                    selected.remove(option)
+                else:
+                    selected.add(option)
+            elif event.key == pygame.K_BACKSPACE:
+                query = query[:-1]
+            elif event.unicode and event.unicode.isprintable():
+                query += event.unicode
+
+        clock.tick(config.FPS)
+
+
+def prompt_learnset_entries(screen, move_names, current_entries):
+    if not move_names:
+        return [], []
+
+    default_count = len(current_entries) if current_entries else len(move_names[:1])
+    count_text = prompt_text(
+        screen,
+        "How many learnset entries?",
+        max(1, default_count),
+        numeric=True,
+    )
+    if count_text is None:
+        return None, []
+    try:
+        target_count = max(1, int(count_text))
+    except ValueError:
+        target_count = max(1, default_count)
+
+    drafted = []
+    for idx in range(target_count):
+        default_level = 1
+        default_move = move_names[0]
+        if idx < len(current_entries):
+            default_level = current_entries[idx].get("level", 1)
+            default_move = current_entries[idx].get("move", move_names[0])
+
+        level_text = prompt_text(
+            screen,
+            f"Entry {idx + 1}: level",
+            default_level,
+            numeric=True,
+        )
+        if level_text is None:
+            return None, []
         try:
-            level_value = int(level_text.strip())
+            level = max(1, int(level_text))
         except ValueError:
-            invalid += 1
-            continue
-        if move_names and move_name not in move_names:
-            unknown.append(move_name)
-            continue
-        entries.append({"level": level_value, "move": move_name})
-    if not entries:
-        entries = [{"level": 1, "move": move} for move in move_pool]
-    return entries, unknown, invalid
+            level = max(1, int(default_level))
+
+        move_choice = prompt_choice(
+            screen,
+            f"Entry {idx + 1}: choose move",
+            move_names,
+            default=default_move,
+        )
+        if move_choice is None:
+            return None, []
+        drafted.append({"level": level, "move": move_choice})
+
+    return normalize_learnset_entries(drafted, move_names)
 
 
 def derive_move_pool(monster):
@@ -288,7 +482,6 @@ def main():
         return
     for monster in monsters:
         ensure_monster_structure(monster)
-    move_names = load_move_names()
 
     selected_index = 0
     scroll_offset = 0
@@ -387,9 +580,25 @@ def main():
                             status_until = pygame.time.get_ticks() + STATUS_DURATION_MS
                             break
                         if action == "edit_type":
-                            result = prompt_text(screen, "Enter monster type", selected_monster.get("type", ""))
-                            if result is not None:
-                                selected_monster["type"] = result.strip() or selected_monster.get("type", "")
+                            type_names = load_type_names()
+                            if not type_names:
+                                status_message = "No type definitions found in type_chart.json."
+                                status_until = pygame.time.get_ticks() + STATUS_DURATION_MS
+                                continue
+                            chosen_type = prompt_choice(
+                                screen,
+                                "Select monster type",
+                                type_names,
+                                default=selected_monster.get("type", ""),
+                            )
+                            if chosen_type is None:
+                                continue
+                            normalized = normalize_single_selection(chosen_type, type_names)
+                            if normalized is None:
+                                status_message = "Invalid type selection rejected."
+                                status_until = pygame.time.get_ticks() + STATUS_DURATION_MS
+                                continue
+                            selected_monster["type"] = normalized
                         elif action == "edit_stats":
                             hp_text = prompt_text(screen, "Enter base HP", selected_monster["base_stats"].get("max_hp", 1), numeric=True)
                             if hp_text is None:
@@ -404,36 +613,47 @@ def main():
                             selected_monster["base_stats"]["attack"] = max(1, int(atk_text))
                             selected_monster["base_stats"]["defense"] = max(1, int(def_text))
                         elif action == "edit_moves":
-                            current_pool = ", ".join(derive_move_pool(selected_monster))
-                            result = prompt_text(screen, "Move pool (comma-separated)", current_pool)
-                            if result is None:
-                                continue
-                            new_pool, unknown = parse_move_pool(result, move_names)
-                            if new_pool:
-                                selected_monster["learnset"] = [{"level": 1, "move": move} for move in new_pool]
-                                selected_monster.pop("move_pool", None)
-                            if unknown:
-                                status_message = f"Unknown moves ignored: {', '.join(unknown)}"
+                            move_names = load_move_names()
+                            if not move_names:
+                                status_message = "No move definitions found in moves.json."
                                 status_until = pygame.time.get_ticks() + STATUS_DURATION_MS
-                        elif action == "edit_learnset":
-                            current_learnset = summarize_learnset(selected_monster.get("learnset", []))
-                            result = prompt_text(screen, "Learnset: level:move, level:move", current_learnset)
-                            if result is None:
                                 continue
-                            entries, unknown, invalid = parse_learnset(
-                                result,
+                            selected_moves = prompt_multi_choice(
+                                screen,
+                                "Select Lv1 moves",
                                 move_names,
-                                derive_move_pool(selected_monster),
+                                selected_defaults=derive_move_pool(selected_monster),
                             )
+                            if selected_moves is None:
+                                continue
+                            normalized_moves, rejected = normalize_multi_selection(
+                                selected_moves,
+                                move_names,
+                            )
+                            if rejected:
+                                status_message = f"Invalid moves rejected: {', '.join(rejected)}"
+                                status_until = pygame.time.get_ticks() + STATUS_DURATION_MS
+                            selected_monster["learnset"] = [
+                                {"level": 1, "move": move_name} for move_name in normalized_moves
+                            ]
+                            selected_monster.pop("move_pool", None)
+                        elif action == "edit_learnset":
+                            move_names = load_move_names()
+                            if not move_names:
+                                status_message = "No move definitions found in moves.json."
+                                status_until = pygame.time.get_ticks() + STATUS_DURATION_MS
+                                continue
+                            entries, rejected_rows = prompt_learnset_entries(
+                                screen,
+                                move_names,
+                                selected_monster.get("learnset", []),
+                            )
+                            if entries is None:
+                                continue
                             selected_monster["learnset"] = entries
                             selected_monster.pop("move_pool", None)
-                            if unknown or invalid:
-                                message_parts = []
-                                if unknown:
-                                    message_parts.append(f"Unknown moves ignored: {', '.join(unknown)}")
-                                if invalid:
-                                    message_parts.append(f"Skipped {invalid} invalid entries")
-                                status_message = "; ".join(message_parts)
+                            if rejected_rows:
+                                status_message = f"Rejected {len(rejected_rows)} invalid learnset rows."
                                 status_until = pygame.time.get_ticks() + STATUS_DURATION_MS
                         ensure_monster_structure(selected_monster)
                         break
