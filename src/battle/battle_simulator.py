@@ -3,11 +3,24 @@ import sys
 import random
 import os
 import json
-import copy
 
 # Import the centralized config
 # from ..core import config # Relative import
 from src.core import config # Absolute import from src
+from src.battle.engine import (
+    BattleEngine,
+    Creature,
+    Move,
+    apply_stat_change as engine_apply_stat_change,
+    build_moves_for_level as engine_build_moves_for_level,
+    calculate_damage as engine_calculate_damage,
+    clamp_level as engine_clamp_level,
+    flatten_learnset as engine_flatten_learnset,
+    level_modifier as engine_level_modifier,
+    opponent_choose_move as engine_opponent_choose_move,
+    scale_stat as engine_scale_stat,
+    scale_stats as engine_scale_stats,
+)
 from src.core.monster_schema import normalize_monster
 
 # Initialize Pygame
@@ -28,42 +41,6 @@ pygame.display.set_caption("Battle Simulator")
 FONT = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE)
 
 _SFX_CACHE = {}
-
-# Constants from config
-# STAT_CHANGE_MULTIPLIER = 0.66 # Defined constant for stat changes
-# NATIVE_SPRITE_RESOLUTION = (32, 32)
-
-class Move:
-    def __init__(self, name, type_, power, effect=None):
-        self.name = name
-        self.type = type_
-        self.power = power
-        self.effect = effect
-
-class Creature:
-    def __init__(self, name, type_, max_hp, attack, defense, moves, sprite,
-                 level=1, base_stats=None, move_pool=None, learnset=None):
-        self.name = name
-        self.type = type_
-        self.level = level
-        self.base_stats = base_stats or {
-            "max_hp": max_hp,
-            "attack": attack,
-            "defense": defense,
-        }
-        self.max_hp = max_hp
-        self.current_hp = max_hp
-        self.attack = attack
-        self.defense = defense
-        self.moves = moves
-        self.move_pool = move_pool or []
-        self.learnset = learnset or []
-        # Sprite is expected to be native resolution here
-        # Scaling happens in draw_battle
-        self.sprite = sprite
-
-    def is_alive(self):
-        return self.current_hp > 0
 
 # Load type effectiveness chart
 type_chart = {}
@@ -124,24 +101,16 @@ def play_battle_sfx(event_key, move=None):
         print(f"Failed to play SFX '{path}': {e}")
 
 def clamp_level(level):
-    try:
-        level_value = int(level)
-    except (TypeError, ValueError):
-        level_value = config.DEFAULT_MONSTER_LEVEL
-    return max(config.MIN_MONSTER_LEVEL, min(config.MAX_MONSTER_LEVEL, level_value))
+    return engine_clamp_level(level)
 
 def level_modifier(level):
-    return 1 + (clamp_level(level) - 1) * config.LEVEL_STAT_GROWTH
+    return engine_level_modifier(level)
 
 def scale_stat(base_stat, level):
-    return max(1, int(round(base_stat * level_modifier(level))))
+    return engine_scale_stat(base_stat, level)
 
 def scale_stats(base_stats, level):
-    return {
-        "max_hp": scale_stat(base_stats.get("max_hp", 1), level),
-        "attack": scale_stat(base_stats.get("attack", 1), level),
-        "defense": scale_stat(base_stats.get("defense", 1), level),
-    }
+    return engine_scale_stats(base_stats, level)
 
 def normalize_base_stats(monster):
     normalized, _warnings = normalize_monster(monster, strict_conflicts=False)
@@ -156,83 +125,23 @@ def normalize_learnset(monster, move_pool):
     return list(normalized["learnset"])
 
 def flatten_learnset(learnset):
-    flattened = []
-    for entry in learnset:
-        level = entry.get("level", 1)
-        try:
-            level = int(level)
-        except (TypeError, ValueError):
-            level = 1
-        if "move" in entry:
-            flattened.append((level, entry["move"]))
-        elif "moves" in entry:
-            for move_name in entry["moves"]:
-                flattened.append((level, move_name))
-    return flattened
+    return engine_flatten_learnset(learnset)
 
 def build_moves_for_level(learnset, level, moves_dict):
-    flattened = flatten_learnset(learnset)
-    available = [move_name for lvl, move_name in flattened if lvl <= level]
-    if not available:
-        available = [move_name for _, move_name in flattened]
-    seen = set()
-    ordered = []
-    for move_name in available:
-        if move_name not in seen:
-            seen.add(move_name)
-            ordered.append(move_name)
-    if len(ordered) > config.MAX_BATTLE_MOVES:
-        ordered = ordered[-config.MAX_BATTLE_MOVES:]
-    return [moves_dict.get(move_name, Move(move_name, 'Normal', 50)) for move_name in ordered]
+    return engine_build_moves_for_level(learnset, level, moves_dict)
 
 def apply_stat_change(creature, stat, change):
-    """Applies a stat change multiplier to a creature's specified stat."""
-    if hasattr(creature, stat):
-        current_stat_value = getattr(creature, stat)
-        if change > 0:
-            # Formula for increasing stat stage
-            multiplier = 1 + config.STAT_CHANGE_MULTIPLIER / (2 ** (change - 1))
-            new_stat_value = int(current_stat_value * multiplier)
-        elif change < 0: # Check for negative change explicitly
-            # Formula for decreasing stat stage
-            # Use abs(change) for the exponent
-            divider = 1 + config.STAT_CHANGE_MULTIPLIER / (2 ** (abs(change) - 1))
-            # Avoid division by zero if divider somehow becomes 0 (unlikely with current formula)
-            if divider == 0:
-                print(f"Warning: Stat change divider became zero for stat {stat}, change {change}. Stat unchanged.")
-                new_stat_value = current_stat_value
-            else:
-                 new_stat_value = int(current_stat_value / divider)
-        else: # change == 0
-            # No change if change is zero
-            new_stat_value = current_stat_value
-
-        setattr(creature, stat, new_stat_value)
-        # print(f"Debug: Applied change {change} to {stat}. Old: {current_stat_value}, New: {new_stat_value}") # Optional debug print
-    else:
-        print(f"Warning: Stat '{stat}' not found on creature {creature.name}.")
+    engine_apply_stat_change(creature, stat, change)
 
 def calculate_damage(attacker, defender, move):
-    if move.power == 0:  # Stat-changing move
-        if move.effect['target'] == 'self':
-            apply_stat_change(attacker, move.effect['stat'], move.effect['change'])
-        else:  # 'opponent'
-            apply_stat_change(defender, move.effect['stat'], -move.effect['change'])
-        return 0, 1  # No damage, normal effectiveness
-
-    effectiveness = type_chart.get(move.type, {}).get(defender.type, 1)
-    defender_defense = max(1, defender.defense)
-    base_damage = (
-        config.DAMAGE_ATTACK_FACTOR * attacker.attack * move.power
-    ) / (config.DAMAGE_DEFENSE_FACTOR * defender_defense)
-    damage = int(
-        (base_damage + config.DAMAGE_BASE_OFFSET)
-        * effectiveness
-        * random.uniform(config.DAMAGE_RANDOM_MIN, config.DAMAGE_RANDOM_MAX)
+    return engine_calculate_damage(
+        attacker,
+        defender,
+        move,
+        type_chart=type_chart,
+        rng_uniform=random.uniform,
+        stat_change_fn=engine_apply_stat_change,
     )
-    if effectiveness > 0 and move.power > 0 and damage <= 0:
-        damage = 1
-    return damage, effectiveness
 
 def create_default_sprite():
     """Creates a default sprite at native resolution."""
@@ -510,81 +419,13 @@ def draw_battle(creature1, creature2, buttons, background):
 
     pygame.display.flip()
 
-def _expected_damage(attacker, defender, move):
-    effectiveness = type_chart.get(move.type, {}).get(defender.type, 1)
-    defender_defense = max(1, defender.defense)
-    base_damage = (
-        config.DAMAGE_ATTACK_FACTOR * attacker.attack * move.power
-    ) / (config.DAMAGE_DEFENSE_FACTOR * defender_defense)
-    avg_variance = (config.DAMAGE_RANDOM_MIN + config.DAMAGE_RANDOM_MAX) / 2
-    expected = (base_damage + config.DAMAGE_BASE_OFFSET) * effectiveness * avg_variance
-    return expected, effectiveness
-
-
-def _stat_move_score(attacker, defender, move):
-    if not move.effect:
-        return 0
-    target = move.effect.get("target")
-    stat = move.effect.get("stat")
-    change = move.effect.get("change", 0)
-    if not target or not stat or change == 0:
-        return 0
-
-    if target == "self":
-        base = attacker.base_stats.get(stat, getattr(attacker, stat, 0))
-        current = getattr(attacker, stat, base)
-        if current < base * 1.2:
-            score = 8 * change
-        elif current < base * 1.5:
-            score = 4 * change
-        else:
-            score = 1 * change
-    else:
-        base = defender.base_stats.get(stat, getattr(defender, stat, 0))
-        current = getattr(defender, stat, base)
-        if current > base * 1.2:
-            score = 7 * change
-        elif current > base * 1.05:
-            score = 3 * change
-        else:
-            score = 1 * change
-
-    attacker_hp_ratio = attacker.current_hp / attacker.max_hp if attacker.max_hp else 0
-    defender_hp_ratio = defender.current_hp / defender.max_hp if defender.max_hp else 0
-    if attacker_hp_ratio < 0.35:
-        score *= 0.5
-    if defender_hp_ratio < 0.3:
-        score *= 0.25
-    return score
-
-
 def opponent_choose_move(attacker, defender):
-    if not attacker.moves:
-        return None
-
-    scored_moves = []
-    for move in attacker.moves:
-        if move.power > 0:
-            expected, effectiveness = _expected_damage(attacker, defender, move)
-            score = expected
-            if expected >= defender.current_hp:
-                score += 50
-            if effectiveness > 1:
-                score += 10
-            elif effectiveness == 0:
-                score -= 20
-        else:
-            score = _stat_move_score(attacker, defender, move)
-        scored_moves.append((score, move))
-
-    scored_moves.sort(key=lambda item: item[0], reverse=True)
-    best_score = scored_moves[0][0]
-    if best_score == 0:
-        return random.choice(attacker.moves)
-
-    threshold = best_score * 0.95
-    top_moves = [move for score, move in scored_moves if score >= threshold]
-    return random.choice(top_moves)
+    return engine_opponent_choose_move(
+        attacker,
+        defender,
+        type_chart=type_chart,
+        choice_fn=random.choice,
+    )
 
 def play_random_song():
     if not _is_audio_ready():
@@ -872,10 +713,28 @@ def select_team(creatures, team_size):
                         elif len(selected_names) < team_size:
                             selected_names.append(creature.name)
                         break
+def _announce_turn(actor, defender, move, damage):
+    if move is None:
+        return
+    if move.power == 0:
+        print(f"{actor.name} used {move.name}!")
+        effect = move.effect or {}
+        target = effect.get("target")
+        stat = effect.get("stat")
+        change = effect.get("change", 0)
+        if target == "self":
+            direction = "increased" if change > 0 else "decreased"
+            print(f"{actor.name}'s {stat} {direction}!")
+        else:
+            direction = "decreased" if change > 0 else "increased"
+            print(f"{defender.name}'s {stat} {direction}!")
+    else:
+        print(f"{actor.name} used {move.name}! It dealt {damage} damage.")
+
+
 def battle(creature1, creature2, show_end_menu=True):
     clock = pygame.time.Clock()
-    running = True
-    turn = 0  # 0 for player's turn, 1 for opponent's turn
+    engine = BattleEngine(creature1, creature2, type_chart=type_chart, rng=random)
 
     play_random_song()
 
@@ -894,8 +753,7 @@ def battle(creature1, creature2, show_end_menu=True):
 
     background = load_random_background()
 
-    while running:
-        # Clear the screen using config color
+    while True:
         SCREEN.fill(config.BATTLE_BG_COLOR)
 
         for event in pygame.event.get():
@@ -904,59 +762,36 @@ def battle(creature1, creature2, show_end_menu=True):
                 pygame.quit()
                 sys.exit()
 
-            if turn == 0 and creature1.is_alive() and creature2.is_alive():
+            if engine.turn == "player" and creature1.is_alive() and creature2.is_alive():
                 for button in buttons:
                     if button.is_clicked(event):
                         move = button.action
-                        damage, effectiveness = calculate_damage(creature1, creature2, move)
+                        result = engine.resolve_player_turn(move)
                         play_battle_sfx("stat_change" if move.power == 0 else "attack", move=move)
-                        creature2.current_hp -= damage
-                        if damage > 0:
+                        if result.damage > 0:
                             play_battle_sfx("damage", move=move)
-                        if creature2.current_hp < 0:
-                            creature2.current_hp = 0
-                        if creature2.current_hp == 0:
+                        if result.defender_fainted:
                             play_battle_sfx("faint")
-                        if move.power == 0:
-                            print(f"{creature1.name} used {move.name}!")
-                            if move.effect['target'] == 'self':
-                                print(f"{creature1.name}'s {move.effect['stat']} {'increased' if move.effect['change'] > 0 else 'decreased'}!")
-                            else:
-                                print(f"{creature2.name}'s {move.effect['stat']} {'decreased' if move.effect['change'] > 0 else 'increased'}!")
-                        else:
-                            print(f"{creature1.name} used {move.name}! It dealt {damage} damage.")
-                        turn = 1  # Switch turn
+                        _announce_turn(creature1, creature2, move, result.damage)
+                        break
 
-        if turn == 1 and creature2.is_alive() and creature1.is_alive():
+        if engine.turn == "opponent" and creature2.is_alive() and creature1.is_alive() and engine.winner is None:
             pygame.time.delay(config.BATTLE_OPPONENT_MOVE_DELAY_MS)
-            move = opponent_choose_move(creature2, creature1)
-            if move is None:
-                continue
-            damage, effectiveness = calculate_damage(creature2, creature1, move)
-            play_battle_sfx("stat_change" if move.power == 0 else "attack", move=move)
-            creature1.current_hp -= damage
-            if damage > 0:
-                play_battle_sfx("damage", move=move)
-            if creature1.current_hp < 0:
-                creature1.current_hp = 0
-            if creature1.current_hp == 0:
-                play_battle_sfx("faint")
-            if move.power == 0:
-                print(f"{creature2.name} used {move.name}!")
-                if move.effect['target'] == 'self':
-                    print(f"{creature2.name}'s {move.effect['stat']} {'increased' if move.effect['change'] > 0 else 'decreased'}!")
-                else:
-                    print(f"{creature1.name}'s {move.effect['stat']} {'decreased' if move.effect['change'] > 0 else 'increased'}!")
-            else:
-                print(f"{creature2.name} used {move.name}! It dealt {damage} damage.")
-            turn = 0  # Switch turn
+            result = engine.resolve_opponent_turn()
+            move = result.move
+            if move is not None:
+                play_battle_sfx("stat_change" if move.power == 0 else "attack", move=move)
+                if result.damage > 0:
+                    play_battle_sfx("damage", move=move)
+                if result.defender_fainted:
+                    play_battle_sfx("faint")
+                _announce_turn(creature2, creature1, move, result.damage)
 
         draw_battle(creature1, creature2, buttons, background)
 
-        # Check for win condition
-        if not creature1.is_alive() or not creature2.is_alive():
-            winner = "player" if creature1.is_alive() else "opponent"
-            winner_name = creature1.name if creature1.is_alive() else creature2.name
+        if engine.winner is not None:
+            winner = engine.winner
+            winner_name = creature1.name if winner == "player" else creature2.name
             play_battle_sfx("victory" if winner == "player" else "defeat")
             message = FONT.render(f"{winner_name} wins!", True, config.BLACK)
             SCREEN.blit(message, (config.BATTLE_WIDTH // 2 - message.get_width() // 2, config.BATTLE_HEIGHT // 2 - message.get_height() // 2))
@@ -969,7 +804,7 @@ def battle(creature1, creature2, show_end_menu=True):
                 return show_end_options()
             return winner
 
-        clock.tick(config.FPS) # Use FPS from config
+        clock.tick(config.FPS)
 
 def show_end_options():
     # Center buttons on battle screen dimensions

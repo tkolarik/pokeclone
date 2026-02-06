@@ -828,7 +828,7 @@
   {
     "id": "REFACTOR-2",
     "title": "Split Battle Simulator into Engine and Runner Layers",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],
