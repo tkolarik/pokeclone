@@ -48,6 +48,8 @@ class TestEventHandlerPaletteInteraction(unittest.TestCase):
         self.mock_editor.panning = False
         self.mock_editor.scroll_tile_panel = MagicMock(return_value=False)
         self.mock_editor.scroll_button_panel = MagicMock(return_value=False)
+        self.mock_editor.cancel_paste_mode = MagicMock(return_value=False)
+        self.mock_editor._exit_selection_mode = MagicMock()
 
         # --- Mock Palette --- 
         self.mock_editor.palette = MagicMock(spec=Palette)
@@ -276,6 +278,15 @@ class TestEventHandlerOtherInteractions(unittest.TestCase):
 
         # Assert tool manager drag was NOT called
         self.mock_editor.tool_manager.handle_drag.assert_not_called()
+
+    def test_escape_cancels_paste_mode(self):
+        self.mock_editor.cancel_paste_mode.return_value = True
+        key_event = MagicMock(spec=pygame.event.Event)
+        key_event.type = pygame.KEYDOWN
+        key_event.mod = 0
+        key_event.key = pygame.K_ESCAPE
+        self.event_handler.process_event(key_event)
+        self.mock_editor.cancel_paste_mode.assert_called_once()
 
 
 if __name__ == '__main__':

@@ -95,22 +95,22 @@
   {
     "id": "POKE-13",
     "title": "Implement Battle Sound Effects",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
     "description": "While the game has background music functionality (`battle_simulator.py` `play_random_song`), it lacks sound effects... (previous description remains) ...Ensure multiple sounds can play without cutting each other off abruptly (Pygame's mixer handles channels automatically to some extent).",
     "acceptanceCriteria": [
-      "Sound effect files are present in the `sounds/` directory.",
-      "Sounds are loaded using `pygame.mixer.Sound`.",
-      "Key battle events (attacks, damage, faints, stat changes, win/loss) trigger corresponding sound effects.",
-      "Sound effects enhance the battle experience."
-    ]
+      "Sound effect files are present in the `sounds/` directory.\\nSounds are loaded using `pygame.mixer.Sound`.\\nKey battle events (attacks, damage, faints, stat changes, win/loss) trigger corresponding sound effects.\\nSound effects enhance the battle experience."
+    ],
+    "dependsOn": [],
+    "fields": [],
+    "comments": []
   },
   {
     "id": "POKE-14",
     "title": "Refine Editor Tool State Management (Select/Paste/Mirror/Rotate)",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
@@ -126,7 +126,7 @@
   {
     "id": "POKE-23",
     "title": "Add Clipboard History + Persistent Favorite Paste Patterns",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
@@ -232,7 +232,7 @@
   {
     "id": "POKE-15",
     "title": "Remove Magic Numbers from Codebase",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Low",
     "type": "Task",
     "labels": [],
@@ -245,7 +245,7 @@
   {
     "id": "POKE-16",
     "title": "Add Robust Error Handling",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Low",
     "type": "Task",
     "labels": [],
@@ -259,7 +259,7 @@
   {
     "id": "POKE-17",
     "title": "Add Missing README Screenshot and Documentation",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Low",
     "type": "Task",
     "labels": [],
@@ -273,7 +273,7 @@
   {
     "id": "POKE-18",
     "title": "Optimize Editor Undo/Redo Memory Usage",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Low",
     "type": "Task",
     "labels": [],
@@ -286,7 +286,7 @@
   {
     "id": "POKE-19",
     "title": "Adjust Creature Sprite Positioning in Battle View",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Low",
     "type": "Task",
     "labels": [],
@@ -299,7 +299,7 @@
   {
     "id": "POKE-20",
     "title": "Perform Balance Pass on Stat Changes and Damage",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Low",
     "type": "Task",
     "labels": [],
@@ -380,17 +380,17 @@
   {
     "id": "POKE-9",
     "title": "Fix Tkinter Initialization Conflicts",
-    "status": "On Hold",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
     "description": "The pixel art editor (`pixle_art_editor.py`) relies on Python's built-in Tkinter library for the color picker and file dialogs (e.g., loading reference images), and removing it is currently blocked ([See ToDo](#on-hold)). However, initializing Tkinter (`tk.Tk()`) *after* Pygame (`pygame.init()`) can cause crashes on some systems (especially macOS) due to conflicts between SDL and Tkinter interacting with the windowing system (e.g., `-[SDLApplication macOSVersion]: unrecognized selector`). The goal is to fix this crash by ensuring Tkinter is initialized safely before Pygame, allowing its dialogs to function correctly.",
     "acceptanceCriteria": [
-      "Tkinter initialization (`tk.Tk()`) does not crash the application when called.",
-      "Tkinter-dependent features (Color Picker, Load Ref Img) open their respective dialogs without crashing the main application.",
-      "The Tkinter root window remains hidden.",
-      "Pygame functionality is unaffected."
-    ]
+      "Tkinter initialization (`tk.Tk()`) does not crash the application when called.\\nTkinter-dependent features (Color Picker, Load Ref Img) open their respective dialogs without crashing the main application.\\nThe Tkinter root window remains hidden.\\nPygame functionality is unaffected."
+    ],
+    "dependsOn": [],
+    "fields": [],
+    "comments": []
   },
   {
     "id": "OVERWORLD-2",
@@ -653,6 +653,26 @@
       "A design doc describes the current opponent AI heuristics and selection logic.",
       "Unit tests cover super-effective preference and stat-move heuristics.",
       "Tests pass reliably."
+    ]
+  },
+  {
+    "id": "POKE-27",
+    "title": "Draft Move Animation Pixel Art Editor Design Doc",
+    "status": "Done",
+    "priority": "Medium",
+    "type": "Feature",
+    "labels": [
+      "editor",
+      "design-doc",
+      "animation",
+      "ux"
+    ],
+    "description": "Create a design doc for a move animation pixel art editor. Include quality-of-life features like frame onion-skinning (previous/next frame), reference images, and a draggable object/layer for positioning animation elements.",
+    "acceptanceCriteria": [
+      "Design doc exists under docs/ describing scope, UX, data model, and integration points.",
+      "Doc specifies QoL features: onion-skin/afterimage for frames, reference image support, and draggable object/layer positioning.",
+      "Doc includes interaction details for timeline, playback, frame duplication, and export formats.",
+      "Automated unit testing expectations are defined for any planned tooling logic (e.g., frame ordering, onion-skin toggles, drag transforms)."
     ]
   }
 ]

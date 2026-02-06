@@ -25,13 +25,11 @@ class BaseTool:
 
     def activate(self, editor):
         """Called when the tool becomes active."""
-        print(f"{self.name} tool activated.")
-        pass # Optional setup
+        pass
 
     def deactivate(self, editor):
         """Called when the tool is deactivated."""
-        print(f"{self.name} tool deactivated.")
-        pass # Optional cleanup
+        pass
 
 # --- Draw/Erase Tool ---
 class DrawTool(BaseTool):
@@ -244,15 +242,13 @@ class ToolManager:
             self.active_tool_name = tool_name
             self.active_tool = self.tools[tool_name]
             self.active_tool.activate(self.editor)
-            print(f"Switched to {tool_name} tool") # Debug
-            # Reset specific editor modes when switching tools
-            # (This logic might need refinement based on tool interactions)
+
+            # Reset tool flags when switching active tool.
             self.editor.eraser_mode = False
             self.editor.fill_mode = False 
             self.editor.paste_mode = False
-            if self.editor.mode == 'select': # Exit select mode if switching tool
+            if self.editor.mode == 'select':
                 self.editor.mode = 'draw' 
-                self.editor.selection.active = False
                 self.editor.selection.selecting = False
 
     def handle_click(self, pos):

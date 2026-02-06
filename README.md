@@ -2,7 +2,7 @@
 
 A Pygame-based monster battling game featuring unique creatures with elemental types and special moves, along with an advanced pixel art editor for creating and editing sprites.
 
-![Game Screenshot](docs/images/screenshot.png) <!-- TODO: Add actual screenshot -->
+![Game Screenshot](docs/images/screenshot.png)
 
 ## 🎮 Features
 
@@ -73,7 +73,7 @@ python battle_simulator.py
 ### Using the Pixel Art Editor
 1. **Run the Pixel Art Editor:**
     ```bash
-    python pixel_art_editor.py
+    python pixle_art_editor.py
     ```
 
 2. **Create or Edit Sprites:**
@@ -168,10 +168,13 @@ pokeclone/
   - **Ctrl + O**: Open a background file.
   - **Ctrl + C**: Copy selected area.
   - **Ctrl + V**: Paste copied area.
+  - **Ctrl + Shift + V**: Cycle to next clipboard item and paste.
+  - **Ctrl + [ / Ctrl + ]**: Select previous/next clipboard history item.
+  - **Ctrl + F**: Toggle favorite on current clipboard item.
   - **Ctrl + M**: Mirror selected area.
   - **Ctrl + R**: Rotate selected area.
   - **+/-**: Increase or decrease brush size.
-  - **ESC**: Exit selection mode.
+  - **ESC**: Cancel paste mode or exit selection mode.
 
 ## 🛠️ Development
 
@@ -230,7 +233,13 @@ Please use the GitHub Issues tab to report bugs. Include:
 
 ## 📚 Documentation
 
-Coming Soon 
+- [Documentation Index](docs/index.md)
+- [Getting Started](docs/getting-started.md)
+- [Battle Simulator](docs/battle-simulator.md)
+- [Pixel Art Editor](docs/pixel-art-editor.md)
+- [Battle AI Notes](docs/battle-ai.md)
+- [Map Editor Guide](docs/map-editor.md)
+- [Overworld Runtime](docs/overworld.md)
 
 ---
 

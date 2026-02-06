@@ -149,45 +149,45 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         """Test increasing attack stat."""
         creature = self.default_creature
         initial_attack = creature.attack
-        # Expected: 50 * (1 + 0.66 / (2**(1-1))) = 50 * (1 + 0.66/1) = 50 * 1.66 = 83
+        expected_first = int(initial_attack * (1 + config.STAT_CHANGE_MULTIPLIER))
         apply_stat_change(creature, "attack", 1)
-        self.assertEqual(creature.attack, 83)
-        # Expected: 83 * (1 + 0.66 / (2**(2-1))) = 83 * (1 + 0.66/2) = 83 * 1.33 = 110.39 -> 110
-        apply_stat_change(creature, "attack", 2) # This applies stage 2 multiplier to current stat
-        self.assertEqual(creature.attack, 110) # Note: The function applies change relative to current stat
+        self.assertEqual(creature.attack, expected_first)
+        expected_second = int(expected_first * (1 + config.STAT_CHANGE_MULTIPLIER / 2))
+        apply_stat_change(creature, "attack", 2)
+        self.assertEqual(creature.attack, expected_second)
 
     def test_apply_stat_change_attack_decrease(self):
         """Test decreasing attack stat."""
         creature = self.default_creature
         initial_attack = creature.attack
-        # Expected: 50 / (1 + 0.66 / (2**(1-1))) = 50 / (1 + 0.66/1) = 50 / 1.66 = 30.12 -> 30
+        expected_first = int(initial_attack / (1 + config.STAT_CHANGE_MULTIPLIER))
         apply_stat_change(creature, "attack", -1)
-        self.assertEqual(creature.attack, 30)
-        # Expected: 30 / (1 + 0.66 / (2**(2-1))) = 30 / (1 + 0.66/2) = 30 / 1.33 = 22.55 -> 22
-        apply_stat_change(creature, "attack", -2) # Applies stage 2 reduction to current stat
-        self.assertEqual(creature.attack, 22)
+        self.assertEqual(creature.attack, expected_first)
+        expected_second = int(expected_first / (1 + config.STAT_CHANGE_MULTIPLIER / 2))
+        apply_stat_change(creature, "attack", -2)
+        self.assertEqual(creature.attack, expected_second)
 
     def test_apply_stat_change_defense_increase(self):
         """Test increasing defense stat."""
         creature = self.default_creature
         initial_defense = creature.defense
-        # Expected: 50 * 1.66 = 83
+        expected_first = int(initial_defense * (1 + config.STAT_CHANGE_MULTIPLIER))
         apply_stat_change(creature, "defense", 1)
-        self.assertEqual(creature.defense, 83)
-        # Expected: 83 * 1.33 = 110.39 -> 110
+        self.assertEqual(creature.defense, expected_first)
+        expected_second = int(expected_first * (1 + config.STAT_CHANGE_MULTIPLIER / 2))
         apply_stat_change(creature, "defense", 2)
-        self.assertEqual(creature.defense, 110)
+        self.assertEqual(creature.defense, expected_second)
 
     def test_apply_stat_change_defense_decrease(self):
         """Test decreasing defense stat."""
         creature = self.default_creature
         initial_defense = creature.defense
-        # Expected: 50 / 1.66 = 30.12 -> 30
+        expected_first = int(initial_defense / (1 + config.STAT_CHANGE_MULTIPLIER))
         apply_stat_change(creature, "defense", -1)
-        self.assertEqual(creature.defense, 30)
-        # Expected: 30 / 1.33 = 22.55 -> 22
+        self.assertEqual(creature.defense, expected_first)
+        expected_second = int(expected_first / (1 + config.STAT_CHANGE_MULTIPLIER / 2))
         apply_stat_change(creature, "defense", -2)
-        self.assertEqual(creature.defense, 22)
+        self.assertEqual(creature.defense, expected_second)
 
     def test_apply_stat_change_invalid_stat(self):
         """Test applying change to an invalid stat name."""
@@ -202,12 +202,8 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         """Test applying a zero change."""
         creature = self.default_creature
         initial_attack = creature.attack
-        # The current logic might break with change=0 due to 2**(0-1)
-        # Let's test what happens (it should ideally do nothing)
-        # apply_stat_change(creature, "attack", 0) # Raises Error: 2**-1 is 0.5
-        # For now, we assume change is always non-zero based on usage
-        # If 0 change is possible, the function needs adjustment
-        pass # Skipping test for change=0 as it's not handled
+        apply_stat_change(creature, "attack", 0)
+        self.assertEqual(creature.attack, initial_attack)
 
     # --- Tests for POKE-4 --- 
 
@@ -268,6 +264,39 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         mock_scale.assert_has_calls(calls, any_order=True)
         assert mock_scale.call_count == 2
 
+    @unittest.mock.patch('src.battle.battle_simulator.pygame.transform.scale')
+    def test_draw_battle_uses_configured_sprite_positions(self, mock_scale):
+        native_sprite1 = MockSurface(config.NATIVE_SPRITE_RESOLUTION)
+        creature1 = Creature("Mon1", "Normal", 100, 50, 50, [], native_sprite1)
+        native_sprite2 = MockSurface(config.NATIVE_SPRITE_RESOLUTION)
+        creature2 = Creature("Mon2", "Fire", 100, 50, 50, [], native_sprite2)
+        mock_background = MockSurface((config.BATTLE_WIDTH, config.BATTLE_HEIGHT))
+        mock_screen = MockSurface((config.BATTLE_WIDTH, config.BATTLE_HEIGHT))
+
+        scaled1 = MockSurface(config.BATTLE_SPRITE_DISPLAY_SIZE)
+        scaled2 = MockSurface(config.BATTLE_SPRITE_DISPLAY_SIZE)
+        mock_scale.side_effect = [scaled1, scaled2]
+
+        with unittest.mock.patch('src.battle.battle_simulator.SCREEN', mock_screen):
+            with unittest.mock.patch.object(mock_screen, 'blit') as mock_blit:
+                mock_font_instance = MagicMock()
+                mock_font_instance.render.return_value = MockSurface((10, 10))
+                with unittest.mock.patch('src.battle.battle_simulator.pygame.font.Font', return_value=mock_font_instance):
+                    with unittest.mock.patch('src.battle.battle_simulator.pygame.draw.rect'):
+                        from src.battle.battle_simulator import draw_battle
+                        draw_battle(creature1, creature2, [], mock_background)
+
+        expected_player = (
+            config.BATTLE_PLAYER_SPRITE_X,
+            config.BATTLE_PLAYER_SPRITE_BASELINE_Y - config.BATTLE_SPRITE_DISPLAY_SIZE[1],
+        )
+        expected_opponent = (
+            config.BATTLE_WIDTH - config.BATTLE_OPPONENT_SPRITE_X_MARGIN - config.BATTLE_SPRITE_DISPLAY_SIZE[0],
+            config.BATTLE_OPPONENT_SPRITE_BASELINE_Y - config.BATTLE_SPRITE_DISPLAY_SIZE[1],
+        )
+        mock_blit.assert_any_call(scaled1, expected_player)
+        mock_blit.assert_any_call(scaled2, expected_opponent)
+
     def test_draw_battle_effectiveness_indicators(self):
         """Verify super/not-effective move outlines are drawn."""
         # Arrange
@@ -322,12 +351,12 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         attacker = Creature("Attacker", "Fire", 100, 50, 50, [], MockSurface(config.NATIVE_SPRITE_RESOLUTION))
         defender = Creature("Defender", "Nature", 100, 50, 50, [], MockSurface(config.NATIVE_SPRITE_RESOLUTION))
         move = Move("FireBlast", "Fire", 90)
-        # Expected damage uses the formula: (10 * Att * Pow) / (30 * Def) + 2) * Eff * Rand
-        # Base = (10 * 50 * 90) / (30 * 50) + 2 = (45000 / 1500) + 2 = 30 + 2 = 32
-        # Expected Damage Range = (32 * 2.0) * [0.85, 1.0] = 64 * [0.85, 1.0] = [54.4, 64.0]
-        # We'll check if the damage falls within this range (integer conversion included).
-        expected_min_dmg = 54
-        expected_max_dmg = 64
+        base = (
+            config.DAMAGE_ATTACK_FACTOR * attacker.attack * move.power
+        ) / (config.DAMAGE_DEFENSE_FACTOR * defender.defense)
+        effective_base = (base + config.DAMAGE_BASE_OFFSET) * 2.0
+        expected_min_dmg = int(effective_base * config.DAMAGE_RANDOM_MIN)
+        expected_max_dmg = int(effective_base * config.DAMAGE_RANDOM_MAX)
 
         # Act
         from src.battle.battle_simulator import calculate_damage # Import locally to use updated type_chart
@@ -344,10 +373,12 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         attacker = Creature("Attacker", "Fire", 100, 50, 50, [], MockSurface(config.NATIVE_SPRITE_RESOLUTION))
         defender = Creature("Defender", "Water", 100, 50, 50, [], MockSurface(config.NATIVE_SPRITE_RESOLUTION))
         move = Move("FireBlast", "Fire", 90)
-        # Base = 32
-        # Expected Damage Range = (32 * 0.5) * [0.85, 1.0] = 16 * [0.85, 1.0] = [13.6, 16.0]
-        expected_min_dmg = 13
-        expected_max_dmg = 16
+        base = (
+            config.DAMAGE_ATTACK_FACTOR * attacker.attack * move.power
+        ) / (config.DAMAGE_DEFENSE_FACTOR * defender.defense)
+        effective_base = (base + config.DAMAGE_BASE_OFFSET) * 0.5
+        expected_min_dmg = int(effective_base * config.DAMAGE_RANDOM_MIN)
+        expected_max_dmg = int(effective_base * config.DAMAGE_RANDOM_MAX)
 
         from src.battle.battle_simulator import calculate_damage
         damages = [calculate_damage(attacker, defender, move)[0] for _ in range(100)]
@@ -361,10 +392,12 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         attacker = Creature("Attacker", "Fire", 100, 50, 50, [], MockSurface(config.NATIVE_SPRITE_RESOLUTION))
         defender = Creature("Defender", "Electric", 100, 50, 50, [], MockSurface(config.NATIVE_SPRITE_RESOLUTION))
         move = Move("FireBlast", "Fire", 90)
-        # Base = 32
-        # Expected Damage Range = (32 * 1.0) * [0.85, 1.0] = 32 * [0.85, 1.0] = [27.2, 32.0]
-        expected_min_dmg = 27
-        expected_max_dmg = 32
+        base = (
+            config.DAMAGE_ATTACK_FACTOR * attacker.attack * move.power
+        ) / (config.DAMAGE_DEFENSE_FACTOR * defender.defense)
+        effective_base = (base + config.DAMAGE_BASE_OFFSET) * 1.0
+        expected_min_dmg = int(effective_base * config.DAMAGE_RANDOM_MIN)
+        expected_max_dmg = int(effective_base * config.DAMAGE_RANDOM_MAX)
 
         from src.battle.battle_simulator import calculate_damage
         damages = [calculate_damage(attacker, defender, move)[0] for _ in range(100)]

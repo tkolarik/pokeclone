@@ -397,8 +397,8 @@ class DialogManager:
     def _get_background_files(self):
         try:
             return [f for f in os.listdir(config.BACKGROUND_DIR) if f.endswith('.png')]
-        except FileNotFoundError:
-            print(f"Warning: Background directory {config.BACKGROUND_DIR} not found.")
+        except (FileNotFoundError, PermissionError, OSError) as e:
+            print(f"Warning: cannot read background directory {config.BACKGROUND_DIR}: {e}")
             return []
 
     def _get_reference_files(self, directory):
@@ -409,7 +409,7 @@ class DialogManager:
                 path = os.path.join(directory, name)
                 if os.path.isfile(path) and name.lower().endswith(image_exts):
                     file_paths.append(path)
-        except FileNotFoundError:
+        except (FileNotFoundError, PermissionError, OSError):
             return []
         return file_paths
 
@@ -417,10 +417,21 @@ class DialogManager:
         state = self.state
         if not directory:
             return
+        if not os.path.isdir(directory):
+            print(f"Directory unavailable: {directory}")
+            state.dialog_file_list = []
+            state.dialog_file_labels = []
+            state.dialog_selected_file_index = -1
+            return
         state.dialog_current_dir = directory
         files = self._get_reference_files(directory)
         if state.dialog_sort_recent:
-            files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+            def _mtime_or_zero(path):
+                try:
+                    return os.path.getmtime(path)
+                except OSError:
+                    return 0
+            files.sort(key=_mtime_or_zero, reverse=True)
         else:
             files.sort(key=lambda p: os.path.basename(p).lower())
         state.dialog_file_list = files

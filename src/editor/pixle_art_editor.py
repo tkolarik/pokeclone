@@ -21,13 +21,14 @@ from src.editor.selection_manager import SelectionTool
 from src.editor.sprite_editor import SpriteEditor
 from src.editor.tool_manager import ToolManager
 from src.editor.undo_redo_manager import UndoRedoManager
+from src.editor.clipboard_manager import ClipboardManager
 
 NPC_STATES = ["standing", "walking"]
 NPC_ANGLES = ["south", "west", "east", "north"]
 PLAYER_NPC_ID = "player"
 PLAYER_NPC_NAME = "Player"
 
-# Tkinter root is initialized lazily to avoid crashes on launch in some setups.
+# Tkinter root is initialized lazily to avoid import-time crashes during test discovery.
 _tk_root_instance = None
 _tk_init_error = None
 
@@ -38,8 +39,8 @@ def _get_tk_root():
         return _tk_root_instance
     if _tk_init_error is not None:
         return None
-    if sys.platform == "darwin":
-        _tk_init_error = RuntimeError("Tk dialogs are disabled on macOS for stability.")
+    if os.environ.get("POKECLONE_DISABLE_TK", "").lower() in {"1", "true", "yes"}:
+        _tk_init_error = RuntimeError("Tk disabled by POKECLONE_DISABLE_TK.")
         return None
     try:
         _tk_root_instance = tk.Tk()
@@ -135,6 +136,7 @@ class Editor:
         """
         self.monsters = monsters if isinstance(monsters, list) else []
         self.state = EditorState()
+        self.clipboard = ClipboardManager(config.CLIPBOARD_HISTORY_LIMIT, config.CLIPBOARD_FAVORITES_FILE)
         self.file_io = FileIOManager(self)
         self.undo_redo = UndoRedoManager(self)
         self.dialog_manager = DialogManager(self)
@@ -169,9 +171,16 @@ class Editor:
         self.selected_tile_id = None
         self.tile_preview_cache = {}
         self.tile_list_scroll = 0
-        panel_width = 180
-        panel_x = config.EDITOR_WIDTH - (100 + 5) - panel_width - 20 # leave space for the buttons column
-        self.tile_panel_rect = pygame.Rect(panel_x, 50, panel_width, config.EDITOR_HEIGHT - 100)
+        panel_width = config.EDITOR_TILE_PANEL_WIDTH
+        panel_x = (
+            config.EDITOR_SIDE_BUTTON_START_X
+            - panel_width
+            - config.EDITOR_TILE_PANEL_GAP_FROM_BUTTONS
+        )
+        panel_height = config.EDITOR_HEIGHT - (
+            config.EDITOR_TILE_PANEL_TOP + config.EDITOR_TILE_PANEL_BOTTOM_MARGIN
+        )
+        self.tile_panel_rect = pygame.Rect(panel_x, config.EDITOR_TILE_PANEL_TOP, panel_width, panel_height)
         self.tile_button_rects = []
         self.current_tile_frame_index = 0
         self.tile_frame_scroll = 0
@@ -226,7 +235,9 @@ class Editor:
         self.button_scroll_thumb_rect = None
 
         self.font = pygame.font.Font(config.DEFAULT_FONT, config.EDITOR_INFO_FONT_SIZE)
-        self.font_small = pygame.font.Font(config.DEFAULT_FONT, 12)
+        self.font_small = pygame.font.Font(config.DEFAULT_FONT, config.PALETTE_FONT_SIZE - 2)
+        self.status_message = ""
+        self.status_message_expire_tick = 0
 
         # --- Reference Image Attributes ---
         self.reference_image_path = None
@@ -245,6 +256,7 @@ class Editor:
         self._configure_sliders()
 
         self.tk_root = None # Initialize instance variable for Tkinter root
+        self._load_clipboard_favorites()
 
         if not skip_initial_dialog:
             self.dialog_manager.choose_edit_mode() # Setup the initial dialog state
@@ -256,28 +268,129 @@ class Editor:
             print(f"Tkinter root unavailable. Init error: {_tk_init_error}")
         return tk_root
 
+    def _set_status(self, message, ttl_ms=2200):
+        self.status_message = message or ""
+        self.status_message_expire_tick = pygame.time.get_ticks() + max(0, int(ttl_ms))
+        if message:
+            print(message)
+
+    def _set_draw_mode(self, eraser=False):
+        self.mode = 'draw'
+        self.selection.selecting = False
+        self.tool_manager.set_active_tool('draw')
+        self.paste_mode = False
+        self.fill_mode = False
+        self.eraser_mode = bool(eraser)
+
+    def _set_fill_mode(self):
+        self.mode = 'draw'
+        self.selection.selecting = False
+        self.selection.active = False
+        self.tool_manager.set_active_tool('fill')
+        self.fill_mode = True
+        self.eraser_mode = False
+        self.paste_mode = False
+
+    def _set_paste_mode(self):
+        self.mode = 'draw'
+        self.selection.selecting = False
+        self.tool_manager.set_active_tool('paste')
+        self.fill_mode = False
+        self.eraser_mode = False
+        self.paste_mode = True
+
+    def _enter_selection_mode(self):
+        self.tool_manager.set_active_tool('draw')
+        self.mode = 'select'
+        self.selection.toggle()
+        self.fill_mode = False
+        self.eraser_mode = False
+        self.paste_mode = False
+
+    def _exit_selection_mode(self, clear_selection=False):
+        self.mode = 'draw'
+        self.selection.selecting = False
+        if clear_selection:
+            self.selection.active = False
+        self.tool_manager.set_active_tool('draw')
+
+    def cancel_paste_mode(self):
+        if self.tool_manager.active_tool_name == 'paste' or self.paste_mode:
+            self._set_draw_mode(eraser=False)
+            self._set_status("Paste mode cancelled.")
+            return True
+        return False
+
+    def _load_clipboard_favorites(self):
+        loaded = self.clipboard.load_favorites()
+        if loaded:
+            self.copy_buffer = self.clipboard.get_active_pixels()
+            self._set_status(f"Loaded {loaded} clipboard favorite(s).", ttl_ms=1500)
+
+    def _save_clipboard_favorites(self):
+        if not self.clipboard.save_favorites():
+            self._set_status("Failed to save clipboard favorites.", ttl_ms=2400)
+
+    def _push_clipboard(self, pixels, favorite=False):
+        entry = self.clipboard.push(pixels=pixels, favorite=favorite)
+        if entry:
+            self.copy_buffer = self.clipboard.get_active_pixels()
+        return entry
+
+    def _activate_clipboard_entry(self, entry, activate_paste=False):
+        if not entry:
+            self._set_status("Clipboard is empty.")
+            return False
+        self.copy_buffer = self.clipboard.get_active_pixels()
+        if activate_paste:
+            self._set_paste_mode()
+        label = "favorite" if entry.favorite else "history"
+        self._set_status(
+            f"Selected {label} clipboard item ({self.clipboard.active_index + 1}/{len(self.clipboard.history)}).",
+            ttl_ms=1400,
+        )
+        return True
+
+    def select_previous_clipboard_item(self):
+        entry = self.clipboard.cycle(-1)
+        self._activate_clipboard_entry(entry, activate_paste=False)
+
+    def select_next_clipboard_item(self):
+        entry = self.clipboard.cycle(1)
+        self._activate_clipboard_entry(entry, activate_paste=False)
+
+    def toggle_current_clipboard_favorite(self):
+        entry = self.clipboard.toggle_active_favorite()
+        if not entry:
+            self._set_status("No clipboard item selected.")
+            return
+        self._save_clipboard_favorites()
+        self.buttons = self.create_buttons()
+        state = "favorited" if entry.favorite else "removed from favorites"
+        self._set_status(f"Clipboard item {state}.", ttl_ms=1400)
+
     def _configure_sliders(self):
-        slider_height = 20
-        slider_gap = 10
-        bottom_padding = 10
+        slider_height = config.EDITOR_SLIDER_HEIGHT
+        slider_gap = config.EDITOR_SLIDER_GAP
+        bottom_padding = config.EDITOR_SLIDER_BOTTOM_PADDING
         ref_slider_y = config.EDITOR_HEIGHT - bottom_padding - (slider_height * 2 + slider_gap)
-        ref_slider_x = 300
-        ref_slider_width = 150
-        brush_slider_x = 50
-        brush_slider_width = 200
+        ref_slider_x = config.EDITOR_REF_SLIDER_X
+        ref_slider_width = config.EDITOR_REF_SLIDER_WIDTH
+        brush_slider_x = config.EDITOR_BRUSH_SLIDER_X
+        brush_slider_width = config.EDITOR_BRUSH_SLIDER_WIDTH
 
         self.brush_slider = pygame.Rect(brush_slider_x, ref_slider_y, brush_slider_width, slider_height)
 
         self.ref_alpha_slider_rect = pygame.Rect(ref_slider_x, ref_slider_y, ref_slider_width, slider_height)
-        ref_knob_slider_width = self.ref_alpha_slider_rect.width - 10
+        ref_knob_slider_width = self.ref_alpha_slider_rect.width - config.EDITOR_SLIDER_KNOB_WIDTH
         initial_ref_knob_x = self.ref_alpha_slider_rect.x + int((self.reference_alpha / 255) * ref_knob_slider_width)
-        self.ref_alpha_knob_rect = pygame.Rect(initial_ref_knob_x, ref_slider_y, 10, slider_height)
+        self.ref_alpha_knob_rect = pygame.Rect(initial_ref_knob_x, ref_slider_y, config.EDITOR_SLIDER_KNOB_WIDTH, slider_height)
 
         subj_slider_y = ref_slider_y + slider_height + slider_gap
         self.subj_alpha_slider_rect = pygame.Rect(ref_slider_x, subj_slider_y, ref_slider_width, slider_height)
-        subj_knob_slider_width = self.subj_alpha_slider_rect.width - 10
+        subj_knob_slider_width = self.subj_alpha_slider_rect.width - config.EDITOR_SLIDER_KNOB_WIDTH
         initial_subj_knob_x = self.subj_alpha_slider_rect.x + int((self.subject_alpha / 255) * subj_knob_slider_width)
-        self.subj_alpha_knob_rect = pygame.Rect(initial_subj_knob_x, subj_slider_y, 10, slider_height)
+        self.subj_alpha_knob_rect = pygame.Rect(initial_subj_knob_x, subj_slider_y, config.EDITOR_SLIDER_KNOB_WIDTH, slider_height)
 
     def choose_edit_mode(self):
         """
@@ -1364,9 +1477,9 @@ class Editor:
 
         bottom_limit = None
         if isinstance(getattr(self, "brush_slider", None), pygame.Rect):
-            bottom_limit = self.brush_slider.top - 10
+            bottom_limit = self.brush_slider.top - config.EDITOR_PANEL_PADDING
         if bottom_limit is None:
-            bottom_limit = config.EDITOR_HEIGHT - 60
+            bottom_limit = config.EDITOR_HEIGHT - (config.EDITOR_SLIDER_HEIGHT * 3)
         panel_height = max(0, bottom_limit - start_y)
         self.button_panel_rect = pygame.Rect(start_x, start_y, button_width, panel_height)
         self.button_scroll_step = button_height + padding
@@ -1434,14 +1547,16 @@ class Editor:
             list: A list of Button instances.
         """
         buttons = []
-        button_width = 100
-        button_height = 30
-        padding = 5
-        start_x = config.EDITOR_WIDTH - button_width - padding
-        start_y = 50
+        button_width = config.EDITOR_SIDE_BUTTON_WIDTH
+        button_height = config.EDITOR_SIDE_BUTTON_HEIGHT
+        padding = config.EDITOR_SIDE_BUTTON_PADDING
+        start_x = config.EDITOR_SIDE_BUTTON_START_X
+        start_y = config.EDITOR_SIDE_BUTTON_START_Y
         def _tool_active(name):
             tool_manager = getattr(self, "tool_manager", None)
             return tool_manager is not None and tool_manager.active_tool_name == name
+        def _clipboard_active():
+            return len(self.clipboard.history) > 0
 
         active_predicates = {
             "Eyedropper": lambda: _tool_active("eyedropper"),
@@ -1449,6 +1564,12 @@ class Editor:
             "Paste": lambda: _tool_active("paste"),
             "Select": lambda: self.mode == "select",
             "Eraser": lambda: _tool_active("draw") and self.eraser_mode,
+            "Hist Prev": _clipboard_active,
+            "Hist Next": _clipboard_active,
+            "Fav Clip": lambda: (
+                bool(self.clipboard.get_active_entry()) and bool(self.clipboard.get_active_entry().favorite)
+            ),
+            "Cancel Paste": lambda: _tool_active("paste"),
             "Edit Tiles": lambda: self.edit_mode == "tile" and self.asset_edit_target == "tile",
             "Edit NPCs": lambda: self.edit_mode == "tile" and self.asset_edit_target == "npc",
         }
@@ -1462,8 +1583,12 @@ class Editor:
             ("Select", self.toggle_selection_mode),
             ("Copy", self.copy_selection),
             ("Paste", self.paste_selection),
+            ("Hist Prev", self.select_previous_clipboard_item),
+            ("Hist Next", self.select_next_clipboard_item),
+            ("Fav Clip", self.toggle_current_clipboard_favorite),
             ("Mirror", self.mirror_selection),
             ("Rotate", self.rotate_selection),
+            ("Cancel Paste", self.cancel_paste_mode),
             ("Undo", self.undo),
             ("Redo", self.redo),
         ]
@@ -1596,107 +1721,61 @@ class Editor:
             print(f"Warning: Unknown edit mode '{self.edit_mode}' for clear operation.")
 
     def toggle_eraser(self):
-        """Toggle eraser mode (now handled by DrawTool state)."""
-        # If already draw tool, just toggle erase_mode
-        if self.tool_manager.active_tool_name == 'draw':
-             self.eraser_mode = not self.eraser_mode
-             print(f"Eraser mode: {self.eraser_mode}")
-             # Ensure other potentially conflicting modes are off
-             self.fill_mode = False 
-             self.paste_mode = False
-        else:
-             # If switching from another tool, activate draw tool and set erase mode
-             self.tool_manager.set_active_tool('draw')
-             self.eraser_mode = True
-             print(f"Eraser mode: {self.eraser_mode}")
-        # No longer need to manage select mode here, set_active_tool does it
+        """Toggle eraser mode using centralized tool-state transitions."""
+        enable_eraser = not (self.tool_manager.active_tool_name == 'draw' and self.eraser_mode)
+        self._set_draw_mode(eraser=enable_eraser)
+        self._set_status(f"Eraser {'enabled' if enable_eraser else 'disabled'}.", ttl_ms=1200)
 
     def toggle_fill(self):
         """Activate fill tool."""
-        # self.fill_mode = not self.fill_mode # OLD
-        # self.eraser_mode = False # OLD
-        # self.paste_mode = False # OLD
-        # if self.mode == 'select': # OLD
-        #     self.mode = 'draw' # OLD
-        #     self.selection.selecting = False # OLD
-        #     self.selection.active = False # OLD
-        # print(f"Fill mode: {self.fill_mode}") # OLD
-        self.tool_manager.set_active_tool('fill') # <<< NEW
-        # We might need flags like self.fill_mode if FillTool needs them?
-        # For now, assume activating the tool is sufficient.
-        # ToolManager.set_active_tool handles turning off other flags.
-        self.fill_mode = True # Keep flag for now until FillTool state is internal
-        self.eraser_mode = False
-        self.paste_mode = False
+        self._set_fill_mode()
+        self._set_status("Fill tool enabled.", ttl_ms=1200)
 
     def toggle_selection_mode(self):
-        """Toggle selection mode."""
-        # Selection is not yet a formal tool in ToolManager
-        # Keep existing logic for now
+        """Toggle selection mode with explicit transitions."""
         if self.mode == 'select':
-            self.mode = 'draw'
-            self.selection.selecting = False
-            self.selection.active = False
-            # Ensure draw tool is active when exiting select mode
-            self.tool_manager.set_active_tool('draw') 
-            print("Switched to Draw mode.")
+            self._exit_selection_mode(clear_selection=False)
+            self._set_status("Switched to draw mode.", ttl_ms=1200)
         else:
-            self.mode = 'select'
-            self.selection.toggle() # Activate selection tool logic
-            # Deactivate other tools implicitly by switching mode (handled by event handler checks)
-            self.eraser_mode = False
-            self.fill_mode = False
-            self.paste_mode = False
-            # Maybe explicitly deactivate the ToolManager's tool?
-            if self.tool_manager.active_tool:
-                 self.tool_manager.active_tool.deactivate(self)
-            print("Switched to Select mode.")
+            self._enter_selection_mode()
+            self._set_status("Switched to selection mode.", ttl_ms=1200)
 
     def copy_selection(self):
         """Copy the selected pixels to the buffer."""
-        if self.mode == 'select' and self.selection.active:
-            # Get the currently active sprite editor
+        if self.selection.active:
             sprite_editor = self.get_active_canvas()
             if not sprite_editor:
-                 print("Copy failed: Cannot find active sprite editor.")
-                 return
-                 
-            # Pass the sprite_editor instance
+                self._set_status("Copy failed: No active canvas.")
+                return
+
             self.copy_buffer = self.selection.get_selected_pixels(sprite_editor)
-            
             if self.copy_buffer:
-                 print(f"Copied {len(self.copy_buffer)} pixels.")
+                entry = self._push_clipboard(self.copy_buffer, favorite=False)
+                if entry:
+                    self._set_status(f"Copied {len(self.copy_buffer)} pixels.", ttl_ms=1200)
+                    self.buttons = self.create_buttons()
             else:
-                 print("Copy failed: No pixels selected or error getting pixels.")
+                self._set_status("Copy failed: Selection is empty.")
         else:
-            print("Copy failed: No active selection.")
+            self._set_status("Copy failed: No active selection.")
 
     def paste_selection(self):
         """Activate paste mode with the buffered pixels."""
         if self.copy_buffer:
-            # self.paste_mode = True # OLD
-            # self.mode = 'draw' # Exit select mode implicitly # OLD
-            # self.selection.active = False # OLD
-            # self.eraser_mode = False # OLD
-            # self.fill_mode = False # OLD
-            # print("Paste mode activated. Click to place.") # OLD
-            self.tool_manager.set_active_tool('paste') # <<< NEW
-            # Keep flags for now until PasteTool state is internal?
-            self.paste_mode = True 
-            self.eraser_mode = False
-            self.fill_mode = False
+            self._set_paste_mode()
+            self._set_status("Paste mode active. Click canvas to place. Esc to cancel.", ttl_ms=1800)
         else:
-            print("Paste failed: Copy buffer is empty.")
+            self._set_status("Paste failed: Clipboard is empty.")
 
     def mirror_selection(self):
         """Mirror the selected pixels horizontally in-place."""
-        if self.mode != 'select' or not self.selection.active:
-            print("Mirror failed: Make an active selection first.")
+        if not self.selection.active:
+            self._set_status("Mirror failed: make a selection first.")
             return
 
         sprite_editor = self.get_active_canvas()
         if not sprite_editor:
-            print("Mirror failed: Active sprite editor not found.")
+            self._set_status("Mirror failed: active canvas not found.")
             return
 
         self.save_state() # Save state before modifying
@@ -1707,27 +1786,23 @@ class Editor:
              original_area = sprite_editor.frame.subsurface(selection_rect)
              mirrored_area = pygame.transform.flip(original_area, True, False) # Flip horizontal
         except ValueError as e:
-             print(f"Error creating subsurface for mirroring: {e}")
+             self._set_status(f"Mirror failed: {e}")
              self.undo_stack.pop() # Remove the state we just saved
              return
 
-        # ---> ADD THIS LINE: Clear the original area first <---
         sprite_editor.frame.fill((*config.BLACK[:3], 0), selection_rect)
-
-        # Blit mirrored surface back onto the main frame
         sprite_editor.frame.blit(mirrored_area, selection_rect.topleft)
-        print("Selection mirrored.")
-        # Keep selection active
+        self._set_status("Selection mirrored.", ttl_ms=1200)
 
     def rotate_selection(self):
         """Rotate the selected pixels 90 degrees clockwise in-place."""
-        if self.mode != 'select' or not self.selection.active:
-            print("Rotate failed: Make an active selection first.")
+        if not self.selection.active:
+            self._set_status("Rotate failed: make a selection first.")
             return
 
         sprite_editor = self.get_active_canvas()
         if not sprite_editor:
-            print("Rotate failed: Active sprite editor not found.")
+            self._set_status("Rotate failed: active canvas not found.")
             return
 
         self.save_state() # Save state before modifying
@@ -1736,22 +1811,15 @@ class Editor:
         # Create a subsurface and rotate it
         try:
             original_area = sprite_editor.frame.subsurface(selection_rect)
-            # Rotating might change dimensions, so handle carefully
             rotated_area = pygame.transform.rotate(original_area, -90) # Clockwise
         except ValueError as e:
-            print(f"Error creating subsurface for rotation (maybe 0 size?): {e}")
+            self._set_status(f"Rotate failed: {e}")
             return
 
-        # Clear original area ONLY IF rotation doesn't change size AND it fits
-        # A simpler approach for now: Overwrite with rotated, centered.
-        # Clear original area first
         sprite_editor.frame.fill((*config.BLACK[:3], 0), selection_rect)
-
-        # Blit rotated surface back, centered in the original rect bounds
         blit_pos = rotated_area.get_rect(center=selection_rect.center)
         sprite_editor.frame.blit(rotated_area, blit_pos)
-        print("Selection rotated 90 degrees clockwise.")
-        # Keep selection active, rect might be slightly off if not square
+        self._set_status("Selection rotated clockwise.", ttl_ms=1200)
 
     def zoom_in(self):
         """Zoom in on the background canvas."""
@@ -1851,33 +1919,29 @@ class Editor:
         """Open the system's native color picker dialog using Tkinter."""
         tk_root = self._ensure_tkinter_root()
         if not tk_root:
-             print("Color picker unavailable. Eyedropper tool activated.")
-             self.activate_eyedropper()
-             return # Exit if root is still None
+            self._set_status("Color picker unavailable. Eyedropper enabled.", ttl_ms=2200)
+            self.activate_eyedropper()
+            return
 
         # Convert current color to Tkinter format (hex string)
         initial_color_hex = "#{:02x}{:02x}{:02x}".format(*self.current_color[:3])
 
         # Open the dialog, passing the global root as parent
         try:
-             # Use the fetched tk_root directly
-             chosen_color = colorchooser.askcolor(parent=tk_root, color=initial_color_hex, title="Select Color")
+            chosen_color = colorchooser.askcolor(parent=tk_root, color=initial_color_hex, title="Select Color")
         except tk.TclError as e:
-             print(f"Error opening native color picker: {e}")
-             chosen_color = None
-        except Exception as e: # Catch other potential errors
-             print(f"Unexpected error during color chooser: {e}")
-             chosen_color = None
-
-        # Bring Pygame window back to focus might be needed here too if dialog issues persist
+            self._set_status(f"Color picker error: {e}", ttl_ms=2200)
+            chosen_color = None
+        except Exception as e:
+            self._set_status(f"Color picker error: {e}", ttl_ms=2200)
+            chosen_color = None
 
         if chosen_color and chosen_color[1] is not None: 
             rgb, _ = chosen_color
-            new_color_rgba = (int(rgb[0]), int(rgb[1]), int(rgb[2]), 255) # Add full alpha
+            new_color_rgba = (int(rgb[0]), int(rgb[1]), int(rgb[2]), 255)
             self.select_color(new_color_rgba)
-            print(f"Color selected via native picker: {new_color_rgba}")
         else:
-            print("Color selection cancelled or failed.")
+            self._set_status("Color selection cancelled.", ttl_ms=1000)
 
     def _get_current_picker_color(self):
         # ... This method is now only relevant for a potential Pygame fallback ...
@@ -1899,20 +1963,9 @@ class Editor:
         """
         if color is not None:
             self.state.set_color(color)
-            self.eraser_mode = False # Keep? DrawTool uses this
-            self.fill_mode = False   # Keep? FillTool might need later?
-            self.paste_mode = False  # Explicitly set paste mode flag off
-            
-            # Switch back to draw tool if another tool was active
-            if self.tool_manager.active_tool_name != 'draw':
-                self.tool_manager.set_active_tool('draw')
-            
-            # Also ensure selection mode is off
-            if self.mode == 'select':
-                self.mode = 'draw' # Already handled by set_active_tool if needed
-                self.selection.selecting = False
-                self.selection.active = False
-            print(f"Selected color: {color}")
+            self._set_draw_mode(eraser=False)
+            self.selection.active = False
+            self._set_status(f"Selected color: {color}", ttl_ms=900)
 
     def activate_eyedropper(self):
         """Switch to the eyedropper tool."""
@@ -2388,6 +2441,52 @@ class Editor:
         loading_rect = loading_surf.get_rect(center=surface.get_rect().center)
         surface.blit(loading_surf, loading_rect)
 
+    def _draw_paste_preview(self, surface, sprite_editor):
+        if not sprite_editor:
+            return
+        if self.tool_manager.active_tool_name != 'paste' or not self.copy_buffer:
+            return
+        mouse_pos = pygame.mouse.get_pos()
+        grid_pos = sprite_editor.get_grid_position(mouse_pos)
+        if not grid_pos:
+            return
+
+        min_rel_x = 0
+        min_rel_y = 0
+        max_rel_x = 0
+        max_rel_y = 0
+        for rel_x, rel_y in self.copy_buffer:
+            min_rel_x = min(min_rel_x, rel_x)
+            min_rel_y = min(min_rel_y, rel_y)
+            max_rel_x = max(max_rel_x, rel_x)
+            max_rel_y = max(max_rel_y, rel_y)
+
+        for (rel_x, rel_y), color in self.copy_buffer.items():
+            if len(color) < 4 or color[3] <= 0:
+                continue
+            abs_x = grid_pos[0] + rel_x
+            abs_y = grid_pos[1] + rel_y
+            if not (0 <= abs_x < config.NATIVE_SPRITE_RESOLUTION[0] and 0 <= abs_y < config.NATIVE_SPRITE_RESOLUTION[1]):
+                continue
+            preview_color = (color[0], color[1], color[2], min(170, max(60, color[3])))
+            pixel_rect = pygame.Rect(
+                sprite_editor.position[0] + abs_x * config.EDITOR_PIXEL_SIZE,
+                sprite_editor.position[1] + abs_y * config.EDITOR_PIXEL_SIZE,
+                config.EDITOR_PIXEL_SIZE,
+                config.EDITOR_PIXEL_SIZE,
+            )
+            pygame.draw.rect(surface, preview_color, pixel_rect)
+
+        outline_rect = pygame.Rect(
+            sprite_editor.position[0] + (grid_pos[0] + min_rel_x) * config.EDITOR_PIXEL_SIZE,
+            sprite_editor.position[1] + (grid_pos[1] + min_rel_y) * config.EDITOR_PIXEL_SIZE,
+            (max_rel_x - min_rel_x + 1) * config.EDITOR_PIXEL_SIZE,
+            (max_rel_y - min_rel_y + 1) * config.EDITOR_PIXEL_SIZE,
+        )
+        pygame.draw.rect(surface, config.BLUE, outline_rect, 2)
+        hint_surf = self.font_small.render("Paste preview (Esc to cancel)", True, config.BLACK)
+        surface.blit(hint_surf, (outline_rect.x, max(0, outline_rect.y - 18)))
+
     def _draw_monster_ui(self, surface):
         for sprite_editor in self.sprites.values():
             sprite_editor.draw_background(surface)
@@ -2406,6 +2505,7 @@ class Editor:
         active_sprite_editor = self.sprites.get(self.current_sprite)
         if active_sprite_editor:
             active_sprite_editor.draw_highlight(surface, self.current_sprite)
+            self._draw_paste_preview(surface, active_sprite_editor)
         monster_name = "Unknown"
         if isinstance(self.monsters, list) and 0 <= self.current_monster_index < len(self.monsters):
             monster_name = self.monsters[self.current_monster_index].get('name', 'Unknown')
@@ -2458,6 +2558,7 @@ class Editor:
         )
         scaled_display.set_alpha(self.subject_alpha)
         surface.blit(scaled_display, self.tile_canvas.position)
+        self._draw_paste_preview(surface, self.tile_canvas)
         pygame.draw.rect(
             surface,
             config.SELECTION_HIGHLIGHT_COLOR,
@@ -2534,6 +2635,13 @@ class Editor:
                 midleft=(self.subj_alpha_slider_rect.right + 10, self.subj_alpha_slider_rect.centery),
             )
             surface.blit(subj_alpha_surf, subj_alpha_rect)
+
+        if self.status_message and pygame.time.get_ticks() <= self.status_message_expire_tick:
+            status_bg = pygame.Rect(20, config.EDITOR_HEIGHT - 34, config.EDITOR_WIDTH - 40, 24)
+            pygame.draw.rect(surface, config.WHITE, status_bg)
+            pygame.draw.rect(surface, config.BLACK, status_bg, 1)
+            status_surf = self.font_small.render(self.status_message, True, config.BLACK)
+            surface.blit(status_surf, (status_bg.x + 8, status_bg.y + 5))
 
     def draw_ui(self):
         """Draw the entire editor UI onto the screen."""

@@ -32,7 +32,16 @@ Notes:
 
 - Left click a move to execute it.
 
-There are no battle-specific keyboard shortcuts in the current implementation.
+### Visual hints
+
+- Type labels are shown under both HP bars.
+- Move buttons get a green border for super-effective hits and red for not-very-effective hits.
+
+### Audio
+
+- Background music plays from `songs/` when audio is available.
+- Battle events trigger SFX from `sounds/events/`.
+- If a move-specific file exists under `sounds/moves/<Move Name>.mp3|.wav`, it is used first.
 
 ## End-of-battle screen
 

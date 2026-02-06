@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import pygame
-from pygame.locals import MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP, KEYDOWN, QUIT, KMOD_META, KMOD_CTRL, KMOD_ALT, K_SPACE, K_z, K_y, K_c, K_v, K_RETURN, K_BACKSPACE, K_ESCAPE, K_UP, K_DOWN, K_m, MOUSEWHEEL
+from pygame.locals import MOUSEBUTTONDOWN, MOUSEMOTION, MOUSEBUTTONUP, KEYDOWN, QUIT, KMOD_META, KMOD_CTRL, KMOD_ALT, KMOD_SHIFT, K_SPACE, K_z, K_y, K_c, K_v, K_RETURN, K_BACKSPACE, K_ESCAPE, K_UP, K_DOWN, K_m, K_r, K_f, K_LEFTBRACKET, K_RIGHTBRACKET, MOUSEWHEEL
 from src.core import config
 # Import the Button class from editor_ui
 # from ..editor.editor_ui import Button, Palette # Relative import
@@ -566,11 +566,25 @@ class EventHandler:
             if event.key == K_m:
                 editor.mirror_selection()
                 return True
+            if event.key == K_r:
+                editor.rotate_selection()
+                return True
             if event.key == K_c and editor.mode == 'select':
                  editor.copy_selection()
                  return True
             if event.key == K_v:
+                 if event.mod & KMOD_SHIFT:
+                     editor.select_next_clipboard_item()
                  editor.paste_selection()
+                 return True
+            if event.key == K_LEFTBRACKET:
+                 editor.select_previous_clipboard_item()
+                 return True
+            if event.key == K_RIGHTBRACKET:
+                 editor.select_next_clipboard_item()
+                 return True
+            if event.key == K_f:
+                 editor.toggle_current_clipboard_favorite()
                  return True
             # Add other Ctrl/Cmd shortcuts (e.g., Save - K_s?)
             # if event.key == K_s:
@@ -580,6 +594,13 @@ class EventHandler:
         # Non-modifier key actions
         else:
             # --- Background Panning with Arrow Keys --- 
+            if event.key == K_ESCAPE:
+                if hasattr(editor, "cancel_paste_mode") and editor.cancel_paste_mode():
+                    return True
+                if editor.mode == 'select':
+                    editor._exit_selection_mode(clear_selection=False)
+                    return True
+
             if editor.edit_mode == 'background':
                 panned = False
                 if event.key == pygame.K_LEFT:

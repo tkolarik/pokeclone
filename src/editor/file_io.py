@@ -39,13 +39,19 @@ class FileIOManager:
     def load_backgrounds(self) -> List[Tuple[str, pygame.Surface]]:
         """Load available background images from the backgrounds directory."""
         backgrounds: List[Tuple[str, pygame.Surface]] = []
-        for filename in os.listdir(config.BACKGROUND_DIR):
+        try:
+            filenames = os.listdir(config.BACKGROUND_DIR)
+        except (FileNotFoundError, PermissionError, OSError) as e:
+            print(f"Error reading backgrounds directory '{config.BACKGROUND_DIR}': {e}")
+            return backgrounds
+
+        for filename in filenames:
             if filename.endswith(".png"):
                 path = os.path.join(config.BACKGROUND_DIR, filename)
                 try:
                     bg = pygame.image.load(path).convert_alpha()
                     backgrounds.append((filename, bg))
-                except pygame.error as e:
+                except (pygame.error, PermissionError, OSError) as e:
                     print(f"Failed to load background {filename}: {e}")
         return backgrounds
 
@@ -58,8 +64,9 @@ class FileIOManager:
         base_filename = os.path.basename(filename)
         full_path = os.path.join(config.BACKGROUND_DIR, base_filename)
         try:
+            os.makedirs(config.BACKGROUND_DIR, exist_ok=True)
             pygame.image.save(surface, full_path)
-        except pygame.error as e:
+        except (pygame.error, PermissionError, OSError) as e:
             print(f"Error saving background {full_path}: {e}")
             return None
         return full_path
@@ -73,7 +80,7 @@ class FileIOManager:
             path = os.path.join(config.BACKGROUND_DIR, filename_or_path)
         try:
             return pygame.image.load(path).convert_alpha()
-        except (pygame.error, FileNotFoundError) as e:
+        except (pygame.error, FileNotFoundError, PermissionError, OSError) as e:
             print(f"Error loading background {path}: {e}")
             return None
 
@@ -83,6 +90,6 @@ class FileIOManager:
             return None
         try:
             return pygame.image.load(file_path).convert_alpha()
-        except (pygame.error, FileNotFoundError) as e:
+        except (pygame.error, FileNotFoundError, PermissionError, OSError) as e:
             print(f"Error loading reference image {file_path}: {e}")
             return None

@@ -36,6 +36,17 @@
 
 ### Medium Priority
 
+* **[POKE-27] Draft Move Animation Pixel Art Editor Design Doc**
+    * **Type:** Feature
+    * **Priority:** Medium
+    * **Description:** Create a design doc for a move animation pixel art editor. Include quality-of-life features like frame onion-skinning (previous/next frame), reference images, and a draggable object/layer for positioning animation elements.
+    * **Acceptance Criteria:**
+        * Design doc exists under `docs/` describing scope, UX, data model, and integration points.
+        * Doc specifies QoL features: onion-skin/afterimage for frames, reference image support, and draggable object/layer positioning.
+        * Doc includes interaction details for timeline, playback, frame duplication, and export formats.
+        * **Automated:** Unit testing expectations are defined for any planned tooling logic (e.g., frame ordering, onion-skin toggles, drag transforms).
+    * **Labels:** `editor`, `design-doc`, `animation`, `ux`
+
 * ~~**[POKE-11] Improve Pixel Editor UI/UX Feedback**~~ **(Completed)**
     * **Type:** Improvement
     * **Priority:** Medium

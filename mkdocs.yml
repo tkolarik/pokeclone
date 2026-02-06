@@ -7,9 +7,12 @@ nav:
   - Main Menu: main-menu.md
   - Overworld: overworld.md
   - Battle Simulator: battle-simulator.md
+  - Battle AI: battle-ai.md
+  - Balance Pass (2026-02): battle-balance-pass-2026-02.md
   - Pixel Art Editor: pixel-art-editor.md
   - Map Editor: map-editor.md
   - World View: world-view.md
   - Design Docs:
     - Map Editor: map-editor-design.md
     - Overworld System: overworld-system-design.md
+    - Move Animation Editor: move-animation-editor-design.md

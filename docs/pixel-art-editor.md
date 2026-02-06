@@ -53,14 +53,17 @@ Mouse:
 These buttons appear in a vertical stack on the right.
 
 - Clear: clears the active canvas
-- Color Picker: open the OS color picker (Tk). On macOS it is disabled for stability.
+- Color Picker: open the OS color picker (Tk)
 - Eraser: toggle erase mode for draw tool
 - Fill: switch to fill tool
 - Select: toggle selection mode
 - Copy: copy selection (only works when a selection is active)
 - Paste: switch to paste tool (only when a copy buffer exists)
+- Hist Prev / Hist Next: cycle clipboard history
+- Fav Clip: toggle favorite on current clipboard item (persisted on disk)
 - Mirror: mirror the active selection horizontally
 - Rotate: rotate the active selection 90 degrees clockwise
+- Cancel Paste: exit paste mode without placing
 - Undo
 - Redo
 
@@ -70,7 +73,12 @@ These buttons appear in a vertical stack on the right.
 - Ctrl/Cmd+Y: Redo
 - Ctrl/Cmd+C: Copy selection (only in Select mode)
 - Ctrl/Cmd+V: Paste (uses the current copy buffer)
+- Ctrl/Cmd+Shift+V: advance clipboard history and paste
+- Ctrl/Cmd+[ / Ctrl/Cmd+]: previous/next clipboard history item
+- Ctrl/Cmd+F: toggle favorite for active clipboard entry
 - Ctrl/Cmd+M: Mirror selection
+- Ctrl/Cmd+R: Rotate selection
+- Esc: cancel paste mode or exit selection mode
 
 ## Mouse input (global)
 
@@ -201,6 +209,8 @@ Tiles mode has two sub-modes: **Edit Tiles** and **Edit NPCs**.
 Notes:
 - Clicking outside the canvas cancels selection in progress.
 - Copy/Paste/Mirror/Rotate only operate on the active canvas.
+- Paste mode supports repeated placement until cancelled (Esc or Cancel Paste).
+- A live paste preview is shown under the cursor while paste mode is active.
 
 ## Brush size display
 
