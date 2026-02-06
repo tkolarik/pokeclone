@@ -5,7 +5,8 @@ from typing import Any, Dict, List, Sequence, Tuple
 
 LEGACY_STAT_KEYS = ("max_hp", "attack", "defense")
 LEGACY_MOVES_KEY = "moves"
-CANONICAL_KEYS = ("name", "type", "base_stats", "move_pool", "learnset")
+LEGACY_MOVE_POOL_KEY = "move_pool"
+CANONICAL_KEYS = ("name", "type", "base_stats", "learnset")
 
 
 def _normalize_stat_value(value: Any, stat_name: str) -> int:
@@ -16,16 +17,16 @@ def _normalize_stat_value(value: Any, stat_name: str) -> int:
     return max(1, normalized)
 
 
-def _normalize_move_pool(values: Any) -> List[str]:
+def _normalize_move_list(values: Any, field_name: str) -> List[str]:
     if values is None:
         return []
     if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
-        raise ValueError("move_pool must be a list of move names.")
+        raise ValueError(f"{field_name} must be a list of move names.")
     ordered: List[str] = []
     seen = set()
     for value in values:
         if not isinstance(value, str):
-            raise ValueError(f"Invalid move name in move_pool: {value!r}")
+            raise ValueError(f"Invalid move name in {field_name}: {value!r}")
         name = value.strip()
         if not name or name in seen:
             continue
@@ -72,6 +73,30 @@ def _derived_learnset(move_pool: List[str]) -> List[Dict[str, Any]]:
     return [{"level": 1, "move": move} for move in move_pool]
 
 
+def derive_move_pool_from_learnset(learnset: Sequence[Dict[str, Any]]) -> List[str]:
+    ordered: List[str] = []
+    seen = set()
+    for entry in learnset:
+        if not isinstance(entry, dict):
+            continue
+        move_name = entry.get("move")
+        if isinstance(move_name, str):
+            normalized = move_name.strip()
+            if normalized and normalized not in seen:
+                seen.add(normalized)
+                ordered.append(normalized)
+        moves = entry.get("moves")
+        if isinstance(moves, Sequence) and not isinstance(moves, (str, bytes)):
+            for move in moves:
+                if not isinstance(move, str):
+                    continue
+                normalized = move.strip()
+                if normalized and normalized not in seen:
+                    seen.add(normalized)
+                    ordered.append(normalized)
+    return ordered
+
+
 def _normalize_base_stats(base_stats: Any) -> Dict[str, int]:
     if not isinstance(base_stats, dict):
         raise ValueError("base_stats must be an object.")
@@ -91,11 +116,10 @@ def normalize_monster(
     - name (str)
     - type (str)
     - base_stats ({max_hp, attack, defense})
-    - move_pool ([str])
     - learnset ([{level, move}])
 
-    Legacy duplicate fields (`max_hp`, `attack`, `defense`, `moves`) are supported
-    for backward compatibility and stripped from the normalized output.
+    Legacy duplicate fields (`max_hp`, `attack`, `defense`, `move_pool`, `moves`)
+    are supported for backward compatibility and stripped from the normalized output.
     """
     if not isinstance(monster, dict):
         raise ValueError(f"Monster record must be an object, got: {type(monster).__name__}")
@@ -144,47 +168,51 @@ def normalize_monster(
                 raise ValueError(message)
             warnings.append(message)
 
-    legacy_moves_present = LEGACY_MOVES_KEY in monster
-    if "move_pool" in monster and monster.get("move_pool") is not None:
-        move_pool = _normalize_move_pool(monster.get("move_pool"))
-    else:
-        move_pool = _normalize_move_pool(monster.get(LEGACY_MOVES_KEY, []))
-        if legacy_moves_present:
-            warnings.append(f"Monster '{name}' used legacy 'moves' field.")
-
-    if legacy_moves_present:
-        legacy_moves = _normalize_move_pool(monster.get(LEGACY_MOVES_KEY, []))
-        if legacy_moves != move_pool:
-            message = f"Monster '{name}' has conflicting duplicated move fields."
-            if strict_conflicts:
-                raise ValueError(message)
-            warnings.append(message)
-
+    learnset: List[Dict[str, Any]] = []
     raw_learnset = monster.get("learnset")
-    if raw_learnset:
+    if raw_learnset is not None:
         if not isinstance(raw_learnset, Sequence) or isinstance(raw_learnset, (str, bytes)):
             raise ValueError(f"Monster '{name}' has invalid learnset.")
         learnset = _expand_learnset_entries(raw_learnset)
-    else:
-        learnset = _derived_learnset(move_pool)
 
-    # Ensure move pool includes all learnset moves while preserving order.
-    seen = set(move_pool)
-    for entry in learnset:
-        move_name = entry["move"]
-        if move_name not in seen:
-            move_pool.append(move_name)
-            seen.add(move_name)
+    legacy_move_pool_present = LEGACY_MOVE_POOL_KEY in monster
+    legacy_moves_present = LEGACY_MOVES_KEY in monster
+    legacy_move_pool = _normalize_move_list(monster.get(LEGACY_MOVE_POOL_KEY), LEGACY_MOVE_POOL_KEY)
+    legacy_moves = _normalize_move_list(monster.get(LEGACY_MOVES_KEY), LEGACY_MOVES_KEY)
+
+    if legacy_move_pool and legacy_moves and legacy_move_pool != legacy_moves:
+        message = f"Monster '{name}' has conflicting duplicated legacy move fields."
+        if strict_conflicts:
+            raise ValueError(message)
+        warnings.append(message)
+
+    if not legacy_move_pool and legacy_moves:
+        legacy_move_pool = legacy_moves
+
+    if learnset:
+        canonical_move_pool = derive_move_pool_from_learnset(learnset)
+        if (legacy_move_pool_present or legacy_moves_present) and legacy_move_pool != canonical_move_pool:
+            message = f"Monster '{name}' has conflicting duplicated move progression fields."
+            if strict_conflicts:
+                raise ValueError(message)
+            warnings.append(message)
+        elif legacy_move_pool_present or legacy_moves_present:
+            warnings.append(f"Monster '{name}' included redundant legacy move fields.")
+    elif legacy_move_pool:
+        learnset = _derived_learnset(legacy_move_pool)
+        if legacy_move_pool_present:
+            warnings.append(f"Monster '{name}' used legacy 'move_pool' field.")
+        if legacy_moves_present:
+            warnings.append(f"Monster '{name}' used legacy 'moves' field.")
 
     normalized_monster: Dict[str, Any] = {
         "name": name,
         "type": monster_type,
         "base_stats": normalized_base_stats,
-        "move_pool": move_pool,
         "learnset": learnset,
     }
 
-    handled = set(CANONICAL_KEYS) | set(LEGACY_STAT_KEYS) | {LEGACY_MOVES_KEY}
+    handled = set(CANONICAL_KEYS) | set(LEGACY_STAT_KEYS) | {LEGACY_MOVES_KEY, LEGACY_MOVE_POOL_KEY}
     for key, value in monster.items():
         if key in handled:
             continue

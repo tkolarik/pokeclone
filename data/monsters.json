@@ -7,12 +7,6 @@
             "attack": 70,
             "defense": 60
         },
-        "move_pool": [
-            "Flame Burst",
-            "Ember Strike",
-            "Gale Force",
-            "Power Up"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -40,12 +34,6 @@
             "attack": 65,
             "defense": 65
         },
-        "move_pool": [
-            "Tsunami Blast",
-            "Water Rush",
-            "Frost Spike",
-            "Defend Up"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -73,12 +61,6 @@
             "attack": 75,
             "defense": 80
         },
-        "move_pool": [
-            "Seismic Slam",
-            "Stone Slide",
-            "Steel Tail",
-            "Break Guard"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -106,12 +88,6 @@
             "attack": 80,
             "defense": 55
         },
-        "move_pool": [
-            "Cyclone Slash",
-            "Wind Ace",
-            "Lightning Bolt",
-            "Weaken"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -139,12 +115,6 @@
             "attack": 75,
             "defense": 60
         },
-        "move_pool": [
-            "Volt Charge",
-            "Static Shock",
-            "Chrome Claw",
-            "Wind Cutter"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -172,12 +142,6 @@
             "attack": 65,
             "defense": 70
         },
-        "move_pool": [
-            "Glacial Beam",
-            "Frost Bite",
-            "Water Rush",
-            "Crystal Shard"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -205,12 +169,6 @@
             "attack": 70,
             "defense": 65
         },
-        "move_pool": [
-            "Solar Ray",
-            "Nature Storm",
-            "Venom Fang",
-            "Quake Fist"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -238,12 +196,6 @@
             "attack": 75,
             "defense": 65
         },
-        "move_pool": [
-            "Psi Blast",
-            "Mind Crush",
-            "Spirit Claw",
-            "Prism Strike"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -271,12 +223,6 @@
             "attack": 80,
             "defense": 55
         },
-        "move_pool": [
-            "Nightmare Strike",
-            "Shadow Pulse",
-            "Psychic Wave",
-            "Venom Strike"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -304,12 +250,6 @@
             "attack": 70,
             "defense": 70
         },
-        "move_pool": [
-            "Radiant Beam",
-            "Aurora Blast",
-            "Spark Blast",
-            "Crystal Shard"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -337,12 +277,6 @@
             "attack": 65,
             "defense": 85
         },
-        "move_pool": [
-            "Chrome Crusher",
-            "Metal Wing",
-            "Stone Slide",
-            "Lightning Bolt"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -370,12 +304,6 @@
             "attack": 75,
             "defense": 60
         },
-        "move_pool": [
-            "Toxic Bomb",
-            "Toxic Spray",
-            "Water Rush",
-            "Spirit Claw"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -403,12 +331,6 @@
             "attack": 80,
             "defense": 50
         },
-        "move_pool": [
-            "Resonance Wave",
-            "Echo Pulse",
-            "Psychic Wave",
-            "Wind Ace"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -436,12 +358,6 @@
             "attack": 65,
             "defense": 75
         },
-        "move_pool": [
-            "Diamond Storm",
-            "Gem Blast",
-            "Frost Spike",
-            "Radiant Beam"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -469,12 +385,6 @@
             "attack": 75,
             "defense": 65
         },
-        "move_pool": [
-            "Meteor Strike",
-            "Galactic Pulse",
-            "Psi Blast",
-            "Solar Flare"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -502,12 +412,6 @@
             "attack": 80,
             "defense": 65
         },
-        "move_pool": [
-            "Inferno Rush",
-            "Magma Surge",
-            "Terra Force",
-            "Chrome Claw"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -535,12 +439,6 @@
             "attack": 70,
             "defense": 75
         },
-        "move_pool": [
-            "Tidal Crash",
-            "Tsunami Blast",
-            "Frost Spike",
-            "Spirit Blast"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -568,12 +466,6 @@
             "attack": 75,
             "defense": 85
         },
-        "move_pool": [
-            "Terra Force",
-            "Quake Fist",
-            "Steel Tail",
-            "Venom Strike"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -601,12 +493,6 @@
             "attack": 85,
             "defense": 55
         },
-        "move_pool": [
-            "Tornado Spin",
-            "Gale Force",
-            "Lightning Bolt",
-            "Sound Wave"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -634,12 +520,6 @@
             "attack": 80,
             "defense": 60
         },
-        "move_pool": [
-            "Lightning Strike",
-            "Spark Blast",
-            "Metal Wing",
-            "Wind Cutter"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -667,12 +547,6 @@
             "attack": 70,
             "defense": 75
         },
-        "move_pool": [
-            "Cryo Blast",
-            "Hail Storm",
-            "Water Rush",
-            "Crystal Shard"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -700,12 +574,6 @@
             "attack": 75,
             "defense": 70
         },
-        "move_pool": [
-            "Thorn Barrage",
-            "Nature Dance",
-            "Venom Fang",
-            "Stone Slide"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -733,12 +601,6 @@
             "attack": 85,
             "defense": 60
         },
-        "move_pool": [
-            "Telekinetic Throw",
-            "Brain Shock",
-            "Spirit Claw",
-            "Gem Blast"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -766,12 +628,6 @@
             "attack": 85,
             "defense": 60
         },
-        "move_pool": [
-            "Void Blast",
-            "Umbra Slash",
-            "Psychic Wave",
-            "Toxic Surge"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -799,12 +655,6 @@
             "attack": 75,
             "defense": 75
         },
-        "move_pool": [
-            "Solar Flare",
-            "Luminous Burst",
-            "Spark Blast",
-            "Psychic Wave"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -832,12 +682,6 @@
             "attack": 70,
             "defense": 90
         },
-        "move_pool": [
-            "Steel Burst",
-            "Chrome Claw",
-            "Rock Pierce",
-            "Volt Charge"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -865,12 +709,6 @@
             "attack": 80,
             "defense": 55
         },
-        "move_pool": [
-            "Toxic Surge",
-            "Venom Fang",
-            "Wind Cutter",
-            "Spirit Claw"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -898,12 +736,6 @@
             "attack": 85,
             "defense": 55
         },
-        "move_pool": [
-            "Howl Cannon",
-            "Screech Blast",
-            "Spark Blast",
-            "Psychic Wave"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -931,12 +763,6 @@
             "attack": 70,
             "defense": 80
         },
-        "move_pool": [
-            "Prism Beam",
-            "Quartz Rush",
-            "Frost Spike",
-            "Radiant Beam"
-        ],
         "learnset": [
             {
                 "level": 1,
@@ -964,12 +790,6 @@
             "attack": 80,
             "defense": 70
         },
-        "move_pool": [
-            "Nebula Burst",
-            "Star Shower",
-            "Psi Blast",
-            "Intimidate"
-        ],
         "learnset": [
             {
                 "level": 1,

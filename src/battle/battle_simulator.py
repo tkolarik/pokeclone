@@ -22,24 +22,12 @@ from src.battle.engine import (
     scale_stat as engine_scale_stat,
     scale_stats as engine_scale_stats,
 )
-from src.core.monster_schema import normalize_monster
+from src.core.monster_schema import derive_move_pool_from_learnset, normalize_monster
 
-# Initialize Pygame
-pygame.init()
-AUDIO_ENABLED = True
-try:
-    pygame.mixer.init()
-except pygame.error as e:
-    AUDIO_ENABLED = False
-    print(f"Warning: Audio mixer unavailable: {e}")
-
-# Screen dimensions from config
-# WIDTH, HEIGHT = 1200, 600
-SCREEN = pygame.display.set_mode((config.BATTLE_WIDTH, config.BATTLE_HEIGHT))
-pygame.display.set_caption("Battle Simulator")
-
-# Font from config
-FONT = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE)
+AUDIO_ENABLED = False
+_AUDIO_INIT_ATTEMPTED = False
+SCREEN = None
+FONT = None
 
 _SFX_CACHE = {}
 
@@ -51,6 +39,44 @@ try:
         type_chart = json.load(f)
 except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
     print(f"Warning: failed to load type chart '{type_chart_path}': {e}")
+
+
+def initialize_battle_runtime():
+    global SCREEN
+    if not pygame.get_init():
+        pygame.init()
+    if SCREEN is None:
+        SCREEN = pygame.display.set_mode((config.BATTLE_WIDTH, config.BATTLE_HEIGHT))
+        pygame.display.set_caption("Battle Simulator")
+    _get_font()
+    _initialize_audio()
+
+
+def _initialize_audio():
+    global AUDIO_ENABLED, _AUDIO_INIT_ATTEMPTED
+    if _AUDIO_INIT_ATTEMPTED:
+        return AUDIO_ENABLED
+    _AUDIO_INIT_ATTEMPTED = True
+    try:
+        pygame.mixer.init()
+        AUDIO_ENABLED = True
+    except pygame.error as e:
+        AUDIO_ENABLED = False
+        print(f"Warning: Audio mixer unavailable: {e}")
+    return AUDIO_ENABLED
+
+
+def _get_screen():
+    if SCREEN is None:
+        initialize_battle_runtime()
+    return SCREEN
+
+
+def _get_font():
+    global FONT
+    if FONT is None:
+        FONT = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE)
+    return FONT
 
 
 def _is_audio_ready():
@@ -119,7 +145,7 @@ def normalize_base_stats(monster):
 
 def normalize_move_pool(monster):
     normalized, _warnings = normalize_monster(monster, strict_conflicts=False)
-    return list(normalized["move_pool"])
+    return derive_move_pool_from_learnset(normalized["learnset"])
 
 def normalize_learnset(monster, move_pool):
     normalized, _warnings = normalize_monster(monster, strict_conflicts=False)
@@ -210,8 +236,8 @@ def load_creatures(moves_dict=None):
         sprite_path = os.path.join(config.SPRITE_DIR, f"{normalized_monster['name']}_front.png")
         sprite = create_sprite_from_file(sprite_path)
         base_stats = normalized_monster["base_stats"]
-        move_pool = normalized_monster["move_pool"]
         learnset = normalized_monster["learnset"]
+        move_pool = derive_move_pool_from_learnset(learnset)
         level = config.MIN_MONSTER_LEVEL
         scaled_stats = scale_stats(base_stats, level)
         moves = build_moves_for_level(learnset, level, moves_dict)
@@ -290,8 +316,11 @@ def create_battle_creature(template, level, moves_dict, sprite):
         "attack": template.attack,
         "defense": template.defense,
     })
-    move_pool = getattr(template, "move_pool", [move.name for move in template.moves])
-    learnset = getattr(template, "learnset", [{"level": 1, "move": move} for move in move_pool])
+    learnset = getattr(template, "learnset", None)
+    if not learnset:
+        legacy_pool = getattr(template, "move_pool", [move.name for move in template.moves])
+        learnset = [{"level": 1, "move": move} for move in legacy_pool]
+    move_pool = derive_move_pool_from_learnset(learnset)
     scaled_stats = scale_stats(base_stats, level)
     moves = build_moves_for_level(learnset, level, moves_dict)
     return Creature(
@@ -334,7 +363,9 @@ class Button:
         return False
 
 def draw_battle(creature1, creature2, buttons, background):
-    SCREEN.blit(background, (0, 0))
+    screen = _get_screen()
+    font = _get_font()
+    screen.blit(background, (0, 0))
 
     display_size = config.BATTLE_SPRITE_DISPLAY_SIZE
 
@@ -346,8 +377,8 @@ def draw_battle(creature1, creature2, buttons, background):
     opponent_x = config.BATTLE_WIDTH - config.BATTLE_OPPONENT_SPRITE_X_MARGIN - display_size[0]
     opponent_y = config.BATTLE_OPPONENT_SPRITE_BASELINE_Y - display_size[1]
 
-    SCREEN.blit(creature1_display_sprite, (player_x, player_y))
-    SCREEN.blit(creature2_display_sprite, (opponent_x, opponent_y))
+    screen.blit(creature1_display_sprite, (player_x, player_y))
+    screen.blit(creature2_display_sprite, (opponent_x, opponent_y))
 
     # Draw HP bars
     hp_bar_width = config.BATTLE_HP_BAR_WIDTH
@@ -355,24 +386,24 @@ def draw_battle(creature1, creature2, buttons, background):
     hp_left_x = config.BATTLE_HP_BAR_MARGIN_X
     hp_right_x = config.BATTLE_WIDTH - config.BATTLE_HP_BAR_MARGIN_X - hp_bar_width
     hp_y = config.BATTLE_HP_BAR_Y
-    pygame.draw.rect(SCREEN, config.BLACK, (hp_left_x, hp_y, hp_bar_width, hp_bar_height))
+    pygame.draw.rect(screen, config.BLACK, (hp_left_x, hp_y, hp_bar_width, hp_bar_height))
     pygame.draw.rect(
-        SCREEN,
+        screen,
         config.HP_BAR_COLOR,
         (hp_left_x, hp_y, hp_bar_width * (creature1.current_hp / creature1.max_hp), hp_bar_height),
     )
-    pygame.draw.rect(SCREEN, config.BLACK, (hp_right_x, hp_y, hp_bar_width, hp_bar_height))
+    pygame.draw.rect(screen, config.BLACK, (hp_right_x, hp_y, hp_bar_width, hp_bar_height))
     pygame.draw.rect(
-        SCREEN,
+        screen,
         config.HP_BAR_COLOR,
         (hp_right_x, hp_y, hp_bar_width * (creature2.current_hp / creature2.max_hp), hp_bar_height),
     )
 
     # Draw names and HP
-    name1 = FONT.render(f"{creature1.name} Lv{creature1.level} HP: {creature1.current_hp}/{creature1.max_hp}", True, config.BLACK)
-    name2 = FONT.render(f"{creature2.name} Lv{creature2.level} HP: {creature2.current_hp}/{creature2.max_hp}", True, config.BLACK)
-    SCREEN.blit(name1, (hp_left_x, config.BATTLE_NAME_Y))
-    SCREEN.blit(name2, (hp_right_x, config.BATTLE_NAME_Y))
+    name1 = font.render(f"{creature1.name} Lv{creature1.level} HP: {creature1.current_hp}/{creature1.max_hp}", True, config.BLACK)
+    name2 = font.render(f"{creature2.name} Lv{creature2.level} HP: {creature2.current_hp}/{creature2.max_hp}", True, config.BLACK)
+    screen.blit(name1, (hp_left_x, config.BATTLE_NAME_Y))
+    screen.blit(name2, (hp_right_x, config.BATTLE_NAME_Y))
 
     # Draw type labels under HP bars
     type_font_size = max(config.BATTLE_TYPE_FONT_MIN, config.BATTLE_FONT_SIZE - config.BATTLE_TYPE_FONT_OFFSET)
@@ -380,21 +411,21 @@ def draw_battle(creature1, creature2, buttons, background):
     type1 = type_font.render(f"Type: {creature1.type}", True, config.BLACK)
     type2 = type_font.render(f"Type: {creature2.type}", True, config.BLACK)
     type_y = config.BATTLE_TYPE_LABEL_Y
-    SCREEN.blit(type1, (hp_left_x, type_y))
-    SCREEN.blit(type2, (hp_right_x, type_y))
+    screen.blit(type1, (hp_left_x, type_y))
+    screen.blit(type2, (hp_right_x, type_y))
 
     # Draw attack and defense stats
     attack_y = type_y + type_font_size + config.BATTLE_TYPE_TO_STATS_GAP
     defense_y = attack_y + config.BATTLE_STATS_VERTICAL_GAP
-    attack1 = FONT.render(f"ATK: {creature1.attack}", True, config.BLACK)
-    defense1 = FONT.render(f"DEF: {creature1.defense}", True, config.BLACK)
-    attack2 = FONT.render(f"ATK: {creature2.attack}", True, config.BLACK)
-    defense2 = FONT.render(f"DEF: {creature2.defense}", True, config.BLACK)
+    attack1 = font.render(f"ATK: {creature1.attack}", True, config.BLACK)
+    defense1 = font.render(f"DEF: {creature1.defense}", True, config.BLACK)
+    attack2 = font.render(f"ATK: {creature2.attack}", True, config.BLACK)
+    defense2 = font.render(f"DEF: {creature2.defense}", True, config.BLACK)
     
-    SCREEN.blit(attack1, (hp_left_x, attack_y))
-    SCREEN.blit(defense1, (hp_left_x, defense_y))
-    SCREEN.blit(attack2, (hp_right_x, attack_y))
-    SCREEN.blit(defense2, (hp_right_x, defense_y))
+    screen.blit(attack1, (hp_left_x, attack_y))
+    screen.blit(defense1, (hp_left_x, defense_y))
+    screen.blit(attack2, (hp_right_x, attack_y))
+    screen.blit(defense2, (hp_right_x, defense_y))
 
     # Draw move buttons (smaller and at the bottom)
     button_width = config.BATTLE_MOVE_BUTTON_WIDTH
@@ -409,27 +440,35 @@ def draw_battle(creature1, creature2, buttons, background):
         button.rect.y = start_y
         button.rect.width = button_width
         button.rect.height = button_height
-        button.draw(SCREEN)
+        button.draw(screen)
         move = getattr(button, "action", None)
         if move and getattr(move, "type", None):
             effectiveness = type_chart.get(move.type, {}).get(creature2.type, 1)
             if effectiveness > 1:
-                pygame.draw.rect(SCREEN, config.GREEN, button.rect, config.BATTLE_EFFECT_OUTLINE_WIDTH)
+                pygame.draw.rect(screen, config.GREEN, button.rect, config.BATTLE_EFFECT_OUTLINE_WIDTH)
             elif effectiveness < 1:
-                pygame.draw.rect(SCREEN, config.RED, button.rect, config.BATTLE_EFFECT_OUTLINE_WIDTH)
+                pygame.draw.rect(screen, config.RED, button.rect, config.BATTLE_EFFECT_OUTLINE_WIDTH)
 
     if not buttons:
-        fallback_text = FONT.render(
+        fallback_text = font.render(
             f"No moves available: {ENGINE_NO_MOVE_FALLBACK_NAME} is used automatically.",
             True,
             config.BLACK,
         )
-        fallback_rect = fallback_text.get_rect(
-            center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT - config.BATTLE_MOVE_BUTTON_BOTTOM_MARGIN - 20)
+        fallback_center = (
+            config.BATTLE_WIDTH // 2,
+            config.BATTLE_HEIGHT - config.BATTLE_MOVE_BUTTON_BOTTOM_MARGIN - 20,
         )
-        SCREEN.blit(fallback_text, fallback_rect)
+        if hasattr(fallback_text, "get_rect"):
+            fallback_rect = fallback_text.get_rect(center=fallback_center)
+            screen.blit(fallback_text, fallback_rect)
+        else:
+            screen.blit(fallback_text, fallback_center)
 
-    pygame.display.flip()
+    try:
+        pygame.display.flip()
+    except pygame.error:
+        pass
 
 def opponent_choose_move(attacker, defender):
     return engine_opponent_choose_move(
@@ -488,24 +527,26 @@ def load_random_background():
     return default_bg
 
 def prompt_for_level(prompt_text, default_level):
+    screen = _get_screen()
+    font = _get_font()
     input_text = ""
     hint_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - config.BATTLE_AUX_FONT_OFFSET)
     clock = pygame.time.Clock()
 
     while True:
-        SCREEN.fill(config.BATTLE_BG_COLOR)
-        prompt_surf = FONT.render(prompt_text, True, config.BLACK)
+        screen.fill(config.BATTLE_BG_COLOR)
+        prompt_surf = font.render(prompt_text, True, config.BLACK)
         prompt_rect = prompt_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT // 2 - 60))
-        SCREEN.blit(prompt_surf, prompt_rect)
+        screen.blit(prompt_surf, prompt_rect)
 
         value_text = input_text if input_text else str(default_level)
-        value_surf = FONT.render(f"Level: {value_text}", True, config.BLACK)
+        value_surf = font.render(f"Level: {value_text}", True, config.BLACK)
         value_rect = value_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT // 2))
-        SCREEN.blit(value_surf, value_rect)
+        screen.blit(value_surf, value_rect)
 
         hint_surf = hint_font.render("Enter = confirm, Esc = default", True, config.GRAY_DARK)
         hint_rect = hint_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT // 2 + 50))
-        SCREEN.blit(hint_surf, hint_rect)
+        screen.blit(hint_surf, hint_rect)
 
         pygame.display.flip()
 
@@ -527,24 +568,26 @@ def prompt_for_level(prompt_text, default_level):
         clock.tick(config.FPS)
 
 def prompt_for_team_size(prompt_text, default_size, max_size):
+    screen = _get_screen()
+    font = _get_font()
     input_text = ""
     hint_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - config.BATTLE_AUX_FONT_OFFSET)
     clock = pygame.time.Clock()
 
     while True:
-        SCREEN.fill(config.BATTLE_BG_COLOR)
-        prompt_surf = FONT.render(prompt_text, True, config.BLACK)
+        screen.fill(config.BATTLE_BG_COLOR)
+        prompt_surf = font.render(prompt_text, True, config.BLACK)
         prompt_rect = prompt_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT // 2 - 60))
-        SCREEN.blit(prompt_surf, prompt_rect)
+        screen.blit(prompt_surf, prompt_rect)
 
         value_text = input_text if input_text else str(default_size)
-        value_surf = FONT.render(f"Team size: {value_text}", True, config.BLACK)
+        value_surf = font.render(f"Team size: {value_text}", True, config.BLACK)
         value_rect = value_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT // 2))
-        SCREEN.blit(value_surf, value_rect)
+        screen.blit(value_surf, value_rect)
 
         hint_surf = hint_font.render("Enter = confirm, Esc = default", True, config.GRAY_DARK)
         hint_rect = hint_surf.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT // 2 + 50))
-        SCREEN.blit(hint_surf, hint_rect)
+        screen.blit(hint_surf, hint_rect)
 
         pygame.display.flip()
 
@@ -572,6 +615,8 @@ def prompt_for_team_size(prompt_text, default_size, max_size):
 def select_team(creatures, team_size):
     if not creatures:
         return []
+    screen = _get_screen()
+    font = _get_font()
     grid_cols = config.BATTLE_TEAM_GRID_COLS
     grid_rows = config.BATTLE_TEAM_GRID_ROWS
     per_page = grid_cols * grid_rows
@@ -607,12 +652,12 @@ def select_team(creatures, team_size):
     )
 
     while True:
-        SCREEN.fill(config.BATTLE_BG_COLOR)
-        title = FONT.render(f"Pick up to {team_size} monsters", True, config.BLACK)
-        SCREEN.blit(title, (config.BATTLE_WIDTH // 2 - title.get_width() // 2, config.BATTLE_TEAM_TITLE_Y))
+        screen.fill(config.BATTLE_BG_COLOR)
+        title = font.render(f"Pick up to {team_size} monsters", True, config.BLACK)
+        screen.blit(title, (config.BATTLE_WIDTH // 2 - title.get_width() // 2, config.BATTLE_TEAM_TITLE_Y))
 
         page_info = info_font.render(f"Page {current_page + 1}/{total_pages}", True, config.BLACK)
-        SCREEN.blit(
+        screen.blit(
             page_info,
             (
                 config.BATTLE_WIDTH // 2 - page_info.get_width() // 2,
@@ -622,7 +667,7 @@ def select_team(creatures, team_size):
 
         selected_text = ", ".join(selected_names) if selected_names else "None"
         selected_label = info_font.render(f"Selected ({len(selected_names)}/{team_size}): {selected_text}", True, config.BLACK)
-        SCREEN.blit(selected_label, (config.BATTLE_TEAM_SELECTED_TEXT_X, config.BATTLE_TEAM_SELECTED_Y))
+        screen.blit(selected_label, (config.BATTLE_TEAM_SELECTED_TEXT_X, config.BATTLE_TEAM_SELECTED_Y))
 
         buttons = []
         start_idx = current_page * per_page
@@ -638,25 +683,25 @@ def select_team(creatures, team_size):
             y = start_y + row * (button_height + button_spacing)
             button = Button((x, y, button_width, button_height), creature.name, action=creature)
             buttons.append(button)
-            button.draw(SCREEN)
+            button.draw(screen)
 
             if creature.name in selected_names:
                 pygame.draw.rect(
-                    SCREEN,
+                    screen,
                     config.GREEN,
                     button.rect,
                     config.BATTLE_TEAM_SELECTED_BORDER_WIDTH,
                 )
             elif i == selected_index:
                 pygame.draw.rect(
-                    SCREEN,
+                    screen,
                     config.RED,
                     button.rect,
                     config.BATTLE_TEAM_FOCUS_BORDER_WIDTH,
                 )
 
             creature_sprite = pygame.transform.scale(creature.sprite, config.BATTLE_TEAM_SPRITE_SIZE)
-            SCREEN.blit(
+            screen.blit(
                 creature_sprite,
                 (
                     x + config.BATTLE_TEAM_SPRITE_LEFT_PADDING,
@@ -664,8 +709,8 @@ def select_team(creatures, team_size):
                 ),
             )
 
-        done_button.draw(SCREEN)
-        clear_button.draw(SCREEN)
+        done_button.draw(screen)
+        clear_button.draw(screen)
         pygame.display.flip()
 
         for event in pygame.event.get():
@@ -745,6 +790,8 @@ def _announce_turn(actor, defender, move, damage):
 
 
 def battle(creature1, creature2, show_end_menu=True):
+    screen = _get_screen()
+    font = _get_font()
     clock = pygame.time.Clock()
     engine = BattleEngine(creature1, creature2, type_chart=type_chart, rng=random)
 
@@ -766,7 +813,7 @@ def battle(creature1, creature2, show_end_menu=True):
     background = load_random_background()
 
     while True:
-        SCREEN.fill(config.BATTLE_BG_COLOR)
+        screen.fill(config.BATTLE_BG_COLOR)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -817,8 +864,8 @@ def battle(creature1, creature2, show_end_menu=True):
             winner = engine.winner
             winner_name = creature1.name if winner == "player" else creature2.name
             play_battle_sfx("victory" if winner == "player" else "defeat")
-            message = FONT.render(f"{winner_name} wins!", True, config.BLACK)
-            SCREEN.blit(message, (config.BATTLE_WIDTH // 2 - message.get_width() // 2, config.BATTLE_HEIGHT // 2 - message.get_height() // 2))
+            message = font.render(f"{winner_name} wins!", True, config.BLACK)
+            screen.blit(message, (config.BATTLE_WIDTH // 2 - message.get_width() // 2, config.BATTLE_HEIGHT // 2 - message.get_height() // 2))
             pygame.display.flip()
             pygame.time.delay(
                 config.BATTLE_END_DELAY_NO_MENU_MS if not show_end_menu else config.BATTLE_END_DELAY_WITH_MENU_MS
@@ -831,14 +878,15 @@ def battle(creature1, creature2, show_end_menu=True):
         clock.tick(config.FPS)
 
 def show_end_options():
+    screen = _get_screen()
     # Center buttons on battle screen dimensions
     new_battle_button = Button((config.BATTLE_WIDTH // 2 - 150, config.BATTLE_HEIGHT // 2 - 60, 300, 50), "New Battle")
     quit_button = Button((config.BATTLE_WIDTH // 2 - 150, config.BATTLE_HEIGHT // 2 + 10, 300, 50), "Quit")
 
     while True:
-        SCREEN.fill(config.BATTLE_BG_COLOR)
-        new_battle_button.draw(SCREEN)
-        quit_button.draw(SCREEN)
+        screen.fill(config.BATTLE_BG_COLOR)
+        new_battle_button.draw(screen)
+        quit_button.draw(screen)
         pygame.display.flip()
 
         for event in pygame.event.get():
@@ -851,6 +899,8 @@ def show_end_options():
                     return False
 
 def main():
+    initialize_battle_runtime()
+    font = _get_font()
     moves_dict = load_moves()
     creatures = load_creatures(moves_dict)
     if len(creatures) < 2:
@@ -909,9 +959,10 @@ def main():
                 player_index += 1
 
         final_winner = "player" if player_index < len(player_team) else "opponent"
-        end_message = FONT.render(f"{final_winner.title()} team wins!", True, config.BLACK)
-        SCREEN.fill(config.BATTLE_BG_COLOR)
-        SCREEN.blit(end_message, (config.BATTLE_WIDTH // 2 - end_message.get_width() // 2, config.BATTLE_HEIGHT // 2 - end_message.get_height() // 2))
+        end_message = font.render(f"{final_winner.title()} team wins!", True, config.BLACK)
+        screen = _get_screen()
+        screen.fill(config.BATTLE_BG_COLOR)
+        screen.blit(end_message, (config.BATTLE_WIDTH // 2 - end_message.get_width() // 2, config.BATTLE_HEIGHT // 2 - end_message.get_height() // 2))
         pygame.display.flip()
         pygame.time.delay(config.BATTLE_FINAL_MESSAGE_DELAY_MS)
 

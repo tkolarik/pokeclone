@@ -4,7 +4,11 @@ import os
 import pygame
 
 from src.core import config
-from src.core.monster_schema import normalize_monster, normalize_monsters
+from src.core.monster_schema import (
+    derive_move_pool_from_learnset,
+    normalize_monster,
+    normalize_monsters,
+)
 from src.editor.editor_ui import Button
 
 LIST_PANEL_WIDTH = 320
@@ -174,6 +178,11 @@ def parse_learnset(text, move_names, move_pool):
     return entries, unknown, invalid
 
 
+def derive_move_pool(monster):
+    learnset = monster.get("learnset", [])
+    return derive_move_pool_from_learnset(learnset)
+
+
 def summarize_learnset(learnset):
     parts = []
     for entry in learnset:
@@ -226,7 +235,7 @@ def draw_monster_details(screen, monster, font, small_font, detail_rect):
     name = monster.get("name", "Unknown")
     type_ = monster.get("type", "Unknown")
     base_stats = monster.get("base_stats", {})
-    move_pool = monster.get("move_pool", [])
+    move_pool = derive_move_pool(monster)
     learnset = monster.get("learnset", [])
 
     y = detail_rect.top
@@ -247,7 +256,7 @@ def draw_monster_details(screen, monster, font, small_font, detail_rect):
     screen.blit(stats_surf, (detail_rect.left, y))
     y += small_font.get_height() + 12
 
-    moves_title = small_font.render("Move Pool:", True, config.BLACK)
+    moves_title = small_font.render("Derived Move Pool:", True, config.BLACK)
     screen.blit(moves_title, (detail_rect.left, y))
     y += small_font.get_height() + 4
 
@@ -297,7 +306,7 @@ def main():
     buttons = [
         Button((right_panel_x, button_y, button_width, button_height), "Edit Type", action="edit_type"),
         Button((right_panel_x + button_width + button_spacing, button_y, button_width, button_height), "Edit Base Stats", action="edit_stats"),
-        Button((right_panel_x, button_y + button_height + button_spacing, button_width, button_height), "Edit Move Pool", action="edit_moves"),
+        Button((right_panel_x, button_y + button_height + button_spacing, button_width, button_height), "Edit Lv1 Moves", action="edit_moves"),
         Button((right_panel_x + button_width + button_spacing, button_y + button_height + button_spacing, button_width, button_height), "Edit Learnset", action="edit_learnset"),
         Button((right_panel_x, button_y + (button_height + button_spacing) * 2, button_width, button_height), "Save", action="save"),
         Button((right_panel_x + button_width + button_spacing, button_y + (button_height + button_spacing) * 2, button_width, button_height), "Back", action="back"),
@@ -395,14 +404,14 @@ def main():
                             selected_monster["base_stats"]["attack"] = max(1, int(atk_text))
                             selected_monster["base_stats"]["defense"] = max(1, int(def_text))
                         elif action == "edit_moves":
-                            current_pool = ", ".join(selected_monster.get("move_pool", []))
+                            current_pool = ", ".join(derive_move_pool(selected_monster))
                             result = prompt_text(screen, "Move pool (comma-separated)", current_pool)
                             if result is None:
                                 continue
                             new_pool, unknown = parse_move_pool(result, move_names)
                             if new_pool:
-                                selected_monster["move_pool"] = new_pool
                                 selected_monster["learnset"] = [{"level": 1, "move": move} for move in new_pool]
+                                selected_monster.pop("move_pool", None)
                             if unknown:
                                 status_message = f"Unknown moves ignored: {', '.join(unknown)}"
                                 status_until = pygame.time.get_ticks() + STATUS_DURATION_MS
@@ -411,14 +420,13 @@ def main():
                             result = prompt_text(screen, "Learnset: level:move, level:move", current_learnset)
                             if result is None:
                                 continue
-                            entries, unknown, invalid = parse_learnset(result, move_names, selected_monster.get("move_pool", []))
+                            entries, unknown, invalid = parse_learnset(
+                                result,
+                                move_names,
+                                derive_move_pool(selected_monster),
+                            )
                             selected_monster["learnset"] = entries
-                            move_pool = list(selected_monster.get("move_pool", []))
-                            for entry in entries:
-                                move_name = entry.get("move")
-                                if move_name and move_name not in move_pool:
-                                    move_pool.append(move_name)
-                            selected_monster["move_pool"] = move_pool
+                            selected_monster.pop("move_pool", None)
                             if unknown or invalid:
                                 message_parts = []
                                 if unknown:

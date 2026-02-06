@@ -51,8 +51,32 @@ def _get_tk_root():
         _tk_root_instance = None
         return None
 
-# Initialize Pygame Globally
-pygame.init()
+screen = None
+clock = None
+monsters = None
+
+
+def initialize_editor_runtime():
+    global screen, clock
+    if not pygame.get_init():
+        pygame.init()
+    if screen is None:
+        screen = pygame.display.set_mode((config.EDITOR_WIDTH, config.EDITOR_HEIGHT))
+        pygame.display.set_caption("Advanced Pixel Art Sprite Editor with Enhanced Features")
+    if clock is None:
+        clock = pygame.time.Clock()
+
+
+def _get_screen():
+    if screen is None:
+        initialize_editor_runtime()
+    return screen
+
+
+def _get_clock():
+    if clock is None:
+        initialize_editor_runtime()
+    return clock
 
 # Constants are now in config.py
 # WIDTH, HEIGHT = 1300, 800
@@ -64,14 +88,6 @@ pygame.init()
 # MAX_BRUSH_SIZE = 20
 # PALETTE_COLS = 20
 # PALETTE_ROWS = 8
-
-# Setup
-screen = pygame.display.set_mode((config.EDITOR_WIDTH, config.EDITOR_HEIGHT))
-pygame.display.set_caption("Advanced Pixel Art Sprite Editor with Enhanced Features")
-clock = pygame.time.Clock()
-
-# Load monster data
-monsters = load_monsters()
 
 # Editor Class with Enhanced Features
 class Editor:
@@ -2722,24 +2738,25 @@ class Editor:
 
     def draw_ui(self):
         """Draw the entire editor UI onto the screen."""
-        screen.fill(config.EDITOR_BG_COLOR)
+        screen_surface = _get_screen()
+        screen_surface.fill(config.EDITOR_BG_COLOR)
 
         if self.dialog_mode:
-            self.draw_dialog(screen)
+            self.draw_dialog(screen_surface)
             return
 
         if self.edit_mode is None:
-            self._draw_loading_state(screen)
+            self._draw_loading_state(screen_surface)
             return
 
         if self.edit_mode == 'monster':
-            self._draw_monster_ui(screen)
+            self._draw_monster_ui(screen_surface)
         elif self.edit_mode == 'background':
-            self._draw_background_ui(screen)
+            self._draw_background_ui(screen_surface)
         elif self.edit_mode == 'tile':
-            self._draw_tile_ui(screen)
+            self._draw_tile_ui(screen_surface)
 
-        self._draw_common_ui(screen)
+        self._draw_common_ui(screen_surface)
 
     def draw_dialog(self, surface):
         """Draws the current dialog box overlay."""
@@ -2748,6 +2765,7 @@ class Editor:
 
     def run(self):
         """Main application loop."""
+        ui_clock = _get_clock()
         running = True
         while running:
             # Event handling
@@ -2763,7 +2781,7 @@ class Editor:
             pygame.display.flip()
 
             # Cap frame rate
-            clock.tick(config.FPS)
+            ui_clock.tick(config.FPS)
 
         pygame.quit()
 
@@ -2800,6 +2818,7 @@ class Editor:
 
 def main(argv=None):
     global monsters
+    initialize_editor_runtime()
 
     # Set up necessary directories if they don't exist.
     if not os.path.exists(config.SPRITE_DIR):

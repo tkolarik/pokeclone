@@ -888,7 +888,7 @@
   {
     "id": "ARCH-1",
     "title": "Remove Import-Time Pygame/Tk Side Effects from Runtime Modules",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],
@@ -918,7 +918,7 @@
   {
     "id": "DATA-2",
     "title": "Eliminate Move Pool and Learnset Duplication in Monster Schema",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],

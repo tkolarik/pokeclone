@@ -17,6 +17,21 @@ class Move:
         self.effect = effect
 
 
+def _derive_move_pool(learnset: Sequence[Dict[str, Any]]) -> List[str]:
+    ordered: List[str] = []
+    seen = set()
+    for entry in learnset:
+        move_name = entry.get("move")
+        if not isinstance(move_name, str):
+            continue
+        normalized = move_name.strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        ordered.append(normalized)
+    return ordered
+
+
 class Creature:
     def __init__(
         self,
@@ -45,8 +60,13 @@ class Creature:
         self.attack = attack
         self.defense = defense
         self.moves = moves
-        self.move_pool = move_pool or []
         self.learnset = learnset or []
+        if move_pool is not None:
+            self.move_pool = move_pool
+        elif self.learnset:
+            self.move_pool = _derive_move_pool(self.learnset)
+        else:
+            self.move_pool = [move.name for move in moves]
         self.sprite = sprite
 
     def is_alive(self) -> bool:

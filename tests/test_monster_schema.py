@@ -4,7 +4,11 @@ import pytest
 
 from src.battle import battle_simulator
 from src.core import config
-from src.core.monster_schema import normalize_monster, normalize_monsters
+from src.core.monster_schema import (
+    derive_move_pool_from_learnset,
+    normalize_monster,
+    normalize_monsters,
+)
 
 
 class _DummySurface:
@@ -26,8 +30,10 @@ def test_normalize_monster_produces_canonical_schema():
         "name": "Canonmon",
         "type": "Fire",
         "base_stats": {"max_hp": 80, "attack": 55, "defense": 45},
-        "move_pool": ["Flame Burst", "Power Up"],
-        "learnset": [{"level": 1, "move": "Flame Burst"}],
+        "learnset": [
+            {"level": 1, "move": "Flame Burst"},
+            {"level": 4, "move": "Power Up"},
+        ],
         "notes": "custom field should survive",
     }
 
@@ -38,8 +44,9 @@ def test_normalize_monster_produces_canonical_schema():
     assert "attack" not in normalized
     assert "defense" not in normalized
     assert "moves" not in normalized
+    assert "move_pool" not in normalized
     assert normalized["base_stats"] == {"max_hp": 80, "attack": 55, "defense": 45}
-    assert normalized["move_pool"] == ["Flame Burst", "Power Up"]
+    assert derive_move_pool_from_learnset(normalized["learnset"]) == ["Flame Burst", "Power Up"]
     assert normalized["notes"] == "custom field should survive"
 
 
@@ -56,7 +63,7 @@ def test_normalize_monster_upgrades_legacy_only_fields():
     normalized, warnings = normalize_monster(legacy, strict_conflicts=False)
 
     assert normalized["base_stats"] == {"max_hp": 91, "attack": 64, "defense": 72}
-    assert normalized["move_pool"] == ["Bubble Wave", "Guard Up"]
+    assert derive_move_pool_from_learnset(normalized["learnset"]) == ["Bubble Wave", "Guard Up"]
     assert normalized["learnset"] == [
         {"level": 1, "move": "Bubble Wave"},
         {"level": 1, "move": "Guard Up"},
@@ -71,8 +78,8 @@ def test_conflicting_duplicate_fields_raise_in_strict_mode():
         "type": "Nature",
         "base_stats": {"max_hp": 70, "attack": 60, "defense": 50},
         "max_hp": 99,  # conflict
-        "move_pool": ["Leaf Cut"],
-        "moves": ["Leaf Cut", "Poison Dust"],  # conflict
+        "learnset": [{"level": 1, "move": "Leaf Cut"}],
+        "move_pool": ["Leaf Cut", "Poison Dust"],  # conflict with learnset
     }
 
     with pytest.raises(ValueError, match="conflicting duplicated"):
@@ -85,16 +92,16 @@ def test_conflicting_duplicate_fields_are_flagged_in_non_strict_mode():
         "type": "Mind",
         "base_stats": {"max_hp": 70, "attack": 60, "defense": 50},
         "attack": 99,  # conflict
-        "move_pool": ["Psi Beam"],
-        "moves": ["Hypnosis"],  # conflict
+        "learnset": [{"level": 1, "move": "Psi Beam"}],
+        "move_pool": ["Hypnosis"],  # conflict
     }
 
     normalized, warnings = normalize_monster(duplicated, strict_conflicts=False)
 
     assert normalized["base_stats"] == {"max_hp": 70, "attack": 60, "defense": 50}
-    assert normalized["move_pool"] == ["Psi Beam"]
+    assert derive_move_pool_from_learnset(normalized["learnset"]) == ["Psi Beam"]
     assert any("conflicting duplicated stat fields" in warning for warning in warnings)
-    assert any("conflicting duplicated move fields" in warning for warning in warnings)
+    assert any("conflicting duplicated move progression fields" in warning for warning in warnings)
 
 
 def test_load_creatures_supports_canonical_monster_schema(tmp_path, monkeypatch):
@@ -108,8 +115,10 @@ def test_load_creatures_supports_canonical_monster_schema(tmp_path, monkeypatch)
             "name": "CanonLoader",
             "type": "Fire",
             "base_stats": {"max_hp": 88, "attack": 66, "defense": 44},
-            "move_pool": ["Flame Burst", "Power Up"],
-            "learnset": [{"level": 1, "move": "Flame Burst"}],
+            "learnset": [
+                {"level": 1, "move": "Flame Burst"},
+                {"level": 5, "move": "Power Up"},
+            ],
         }
     ]
     moves_payload = [
