@@ -948,7 +948,7 @@
   {
     "id": "ARCH-2",
     "title": "Implement Unified Scene Manager with Single Pygame Window",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Highest",
     "type": "Feature",
     "labels": [],

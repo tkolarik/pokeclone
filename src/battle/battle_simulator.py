@@ -25,6 +25,7 @@ from src.battle.engine import (
 from src.core.input_actions import load_action_map
 from src.core.monster_schema import derive_move_pool_from_learnset, normalize_monster
 from src.core.resource_manager import get_resource_manager
+from src.core.scene_manager import Scene, SceneManager
 
 AUDIO_ENABLED = False
 _AUDIO_INIT_ATTEMPTED = False
@@ -45,12 +46,15 @@ except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
     print(f"Warning: failed to load type chart '{type_chart_path}': {e}")
 
 
-def initialize_battle_runtime():
+def initialize_battle_runtime(screen=None, *, set_caption=True):
     global SCREEN
     if not pygame.get_init():
         pygame.init()
+    if screen is not None:
+        SCREEN = screen
     if SCREEN is None:
         SCREEN = pygame.display.set_mode((config.BATTLE_WIDTH, config.BATTLE_HEIGHT))
+    if set_caption:
         pygame.display.set_caption("Battle Simulator")
     _get_font()
     _initialize_audio()
@@ -364,7 +368,7 @@ class Button:
                 return True
         return False
 
-def draw_battle(creature1, creature2, buttons, background):
+def draw_battle(creature1, creature2, buttons, background, *, flip_display=True):
     screen = _get_screen()
     font = _get_font()
     screen.blit(background, (0, 0))
@@ -467,10 +471,11 @@ def draw_battle(creature1, creature2, buttons, background):
         else:
             screen.blit(fallback_text, fallback_center)
 
-    try:
-        pygame.display.flip()
-    except pygame.error:
-        pass
+    if flip_display:
+        try:
+            pygame.display.flip()
+        except pygame.error:
+            pass
 
 def opponent_choose_move(attacker, defender):
     return engine_opponent_choose_move(
@@ -809,6 +814,295 @@ def _announce_turn(actor, defender, move, damage):
         print(f"{actor.name} used {move.name}! It dealt {damage} damage.")
 
 
+def _build_move_buttons(creature):
+    buttons = []
+    button_width = config.BATTLE_MOVE_BUTTON_WIDTH
+    button_height = config.BATTLE_MOVE_BUTTON_HEIGHT
+    button_spacing = config.BATTLE_MOVE_BUTTON_SPACING
+    total_width = len(creature.moves) * (button_width + button_spacing) - button_spacing
+    start_x = (config.BATTLE_WIDTH - total_width) // 2
+    start_y = config.BATTLE_HEIGHT - button_height - config.BATTLE_MOVE_BUTTON_BOTTOM_MARGIN
+    for i, move in enumerate(creature.moves):
+        rect = (start_x + i * (button_width + button_spacing), start_y, button_width, button_height)
+        button = Button(rect, move.name, action=move)
+        buttons.append(button)
+    return buttons
+
+
+def _build_scene_teams(creatures, moves_dict, payload):
+    payload = payload or {}
+    raw_opponent = payload.get("team")
+    opponent_id = payload.get("opponent_id")
+    player_entries = parse_team_env("POKECLONE_PLAYER_TEAM")
+
+    team_size = config.DEFAULT_TEAM_SIZE
+    if isinstance(player_entries, list) and player_entries:
+        team_size = min(config.DEFAULT_TEAM_SIZE, max(1, len(player_entries)))
+    elif isinstance(raw_opponent, list) and raw_opponent:
+        team_size = min(config.DEFAULT_TEAM_SIZE, max(1, len(raw_opponent)))
+    elif raw_opponent or opponent_id:
+        team_size = 1
+
+    if player_entries:
+        player_team_entries = build_team_entries(
+            creatures,
+            player_entries,
+            team_size,
+            config.DEFAULT_TEAM_LEVEL,
+            fill_random=True,
+        )
+    else:
+        player_team_entries = build_random_team(creatures, team_size, config.DEFAULT_TEAM_LEVEL)
+
+    opponent_entries = None
+    if isinstance(raw_opponent, dict):
+        opponent_entries = [raw_opponent]
+    elif isinstance(raw_opponent, list):
+        opponent_entries = raw_opponent
+    elif isinstance(raw_opponent, str) and raw_opponent:
+        opponent_entries = [raw_opponent]
+    elif opponent_id:
+        opponent_entries = [{"name": opponent_id}]
+
+    if opponent_entries:
+        opponent_team_entries = build_team_entries(
+            creatures,
+            opponent_entries,
+            team_size,
+            config.DEFAULT_TEAM_LEVEL,
+            fill_random=True,
+        )
+    else:
+        opponent_team_entries = build_random_team(creatures, team_size, config.DEFAULT_TEAM_LEVEL)
+
+    return (
+        build_battle_team(player_team_entries, moves_dict),
+        build_battle_team(opponent_team_entries, moves_dict),
+    )
+
+
+class BattleScene(Scene):
+    """Scene-managed battle runtime used by the unified game loop."""
+
+    def __init__(self, payload=None):
+        self.payload = payload or {}
+        self.font = None
+        self.player_team = []
+        self.opponent_team = []
+        self.player_index = 0
+        self.opponent_index = 0
+        self.creature1 = None
+        self.creature2 = None
+        self.engine = None
+        self.buttons = []
+        self.background = None
+        self.state = "setup"
+        self.round_winner = None
+        self.round_end_deadline_ms = 0
+        self.final_winner = None
+        self.final_deadline_ms = 0
+        self.next_opponent_turn_ms = None
+        self.error_message = None
+
+    def _start_round(self):
+        self.creature1 = self.player_team[self.player_index]
+        self.creature2 = self.opponent_team[self.opponent_index]
+        self.engine = BattleEngine(self.creature1, self.creature2, type_chart=type_chart, rng=random)
+        self.buttons = _build_move_buttons(self.creature1)
+        self.background = load_random_background()
+        self.state = "battle"
+        self.round_winner = None
+        self.next_opponent_turn_ms = None
+        play_random_song()
+
+    def _finalize_round_if_needed(self):
+        if not self.engine or self.state != "battle":
+            return
+        if self.engine.winner is None:
+            return
+        self.round_winner = self.engine.winner
+        play_battle_sfx("victory" if self.round_winner == "player" else "defeat")
+        self.state = "round_end"
+        self.round_end_deadline_ms = pygame.time.get_ticks() + config.BATTLE_END_DELAY_NO_MENU_MS
+
+    def _resolve_player_turn(self, move):
+        result = self.engine.resolve_player_turn(move)
+        play_battle_sfx("stat_change" if move and move.power == 0 else "attack", move=move)
+        if result.damage > 0:
+            play_battle_sfx("damage", move=move)
+        if result.defender_fainted:
+            play_battle_sfx("faint")
+        _announce_turn(self.creature1, self.creature2, move, result.damage)
+        if self.engine.turn == "opponent" and self.engine.winner is None:
+            self.next_opponent_turn_ms = pygame.time.get_ticks() + config.BATTLE_OPPONENT_MOVE_DELAY_MS
+        self._finalize_round_if_needed()
+
+    def _resolve_opponent_turn(self):
+        if not self.engine:
+            return
+        result = self.engine.resolve_opponent_turn()
+        move = result.move
+        if move is not None:
+            play_battle_sfx("stat_change" if move.power == 0 else "attack", move=move)
+            if result.damage > 0:
+                play_battle_sfx("damage", move=move)
+            if result.defender_fainted:
+                play_battle_sfx("faint")
+            _announce_turn(self.creature2, self.creature1, move, result.damage)
+        self.next_opponent_turn_ms = None
+        self._finalize_round_if_needed()
+
+    def on_enter(self, manager: SceneManager) -> None:
+        initialize_battle_runtime(screen=manager.screen, set_caption=False)
+        pygame.display.set_caption("Battle Simulator")
+        self.font = _get_font()
+        moves_dict = load_moves()
+        creatures = load_creatures(moves_dict)
+        if len(creatures) < 2:
+            self.error_message = "Not enough creatures to battle."
+            self.state = "error"
+            self.final_deadline_ms = pygame.time.get_ticks() + 900
+            return
+        self.player_team, self.opponent_team = _build_scene_teams(creatures, moves_dict, self.payload)
+        if not self.player_team or not self.opponent_team:
+            self.error_message = "Could not build battle teams."
+            self.state = "error"
+            self.final_deadline_ms = pygame.time.get_ticks() + 900
+            return
+        self.player_index = 0
+        self.opponent_index = 0
+        self.final_winner = None
+        self._start_round()
+
+    def on_exit(self, manager: SceneManager) -> None:
+        stop_music()
+
+    def handle_event(self, manager: SceneManager, event: object) -> None:
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            manager.pop()
+            return
+        if self.state != "battle" or not self.engine:
+            return
+        if self.engine.turn != "player" or not self.creature1.is_alive() or not self.creature2.is_alive():
+            return
+
+        if event.type == pygame.KEYDOWN:
+            if pygame.K_1 <= event.key <= pygame.K_9:
+                move_index = event.key - pygame.K_1
+                if 0 <= move_index < len(self.buttons):
+                    self._resolve_player_turn(self.buttons[move_index].action)
+                    return
+
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for button in self.buttons:
+                if button.is_clicked(event):
+                    self._resolve_player_turn(button.action)
+                    return
+
+    def update(self, manager: SceneManager, dt_seconds: float) -> None:
+        now = pygame.time.get_ticks()
+
+        if self.state == "error":
+            if now >= self.final_deadline_ms:
+                manager.pop()
+            return
+
+        if self.state == "battle":
+            if (
+                self.engine
+                and self.engine.turn == "player"
+                and self.creature1.is_alive()
+                and self.creature2.is_alive()
+                and not self.buttons
+            ):
+                result = self.engine.resolve_player_turn(None)
+                move = result.move
+                if move is not None:
+                    print(f"{self.creature1.name} has no usable moves! {move.name} is used automatically.")
+                    play_battle_sfx("attack", move=move)
+                    if result.damage > 0:
+                        play_battle_sfx("damage", move=move)
+                    if result.defender_fainted:
+                        play_battle_sfx("faint")
+                    _announce_turn(self.creature1, self.creature2, move, result.damage)
+                if self.engine.turn == "opponent" and self.engine.winner is None:
+                    self.next_opponent_turn_ms = now + config.BATTLE_OPPONENT_MOVE_DELAY_MS
+                self._finalize_round_if_needed()
+
+            if (
+                self.engine
+                and self.engine.turn == "opponent"
+                and self.creature2.is_alive()
+                and self.creature1.is_alive()
+                and self.engine.winner is None
+            ):
+                if self.next_opponent_turn_ms is None:
+                    self.next_opponent_turn_ms = now + config.BATTLE_OPPONENT_MOVE_DELAY_MS
+                if now >= self.next_opponent_turn_ms:
+                    self._resolve_opponent_turn()
+            return
+
+        if self.state == "round_end":
+            if now < self.round_end_deadline_ms:
+                return
+            stop_music()
+            if self.round_winner == "player":
+                self.opponent_index += 1
+            else:
+                self.player_index += 1
+
+            if self.player_index < len(self.player_team) and self.opponent_index < len(self.opponent_team):
+                self._start_round()
+                return
+
+            self.final_winner = "player" if self.player_index < len(self.player_team) else "opponent"
+            self.state = "final"
+            self.final_deadline_ms = now + config.BATTLE_FINAL_MESSAGE_DELAY_MS
+            return
+
+        if self.state == "final" and now >= self.final_deadline_ms:
+            manager.pop()
+
+    def draw(self, manager: SceneManager, screen: pygame.Surface) -> None:
+        if self.state == "error":
+            screen.fill(config.BATTLE_BG_COLOR)
+            text = self.font.render(self.error_message or "Battle unavailable.", True, config.BLACK)
+            rect = text.get_rect(center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT // 2))
+            screen.blit(text, rect)
+            return
+
+        if self.state in {"battle", "round_end"} and self.creature1 and self.creature2:
+            draw_battle(
+                self.creature1,
+                self.creature2,
+                self.buttons,
+                self.background,
+                flip_display=False,
+            )
+            if self.state == "round_end" and self.round_winner:
+                winner_name = self.creature1.name if self.round_winner == "player" else self.creature2.name
+                message = self.font.render(f"{winner_name} wins!", True, config.BLACK)
+                screen.blit(
+                    message,
+                    (
+                        config.BATTLE_WIDTH // 2 - message.get_width() // 2,
+                        config.BATTLE_HEIGHT // 2 - message.get_height() // 2,
+                    ),
+                )
+            return
+
+        if self.state == "final" and self.final_winner:
+            screen.fill(config.BATTLE_BG_COLOR)
+            end_message = self.font.render(f"{self.final_winner.title()} team wins!", True, config.BLACK)
+            screen.blit(
+                end_message,
+                (
+                    config.BATTLE_WIDTH // 2 - end_message.get_width() // 2,
+                    config.BATTLE_HEIGHT // 2 - end_message.get_height() // 2,
+                ),
+            )
+
+
 def battle(creature1, creature2, show_end_menu=True):
     screen = _get_screen()
     font = _get_font()
@@ -818,17 +1112,7 @@ def battle(creature1, creature2, show_end_menu=True):
     play_random_song()
 
     # Create buttons for player's moves
-    buttons = []
-    button_width = config.BATTLE_MOVE_BUTTON_WIDTH
-    button_height = config.BATTLE_MOVE_BUTTON_HEIGHT
-    button_spacing = config.BATTLE_MOVE_BUTTON_SPACING
-    total_width = len(creature1.moves) * (button_width + button_spacing) - button_spacing
-    start_x = (config.BATTLE_WIDTH - total_width) // 2
-    start_y = config.BATTLE_HEIGHT - button_height - config.BATTLE_MOVE_BUTTON_BOTTOM_MARGIN
-    for i, move in enumerate(creature1.moves):
-        rect = (start_x + i * (button_width + button_spacing), start_y, button_width, button_height)
-        button = Button(rect, move.name, action=move)
-        buttons.append(button)
+    buttons = _build_move_buttons(creature1)
 
     background = load_random_background()
 

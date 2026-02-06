@@ -8,6 +8,7 @@ import pygame
 from src.core import config
 from src.core.input_actions import load_action_map
 from src.core.resource_manager import get_resource_manager
+from src.core.scene_manager import Scene, SceneManager
 from src.core.tileset import TileSet
 from src.overworld.state import MapData, MapLayer, OverworldSession
 from src.core.launcher import run_module
@@ -343,9 +344,10 @@ def _draw_debug_overlays(screen: pygame.Surface, session: OverworldSession, star
                 pygame.draw.circle(screen, config.GREEN, rect.center, max(4, tile_size // 6), 1)
 
 
-def load_default_map() -> MapData:
-    if len(sys.argv) > 1:
+def load_default_map(target: Optional[str] = None) -> MapData:
+    if target is None and len(sys.argv) > 1:
         target = sys.argv[1]
+    if target:
         if os.path.exists(target):
             return MapData.load(target)
         target_path = os.path.join(config.MAP_DIR, f"{target}.json")
@@ -376,6 +378,138 @@ def load_default_map() -> MapData:
         triggers=[],
         overrides={},
     )
+
+
+class OverworldScene(Scene):
+    def __init__(self, map_id: Optional[str] = None) -> None:
+        self.map_id = map_id
+        self.actions = load_action_map()
+        self.resource_manager = get_resource_manager()
+        self.audio = OverworldAudio()
+        self.font: Optional[pygame.font.Font] = None
+        self.font_small: Optional[pygame.font.Font] = None
+        self.session: Optional[OverworldSession] = None
+        self.tileset: Optional[TileSet] = None
+        self.tile_images: Dict[str, Dict[str, object]] = {}
+        self.npc_images: Dict[str, Dict[str, object]] = {}
+        self.debug_overlay = False
+        self._loaded_map_id: Optional[str] = None
+        self._loaded_tileset_id: Optional[str] = None
+        self._manager: Optional[SceneManager] = None
+
+    def _refresh_assets_from_session(self) -> None:
+        if not self.session:
+            return
+        self.tileset = self.session.tileset
+        self.tile_images = load_tileset_images(
+            self.tileset,
+            self.session.map.tile_size,
+            resource_manager=self.resource_manager,
+        )
+        self.npc_images = load_npc_images(
+            self.tileset,
+            self.session.map.tile_size,
+            resource_manager=self.resource_manager,
+        )
+        self._loaded_map_id = self.session.map.id
+        self._loaded_tileset_id = self.session.map.tileset_id
+
+    def _initialize_session(self) -> None:
+        map_data = load_default_map(self.map_id)
+        tileset_path = os.path.join(config.TILESET_DIR, f"{map_data.tileset_id}.json")
+        tileset = TileSet.load(tileset_path) if os.path.exists(tileset_path) else None
+        self.session = OverworldSession(
+            map_data,
+            tileset=tileset,
+            audio_controller=self.audio,
+            battle_launcher=self._launch_battle,
+        )
+        self._refresh_assets_from_session()
+
+    def _launch_battle(self, payload: Dict[str, object]) -> None:
+        if not self._manager:
+            return
+        from src.battle.battle_simulator import BattleScene
+
+        self.audio.stop_music()
+        self._manager.push(BattleScene(payload=payload))
+
+    def on_enter(self, manager: SceneManager) -> None:
+        self._manager = manager
+        pygame.display.set_caption("Overworld")
+        if self.session is None:
+            self._initialize_session()
+        elif self.session:
+            self.session.battle_launcher = self._launch_battle
+            self.session.current_music_id = None
+            self.session._ensure_music()
+        if self.font is None:
+            self.font = self.resource_manager.get_font(config.DEFAULT_FONT, config.OVERWORLD_FONT_SIZE)
+        if self.font_small is None:
+            self.font_small = self.resource_manager.get_font(config.DEFAULT_FONT, 14)
+
+    def on_exit(self, manager: SceneManager) -> None:
+        self.audio.stop_music()
+
+    def handle_event(self, manager: SceneManager, event: object) -> None:
+        if not self.session:
+            return
+        if event.type != pygame.KEYDOWN:
+            return
+        if self.actions.matches(event, "cancel"):
+            manager.pop()
+        elif self.actions.matches(event, "move_up"):
+            self.session.move("up")
+        elif self.actions.matches(event, "move_down"):
+            self.session.move("down")
+        elif self.actions.matches(event, "move_left"):
+            self.session.move("left")
+        elif self.actions.matches(event, "move_right"):
+            self.session.move("right")
+        elif self.actions.matches(event, "interact"):
+            self.session.interact()
+        elif self.actions.matches(event, "reload"):
+            map_data = MapData.load(self.session.map.id)
+            tileset_path = os.path.join(config.TILESET_DIR, f"{map_data.tileset_id}.json")
+            tileset = TileSet.load(tileset_path) if os.path.exists(tileset_path) else None
+            self.session.set_map(map_data, tileset=tileset)
+            self._refresh_assets_from_session()
+        elif self.actions.matches(event, "debug_toggle"):
+            self.debug_overlay = not self.debug_overlay
+
+    def update(self, manager: SceneManager, dt_seconds: float) -> None:
+        if not self.session:
+            return
+        if (
+            self.session.map.id != self._loaded_map_id
+            or self.session.map.tileset_id != self._loaded_tileset_id
+        ):
+            self._refresh_assets_from_session()
+
+    def draw(self, manager: SceneManager, screen: pygame.Surface) -> None:
+        if not self.session:
+            screen.fill(config.OVERWORLD_BG_COLOR)
+            return
+        if self.font is None:
+            self.font = self.resource_manager.get_font(config.DEFAULT_FONT, config.OVERWORLD_FONT_SIZE)
+        if self.font_small is None:
+            self.font_small = self.resource_manager.get_font(config.DEFAULT_FONT, 14)
+        draw_world(
+            screen,
+            self.session,
+            self.tile_images,
+            self.npc_images,
+            self.font_small,
+            debug=self.debug_overlay,
+        )
+        hud = self.font_small.render(
+            f"Map: {self.session.map.id}  Facing: {self.session.player.facing}",
+            True,
+            config.BLACK,
+        )
+        screen.blit(hud, (8, 8))
+        if self.session.active_message:
+            draw_message(screen, self.font, self.session.active_message)
 
 
 def build_battle_launcher(session: OverworldSession) -> callable:
