@@ -2135,7 +2135,7 @@
       }
     },
     {
-      "id": "auto_up_demo_tiles_28",
+      "id": "auto_up_demo_tiles_30",
       "type": "edge",
       "from": "up",
       "to": {
@@ -2149,7 +2149,7 @@
       "auto": "world"
     },
     {
-      "id": "auto_up_demo_tiles_29",
+      "id": "auto_up_demo_tiles_31",
       "type": "edge",
       "from": "up",
       "to": {
@@ -2163,7 +2163,7 @@
       "auto": "world"
     },
     {
-      "id": "auto_up_demo_tiles_30",
+      "id": "auto_up_demo_tiles_32",
       "type": "edge",
       "from": "up",
       "to": {
@@ -2177,7 +2177,7 @@
       "auto": "world"
     },
     {
-      "id": "auto_up_demo_tiles_31",
+      "id": "auto_up_demo_tiles_33",
       "type": "edge",
       "from": "up",
       "to": {
