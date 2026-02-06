@@ -1496,6 +1496,24 @@ class MapEditor:
             self.status_message = f"Failed to open world view: {e}"
 
     # Map creation --------------------------------------------------------
+    def _prompt_connection_int(self, message: str, default: int) -> Optional[int]:
+        """Prompt for an integer during connection setup with validation feedback."""
+        raw_value = prompt_text(self.screen, self.font, message, str(default))
+        if raw_value is None:
+            self.status_message = "Connection setup cancelled."
+            return None
+
+        cleaned = str(raw_value).strip()
+        if cleaned == "":
+            self.status_message = f"Invalid numeric input for {message.rstrip(':').lower()}."
+            return None
+
+        try:
+            return int(cleaned)
+        except ValueError:
+            self.status_message = f"Invalid numeric input for {message.rstrip(':').lower()}."
+            return None
+
     def _new_map_dialog(self) -> None:
         new_id = prompt_text(self.screen, self.font, "New map id:", f"{self.map.id}_new")
         if not new_id:
@@ -1525,19 +1543,64 @@ class MapEditor:
             triggers=[],
             overrides={},
         )
+        source_map_before_changes = self.map
+        source_map_snapshot = self.map.clone()
+
         if connect.lower() in ("edge", "portal"):
-            self._connect_new_map(new_map, connect.lower())
-        new_map.save()
+            connected = self._connect_new_map(new_map, connect.lower())
+            if not connected:
+                self.map = source_map_snapshot
+                return
+            try:
+                source_map_before_changes.save()
+            except Exception as e:
+                self.map = source_map_snapshot
+                self.status_message = f"Failed to save current map '{source_map_before_changes.id}': {e}"
+                return
+
+        try:
+            new_map.save()
+        except Exception as e:
+            self.map = source_map_snapshot
+            if connect.lower() in ("edge", "portal"):
+                try:
+                    source_map_snapshot.save()
+                except Exception as rollback_error:
+                    self.status_message = (
+                        f"Failed to save new map '{new_map.id}': {e}. "
+                        f"Rollback failed for current map '{source_map_snapshot.id}': {rollback_error}"
+                    )
+                    return
+            self.status_message = f"Failed to save new map '{new_map.id}': {e}"
+            return
+
         self.map = new_map
         self.tile_images = load_tileset_images(self.tileset, self.map.tile_size)
         self.status_message = f"Created and opened new map '{new_id}'."
 
-    def _connect_new_map(self, new_map: MapData, mode: str) -> None:
+    def _connect_new_map(self, new_map: MapData, mode: str) -> bool:
         if mode == "edge":
-            direction = prompt_text(self.screen, self.font, "Direction from current (north/east/south/west):", "north") or "north"
-            spawn_x = int(prompt_text(self.screen, self.font, "New map spawn x:", "1") or 1)
-            spawn_y = int(prompt_text(self.screen, self.font, "New map spawn y:", "1") or 1)
-            facing = prompt_text(self.screen, self.font, "Facing on arrival:", "south") or "south"
+            direction_raw = prompt_text(
+                self.screen, self.font, "Direction from current (north/east/south/west):", "north"
+            )
+            if direction_raw is None:
+                self.status_message = "Connection setup cancelled."
+                return False
+            direction = direction_raw.strip() or "north"
+
+            spawn_x = self._prompt_connection_int("New map spawn x:", 1)
+            if spawn_x is None:
+                return False
+            spawn_y = self._prompt_connection_int("New map spawn y:", 1)
+            if spawn_y is None:
+                return False
+
+            facing_raw = prompt_text(self.screen, self.font, "Facing on arrival:", "south")
+            if facing_raw is None:
+                self.status_message = "Connection setup cancelled."
+                return False
+            facing = facing_raw.strip() or "south"
+
             conn_id = f"{direction}_to_{new_map.id}"
             connection = Connection(
                 id=conn_id,
@@ -1560,11 +1623,21 @@ class MapEditor:
                     extra={},
                 )
             )
+            return True
         elif mode == "portal":
-            portal_x = int(prompt_text(self.screen, self.font, "Portal X on current map:", "0") or 0)
-            portal_y = int(prompt_text(self.screen, self.font, "Portal Y on current map:", "0") or 0)
-            spawn_x = int(prompt_text(self.screen, self.font, "New map spawn x:", "1") or 1)
-            spawn_y = int(prompt_text(self.screen, self.font, "New map spawn y:", "1") or 1)
+            portal_x = self._prompt_connection_int("Portal X on current map:", 0)
+            if portal_x is None:
+                return False
+            portal_y = self._prompt_connection_int("Portal Y on current map:", 0)
+            if portal_y is None:
+                return False
+            spawn_x = self._prompt_connection_int("New map spawn x:", 1)
+            if spawn_x is None:
+                return False
+            spawn_y = self._prompt_connection_int("New map spawn y:", 1)
+            if spawn_y is None:
+                return False
+
             conn_id = f"portal_to_{new_map.id}"
             connection = Connection(
                 id=conn_id,
@@ -1585,6 +1658,9 @@ class MapEditor:
                     extra={},
                 )
             )
+            return True
+        self.status_message = f"Unknown connection mode '{mode}'."
+        return False
 
 
 def main() -> None:

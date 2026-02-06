@@ -351,12 +351,12 @@
   "overrides": {},
   "maps": {
     "demo_tiles": {
-      "x": 13,
-      "y": 38
+      "x": 33,
+      "y": 98
     },
     "demo_tiles_new": {
-      "x": -9,
-      "y": 53
+      "x": 12,
+      "y": 73
     },
     "map_one": {
       "x": 57.75,

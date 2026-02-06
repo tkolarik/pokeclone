@@ -678,7 +678,7 @@
   {
     "id": "OVERWORLD-8",
     "title": "Fix Edge Auto-Connect Routing Mismatch in Overworld",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],
@@ -693,7 +693,7 @@
   {
     "id": "OVERWORLD-9",
     "title": "Persist Both Maps During Connected New-Map Creation",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],
@@ -708,7 +708,7 @@
   {
     "id": "API-1",
     "title": "Harden Kanban API ID Generation and Field Validation",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],
@@ -723,7 +723,7 @@
   {
     "id": "API-2",
     "title": "Add Robust Kanban API Error Handling for Malformed Requests",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],
@@ -738,7 +738,7 @@
   {
     "id": "EDITOR-1",
     "title": "Resolve Background Fill/Paste UX Gap in Pixel Editor",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
@@ -753,7 +753,7 @@
   {
     "id": "OVERWORLD-10",
     "title": "Validate Numeric Prompts in Map Connection Dialogs",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
@@ -768,7 +768,7 @@
   {
     "id": "TEST-5",
     "title": "Improve Test Discoverability and Remove Placeholder Coverage",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],
@@ -783,7 +783,7 @@
   {
     "id": "DOCS-1",
     "title": "Align Kanban API Documentation with Runtime Port/Behavior",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
@@ -798,7 +798,7 @@
   {
     "id": "DATA-1",
     "title": "Normalize Monster Data Schema to Single Source of Truth",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Highest",
     "type": "Task",
     "labels": [],
@@ -813,7 +813,7 @@
   {
     "id": "INFRA-2",
     "title": "Package Project with pyproject.toml and Editable Install Flow",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],
@@ -828,7 +828,7 @@
   {
     "id": "REFACTOR-2",
     "title": "Split Battle Simulator into Engine and Runner Layers",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],
@@ -843,7 +843,7 @@
   {
     "id": "POKE-28",
     "title": "Replace Remaining UI Magic Numbers with Layout Configuration",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Improvement",
     "labels": [],
@@ -858,7 +858,7 @@
   {
     "id": "TEST-6",
     "title": "Make Automated Unit Tests Runnable Outside Conda (Codex-Compatible)",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],

@@ -701,7 +701,7 @@
       "to": {
         "mapId": "demo_tiles_new",
         "spawn": {
-          "x": 30,
+          "x": 28,
           "y": 0
         },
         "facing": "down"
@@ -715,7 +715,7 @@
       "to": {
         "mapId": "demo_tiles_new",
         "spawn": {
-          "x": 31,
+          "x": 29,
           "y": 0
         },
         "facing": "down"
@@ -729,7 +729,7 @@
       "to": {
         "mapId": "demo_tiles_new",
         "spawn": {
-          "x": 32,
+          "x": 30,
           "y": 0
         },
         "facing": "down"
@@ -743,7 +743,7 @@
       "to": {
         "mapId": "demo_tiles_new",
         "spawn": {
-          "x": 33,
+          "x": 31,
           "y": 0
         },
         "facing": "down"
