@@ -1,10 +1,6 @@
 import pygame
 import json
 import os
-import sys # Added sys import
-
-# Add project root to path to allow importing from src
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import the centralized config
 # import config # Original

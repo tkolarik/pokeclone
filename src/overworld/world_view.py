@@ -1,15 +1,9 @@
 import json
 import os
-import sys
 from typing import Dict, List, Optional, Tuple
 import math
 
 import pygame
-
-# Ensure project root on sys.path when launched directly
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
 
 from src.core import config
 from src.core.tileset import TileSet

@@ -3,8 +3,6 @@ import sys
 import unittest
 from unittest.mock import patch
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, project_root)
 
 from src.core.tileset import TileDefinition, TileSet
 from src.overworld.state import (

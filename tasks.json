@@ -813,7 +813,7 @@
   {
     "id": "INFRA-2",
     "title": "Package Project with pyproject.toml and Editable Install Flow",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],

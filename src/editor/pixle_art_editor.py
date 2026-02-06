@@ -3,7 +3,6 @@ import pygame
 from pygame.locals import *
 import tkinter as tk
 from tkinter import filedialog, colorchooser
-import sys
 import os
 from typing import Optional
 
@@ -2721,21 +2720,10 @@ class Editor:
         self._pan_view(dx=config.PAN_SPEED_PIXELS)
     # --- End Panning Methods --- 
 
-# Main execution block
-if __name__ == "__main__":
-    # --- Remove explicit Tkinter init call from here ---
-    # It's handled globally at the top now
-    # print("Attempting Tkinter global initialization...")
-    # if not _initialize_tkinter_globally():
-    #      print("Warning: Tkinter initialization failed. File/Color dialogs may not work.")
-    
-    # --- Remove explicit Pygame init call from here ---
-    # It's also handled globally at the top now
-    # print("Initializing Pygame...")
-    # pygame.init()
+def main(argv=None):
+    global monsters
 
-    # Set up necessary directories if they don't exist
-    # ... (directory setup code remains the same) ...
+    # Set up necessary directories if they don't exist.
     if not os.path.exists(config.SPRITE_DIR):
         os.makedirs(config.SPRITE_DIR)
         print(f"Created missing directory: {config.SPRITE_DIR}")
@@ -2743,22 +2731,22 @@ if __name__ == "__main__":
         os.makedirs(config.BACKGROUND_DIR)
         print(f"Created missing directory: {config.BACKGROUND_DIR}")
     if not os.path.exists(config.DATA_DIR):
-         os.makedirs(config.DATA_DIR)
-         print(f"Created missing directory: {config.DATA_DIR}")
+        os.makedirs(config.DATA_DIR)
+        print(f"Created missing directory: {config.DATA_DIR}")
 
-    # Ensure monster data is loaded globally for the Editor
-    # ... (monster loading code remains the same) ...
-    if 'monsters' not in globals() or not monsters:
-         print("Reloading monster data for main execution...")
-         monsters = load_monsters() 
-         if not monsters:
-              print("Fatal: Could not load monster data. Exiting.")
-              sys.exit(1)
+    # Ensure monster data is loaded globally for the editor.
+    if not monsters:
+        print("Reloading monster data for main execution...")
+        monsters = load_monsters()
+        if not monsters:
+            print("Fatal: Could not load monster data. Exiting.")
+            return 1
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["monster", "background", "tile"], help="Start editor in a specific mode.")
     parser.add_argument("--asset", choices=["tile", "npc"], help="When in tile mode, select asset type.")
     parser.add_argument("--npc", dest="npc_id", help="When in tile mode, preselect NPC id.")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     env_mode = os.environ.get("POKECLONE_EDITOR_MODE")
     env_asset = os.environ.get("POKECLONE_EDITOR_ASSET")
@@ -2783,3 +2771,8 @@ if __name__ == "__main__":
             if npc_id:
                 editor._load_current_npc_frame()
     editor.run()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

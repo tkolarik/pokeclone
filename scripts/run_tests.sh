@@ -52,6 +52,15 @@ if ! "${TEST_PYTHON}" -c "import importlib.util,sys; sys.exit(0 if importlib.uti
   exit 1
 fi
 
+if ! "${TEST_PYTHON}" -c "import os, tempfile; os.chdir(tempfile.mkdtemp()); import src.core.config" >/dev/null 2>&1; then
+  echo "Installing project in editable mode for import resolution checks..."
+  if ! "${TEST_PYTHON}" -m pip install --no-build-isolation --no-deps -e "${ROOT_DIR}"; then
+    echo "Error: editable install failed for ${TEST_PYTHON}."
+    echo "Run manually: ${TEST_PYTHON} -m pip install --no-build-isolation --no-deps -e ${ROOT_DIR}"
+    exit 1
+  fi
+fi
+
 export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-dummy}"
 export POKECLONE_DISABLE_TK="${POKECLONE_DISABLE_TK:-1}"
 

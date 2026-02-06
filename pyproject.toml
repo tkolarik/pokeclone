@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pokeclone"
+version = "0.1.0"
+description = "PokeClone game, editors, and tooling"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pygame>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "mkdocs",
+  "pyinstaller",
+]
+
+[project.scripts]
+pokeclone-main-menu = "src.ui.main_menu:main"
+pokeclone-battle = "src.battle.battle_simulator:main"
+pokeclone-pixel-editor = "src.editor.pixle_art_editor:main"
+pokeclone-monster-editor = "src.editor.monster_editor:main"
+pokeclone-overworld = "src.overworld.overworld:main"
+pokeclone-map-editor = "src.overworld.map_editor:main"
+pokeclone-world-view = "src.overworld.world_view:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

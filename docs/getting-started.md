@@ -8,6 +8,7 @@ This project ships multiple entrypoints (menu + standalone tools). Use a virtual
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pip install -e .
 ```
 
 ## Launch options

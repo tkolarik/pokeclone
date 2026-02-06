@@ -1,18 +1,12 @@
 import unittest
 import copy
 import os
-import sys # Import sys earlier for path adjustments if needed
+import sys
 import unittest.mock # Move import here
 from src.core import config # Updated import
 from unittest.mock import MagicMock
 
-# Add project root to the Python path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.insert(0, project_root)
 
-# Adjust path to import from the parent directory if tests are in a subfolder
-# Assuming test_battle_simulator.py is in the root alongside battle_simulator.py
-# If not, you might need path adjustments like sys.path.append('..')
 from src.battle.battle_simulator import Creature, Move, load_creatures, apply_stat_change, create_default_sprite
 
 # Mock Pygame functionalities needed for loading if not running full Pygame init

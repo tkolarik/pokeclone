@@ -65,6 +65,11 @@ A Pygame-based monster battling game featuring unique creatures with elemental t
     pip install -r requirements.txt
     ```
 
+4. **Install the project in editable mode (recommended for development/testing):**
+    ```bash
+    pip install -e .
+    ```
+
 ### Running the Game
 ```bash
 python battle_simulator.py
@@ -183,7 +188,8 @@ pokeclone/
 git clone https://github.com/yourusername/pokeclone.git
 cd pokeclone
 pip install -r requirements.txt
-python battle_simulator.py
+pip install -e .
+python main_menu.py
 ```
 
 ### Testing

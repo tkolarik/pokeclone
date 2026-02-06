@@ -71,5 +71,11 @@ if ! "${VENV_DIR}/bin/python" -m pip install -r "${ROOT_DIR}/requirements-dev.tx
   exit 1
 fi
 
+echo "Installing project package in editable mode"
+if ! "${VENV_DIR}/bin/python" -m pip install --no-build-isolation --no-deps -e "${ROOT_DIR}"; then
+  echo "Editable install failed."
+  exit 1
+fi
+
 echo "Bootstrap complete."
 echo "Run tests with: ./scripts/run_tests.sh"
