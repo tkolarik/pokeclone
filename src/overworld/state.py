@@ -439,14 +439,99 @@ class MapData:
                 return connection
         return None
 
-    def connection_for_edge(self, direction: str) -> Optional[Connection]:
+    @staticmethod
+    def _edge_axis(direction: str) -> Optional[str]:
+        if direction in ("up", "down"):
+            return "x"
+        if direction in ("left", "right"):
+            return "y"
+        return None
+
+    @staticmethod
+    def _parse_int(value: Any) -> Optional[int]:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @classmethod
+    def _normalize_edge_from_ref(cls, from_ref: Any) -> Optional[str]:
+        if isinstance(from_ref, str):
+            return EDGE_NORMALIZE.get(from_ref, from_ref)
+        if isinstance(from_ref, dict):
+            edge = from_ref.get("edge") or from_ref.get("direction") or from_ref.get("side")
+            if edge is None:
+                return None
+            return EDGE_NORMALIZE.get(edge, edge)
+        return None
+
+    @classmethod
+    def _edge_selector(cls, connection: Connection, normalized_direction: str) -> Optional[int]:
+        axis = cls._edge_axis(normalized_direction)
+        if axis is None:
+            return None
+
+        from_ref = connection.from_ref
+        if isinstance(from_ref, dict):
+            axis_value = cls._parse_int(from_ref.get(axis))
+            if axis_value is not None:
+                return axis_value
+            coord_value = cls._parse_int(from_ref.get("coord"))
+            if coord_value is not None:
+                return coord_value
+
+        extra = connection.extra or {}
+        for key in ("sourceEdgeCoord", "edgeCoord"):
+            value = cls._parse_int(extra.get(key))
+            if value is not None:
+                return value
+
+        # Backward compatibility for older auto-generated edge ids:
+        # auto_<direction>_<target_id>_<source_edge_coord>
+        if isinstance(connection.id, str) and connection.id.startswith("auto_"):
+            tail = connection.id.rsplit("_", 1)
+            if len(tail) == 2:
+                value = cls._parse_int(tail[1])
+                if value is not None:
+                    return value
+
+        return None
+
+    def connection_for_edge(self, direction: str, edge_x: Optional[int] = None, edge_y: Optional[int] = None) -> Optional[Connection]:
+        normalized_direction = EDGE_NORMALIZE.get(direction, direction)
+        axis = self._edge_axis(normalized_direction)
+
+        scoped: List[Tuple[Connection, int]] = []
+        unscoped: List[Connection] = []
+
         for connection in self.connections:
             if connection.type != "edge":
                 continue
-            from_ref = connection.from_ref
-            normalized = EDGE_NORMALIZE.get(from_ref, from_ref)
-            if normalized == direction:
+            normalized = self._normalize_edge_from_ref(connection.from_ref)
+            if normalized != normalized_direction:
+                continue
+            selector = self._edge_selector(connection, normalized_direction)
+            if selector is None:
+                unscoped.append(connection)
+            else:
+                scoped.append((connection, selector))
+
+        if not scoped and not unscoped:
+            return None
+
+        edge_coord = edge_x if axis == "x" else edge_y if axis == "y" else None
+        if edge_coord is None:
+            return unscoped[0] if unscoped else scoped[0][0]
+
+        for connection, selector in scoped:
+            if selector == edge_coord:
                 return connection
+
+        # Allow a general edge route if authored intentionally.
+        if unscoped:
+            return unscoped[0]
+
+        # Scoped routes exist for this edge, but none matched this position.
         return None
 
     def portal_at(self, x: int, y: int) -> Optional[Connection]:
@@ -692,7 +777,7 @@ class OverworldSession:
 
         # Edge connections
         if not self.map.in_bounds(new_x, new_y):
-            connection = self.map.connection_for_edge(direction)
+            connection = self.map.connection_for_edge(direction, edge_x=self.player.x, edge_y=self.player.y)
             if connection:
                 self._execute_connection(connection, attempted_direction=direction)
                 return True

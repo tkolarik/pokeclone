@@ -386,6 +386,9 @@ class WorldView:
         y_tag: Optional[int] = None,
     ) -> None:
         tag = x_tag if x_tag is not None else y_tag if y_tag is not None else 0
+        extra = {"auto": AUTO_FLAG}
+        if x_tag is not None or y_tag is not None:
+            extra["sourceEdgeCoord"] = int(tag)
         conn_id = f"auto_{direction}_{target_id}_{tag}"
         source_map.connections.append(
             Connection(
@@ -394,7 +397,7 @@ class WorldView:
                 from_ref=direction,
                 to={"mapId": target_id, "spawn": spawn, "facing": facing},
                 condition=None,
-                extra={"auto": AUTO_FLAG},
+                extra=extra,
             )
         )
 

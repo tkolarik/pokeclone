@@ -678,7 +678,7 @@
   {
     "id": "OVERWORLD-8",
     "title": "Fix Edge Auto-Connect Routing Mismatch in Overworld",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],

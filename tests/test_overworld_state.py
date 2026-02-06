@@ -206,6 +206,123 @@ class TestOverworldSession(unittest.TestCase):
         self.assertEqual(audio.played[0], "song1")
         self.assertEqual(audio.played[-1], "song2")
 
+    def test_edge_connection_routes_by_source_edge_coordinate(self):
+        tileset = build_tileset()
+        source = build_basic_map("source", music_id="song_source")
+        target_left = build_basic_map("target_left", music_id="song_left")
+        target_right = build_basic_map("target_right", music_id="song_right")
+
+        source.connections.extend(
+            [
+                Connection(
+                    id="auto_up_target_left_0",
+                    type="edge",
+                    from_ref="up",
+                    to={"mapId": "target_left", "spawn": {"x": 0, "y": 2}, "facing": "south"},
+                    condition=None,
+                    extra={"auto": "world", "sourceEdgeCoord": 0},
+                ),
+                Connection(
+                    id="auto_up_target_right_2",
+                    type="edge",
+                    from_ref="up",
+                    to={"mapId": "target_right", "spawn": {"x": 2, "y": 2}, "facing": "south"},
+                    condition=None,
+                    extra={"auto": "world", "sourceEdgeCoord": 2},
+                ),
+            ]
+        )
+
+        loaded_maps = {
+            "target_left": target_left,
+            "target_right": target_right,
+        }
+
+        with patch("src.overworld.state.MapData.load", side_effect=lambda map_id: loaded_maps[map_id].clone()), \
+             patch("src.overworld.state.os.path.exists", return_value=False):
+            left_session = OverworldSession(source.clone(), tileset=tileset, audio_controller=FakeAudio())
+            left_session.player.x, left_session.player.y = 0, 0
+            self.assertTrue(left_session.move("up"))
+            self.assertEqual(left_session.map.id, "target_left")
+            self.assertEqual((left_session.player.x, left_session.player.y), (0, 2))
+
+            right_session = OverworldSession(source.clone(), tileset=tileset, audio_controller=FakeAudio())
+            right_session.player.x, right_session.player.y = 2, 0
+            self.assertTrue(right_session.move("up"))
+            self.assertEqual(right_session.map.id, "target_right")
+            self.assertEqual((right_session.player.x, right_session.player.y), (2, 2))
+
+    def test_edge_connection_with_scoped_routes_blocks_unmapped_coordinate(self):
+        tileset = build_tileset()
+        source = build_basic_map("source")
+        source.connections.extend(
+            [
+                Connection(
+                    id="auto_up_target_left_0",
+                    type="edge",
+                    from_ref="up",
+                    to={"mapId": "target_left", "spawn": {"x": 0, "y": 2}, "facing": "south"},
+                    condition=None,
+                    extra={"auto": "world", "sourceEdgeCoord": 0},
+                ),
+                Connection(
+                    id="auto_up_target_right_2",
+                    type="edge",
+                    from_ref="up",
+                    to={"mapId": "target_right", "spawn": {"x": 2, "y": 2}, "facing": "south"},
+                    condition=None,
+                    extra={"auto": "world", "sourceEdgeCoord": 2},
+                ),
+            ]
+        )
+
+        with patch("src.overworld.state.MapData.load") as mock_load:
+            session = OverworldSession(source, tileset=tileset, audio_controller=FakeAudio())
+            session.player.x, session.player.y = 1, 0
+            moved = session.move("up")
+
+        self.assertFalse(moved)
+        self.assertEqual(session.map.id, "source")
+        self.assertEqual((session.player.x, session.player.y), (1, 0))
+        mock_load.assert_not_called()
+
+    def test_edge_connection_auto_id_suffix_fallback_routes_correctly(self):
+        tileset = build_tileset()
+        source = build_basic_map("source")
+        target_a = build_basic_map("target_a")
+        target_b = build_basic_map("target_b")
+        source.connections.extend(
+            [
+                Connection(
+                    id="auto_up_target_a_0",
+                    type="edge",
+                    from_ref="up",
+                    to={"mapId": "target_a", "spawn": {"x": 0, "y": 2}, "facing": "south"},
+                    condition=None,
+                    extra={"auto": "world"},
+                ),
+                Connection(
+                    id="auto_up_target_b_2",
+                    type="edge",
+                    from_ref="up",
+                    to={"mapId": "target_b", "spawn": {"x": 2, "y": 2}, "facing": "south"},
+                    condition=None,
+                    extra={"auto": "world"},
+                ),
+            ]
+        )
+
+        loaded_maps = {"target_a": target_a, "target_b": target_b}
+        with patch("src.overworld.state.MapData.load", side_effect=lambda map_id: loaded_maps[map_id].clone()), \
+             patch("src.overworld.state.os.path.exists", return_value=False):
+            session = OverworldSession(source, tileset=tileset, audio_controller=FakeAudio())
+            session.player.x, session.player.y = 2, 0
+            moved = session.move("up")
+
+        self.assertTrue(moved)
+        self.assertEqual(session.map.id, "target_b")
+        self.assertEqual((session.player.x, session.player.y), (2, 2))
+
 
 if __name__ == "__main__":
     unittest.main()
