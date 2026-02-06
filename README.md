@@ -207,6 +207,22 @@ POKECLONE_BOOTSTRAP_PYTHON=$(command -v python3.12) ./scripts/bootstrap_test_env
 ./scripts/run_tests.sh
 ```
 
+### Kanban API
+```bash
+python server.py
+```
+
+Runtime API defaults:
+- `GET http://localhost:8001/api/tasks`
+- `POST http://localhost:8001/api/tasks`
+- `PUT http://localhost:8001/api/tasks/<TASK_ID>`
+
+Quick verification command:
+
+```bash
+curl -sf http://localhost:8001/api/tasks
+```
+
 ### Contributing
 1. **Fork the repository**
 2. **Create a feature branch**

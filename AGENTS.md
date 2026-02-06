@@ -23,13 +23,14 @@ The source of truth is `tasks.json`.
 }
 
 ### Method 2: REST API (If server is running)
-If `python server.py` is running on localhost:8000:
+If `python server.py` is running on localhost:8001:
 
-- **List Tasks:** `GET http://localhost:8000/api/tasks`
-- **Add Task:** `POST http://localhost:8000/api/tasks`
+- **List Tasks:** `GET http://localhost:8001/api/tasks`
+- **Add Task:** `POST http://localhost:8001/api/tasks`
   - Body: JSON object (see schema above, `id` is optional/auto-generated)
-- **Update Task:** `PUT http://localhost:8000/api/tasks/<TASK_ID>`
+- **Update Task:** `PUT http://localhost:8001/api/tasks/<TASK_ID>`
   - Body: JSON object with fields to update (e.g., `{"status": "Done"}`)
+- **Verify API availability:** `curl -sf http://localhost:8001/api/tasks`
 
 ## Setup
 To initialize the board from the legacy `ToDo.md`, run: `python convert.py`
