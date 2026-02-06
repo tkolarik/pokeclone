@@ -6,6 +6,8 @@ from typing import Dict, Optional
 import pygame
 
 from src.core import config
+from src.core.input_actions import load_action_map
+from src.core.resource_manager import get_resource_manager
 from src.core.tileset import TileSet
 from src.overworld.state import MapData, MapLayer, OverworldSession
 from src.core.launcher import run_module
@@ -15,6 +17,7 @@ class OverworldAudio:
     """Simple audio controller that respects map music ids."""
 
     def __init__(self) -> None:
+        self.resource_manager = get_resource_manager()
         if not pygame.mixer.get_init():
             try:
                 pygame.mixer.init()
@@ -52,17 +55,17 @@ class OverworldAudio:
         if self.disabled or not sound_id:
             return
         path = os.path.join(config.SOUNDS_DIR, sound_id)
-        if not os.path.exists(path):
-            return
-        try:
-            sound = pygame.mixer.Sound(path)
-            sound.play()
-        except pygame.error:
-            return
+        sound = self.resource_manager.get_sound(path)
+        sound.play()
 
 
-def load_tileset_images(tileset: Optional[TileSet], tile_size: int) -> Dict[str, Dict[str, object]]:
+def load_tileset_images(
+    tileset: Optional[TileSet],
+    tile_size: int,
+    resource_manager=None,
+) -> Dict[str, Dict[str, object]]:
     """Load tile images (all frames) from disk and scale them to the tileset size."""
+    resource_manager = resource_manager or get_resource_manager()
     images: Dict[str, Dict[str, object]] = {}
     if not tileset:
         return images
@@ -72,21 +75,32 @@ def load_tileset_images(tileset: Optional[TileSet], tile_size: int) -> Dict[str,
         total_frames = len(frame_names)
         for idx in range(total_frames):
             path = tileset.tile_image_path(tile, idx)
-            try:
-                surf = pygame.image.load(path).convert_alpha()
-            except pygame.error:
-                surf = pygame.Surface((tile_size, tile_size), pygame.SRCALPHA)
-                color = tile.properties.get("color", [170, 170, 170, 255])
-                pygame.draw.rect(surf, color, surf.get_rect())
-            if surf.get_size() != (tile_size, tile_size):
-                surf = pygame.transform.scale(surf, (tile_size, tile_size))
+            color = tile.properties.get("color", [170, 170, 170, 255])
+            if isinstance(color, (list, tuple)) and len(color) >= 3:
+                if len(color) >= 4:
+                    fallback_color = (int(color[0]), int(color[1]), int(color[2]), int(color[3]))
+                else:
+                    fallback_color = (int(color[0]), int(color[1]), int(color[2]), 255)
+            else:
+                fallback_color = (170, 170, 170, 255)
+            surf = resource_manager.get_image(
+                path,
+                size=(tile_size, tile_size),
+                fallback_size=(tile_size, tile_size),
+                fallback_color=fallback_color,
+            )
             frames.append(surf)
         images[tile.id] = {"frames": frames, "duration": max(1, tile.frame_duration_ms)}
     return images
 
 
-def load_npc_images(tileset: Optional[TileSet], tile_size: int) -> Dict[str, Dict[str, object]]:
+def load_npc_images(
+    tileset: Optional[TileSet],
+    tile_size: int,
+    resource_manager=None,
+) -> Dict[str, Dict[str, object]]:
     """Load NPC sprites (all states/angles/frames) from disk and scale them to the tileset size."""
+    resource_manager = resource_manager or get_resource_manager()
     images: Dict[str, Dict[str, object]] = {}
     if not tileset:
         return images
@@ -99,13 +113,12 @@ def load_npc_images(tileset: Optional[TileSet], tile_size: int) -> Dict[str, Dic
                 frame_names = frames or [f"{npc.id}_{state}_{angle}.png"]
                 for idx in range(len(frame_names)):
                     path = tileset.npc_image_path(npc, state, angle, idx)
-                    try:
-                        surf = pygame.image.load(path).convert_alpha()
-                    except pygame.error:
-                        surf = pygame.Surface((tile_size, tile_size), pygame.SRCALPHA)
-                        pygame.draw.rect(surf, config.BLUE, surf.get_rect())
-                    if surf.get_size() != (tile_size, tile_size):
-                        surf = pygame.transform.scale(surf, (tile_size, tile_size))
+                    surf = resource_manager.get_image(
+                        path,
+                        size=(tile_size, tile_size),
+                        fallback_size=(tile_size, tile_size),
+                        fallback_color=(*config.BLUE, 255),
+                    )
                     frame_list.append(surf)
                 state_entry[angle] = frame_list
             npc_entry["states"][state] = state_entry
@@ -391,18 +404,20 @@ def main() -> None:
     screen = pygame.display.set_mode((config.OVERWORLD_WIDTH, config.OVERWORLD_HEIGHT))
     pygame.display.set_caption("Overworld")
     clock = pygame.time.Clock()
+    actions = load_action_map()
+    resource_manager = get_resource_manager()
 
     map_data = load_default_map()
     tileset_path = os.path.join(config.TILESET_DIR, f"{map_data.tileset_id}.json")
     tileset = TileSet.load(tileset_path) if os.path.exists(tileset_path) else None
-    tile_images = load_tileset_images(tileset, map_data.tile_size)
-    npc_images = load_npc_images(tileset, map_data.tile_size)
+    tile_images = load_tileset_images(tileset, map_data.tile_size, resource_manager=resource_manager)
+    npc_images = load_npc_images(tileset, map_data.tile_size, resource_manager=resource_manager)
     audio = OverworldAudio()
     session = OverworldSession(map_data, tileset=tileset, audio_controller=audio)
     session.battle_launcher = build_battle_launcher(session)
 
-    font = pygame.font.Font(config.DEFAULT_FONT, config.OVERWORLD_FONT_SIZE)
-    font_small = pygame.font.Font(config.DEFAULT_FONT, 14)
+    font = resource_manager.get_font(config.DEFAULT_FONT, config.OVERWORLD_FONT_SIZE)
+    font_small = resource_manager.get_font(config.DEFAULT_FONT, 14)
     debug_overlay = False
 
     running = True
@@ -411,27 +426,35 @@ def main() -> None:
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+                if actions.matches(event, "cancel"):
                     running = False
-                elif event.key in (pygame.K_UP, pygame.K_w):
+                elif actions.matches(event, "move_up"):
                     session.move("up")
-                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                elif actions.matches(event, "move_down"):
                     session.move("down")
-                elif event.key in (pygame.K_LEFT, pygame.K_a):
+                elif actions.matches(event, "move_left"):
                     session.move("left")
-                elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                elif actions.matches(event, "move_right"):
                     session.move("right")
-                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                elif actions.matches(event, "interact"):
                     session.interact()
-                elif event.key == pygame.K_r:
+                elif actions.matches(event, "reload"):
                     # Hot reload current map from disk
                     map_data = MapData.load(map_data.id)
                     tileset_path = os.path.join(config.TILESET_DIR, f"{map_data.tileset_id}.json")
                     tileset = TileSet.load(tileset_path) if os.path.exists(tileset_path) else None
-                    tile_images = load_tileset_images(tileset, map_data.tile_size)
-                    npc_images = load_npc_images(tileset, map_data.tile_size)
+                    tile_images = load_tileset_images(
+                        tileset,
+                        map_data.tile_size,
+                        resource_manager=resource_manager,
+                    )
+                    npc_images = load_npc_images(
+                        tileset,
+                        map_data.tile_size,
+                        resource_manager=resource_manager,
+                    )
                     session.set_map(map_data, tileset=tileset)
-                elif event.key == pygame.K_F1:
+                elif actions.matches(event, "debug_toggle"):
                     debug_overlay = not debug_overlay
 
         draw_world(screen, session, tile_images, npc_images, font_small, debug=debug_overlay)

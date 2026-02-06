@@ -22,14 +22,18 @@ from src.battle.engine import (
     scale_stat as engine_scale_stat,
     scale_stats as engine_scale_stats,
 )
+from src.core.input_actions import load_action_map
 from src.core.monster_schema import derive_move_pool_from_learnset, normalize_monster
+from src.core.resource_manager import get_resource_manager
 
 AUDIO_ENABLED = False
 _AUDIO_INIT_ATTEMPTED = False
 SCREEN = None
 FONT = None
+INPUT_ACTIONS = None
 
 _SFX_CACHE = {}
+RESOURCE_MANAGER = get_resource_manager()
 
 # Load type effectiveness chart
 type_chart = {}
@@ -75,8 +79,15 @@ def _get_screen():
 def _get_font():
     global FONT
     if FONT is None:
-        FONT = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE)
+        FONT = RESOURCE_MANAGER.get_font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE)
     return FONT
+
+
+def _get_input_actions():
+    global INPUT_ACTIONS
+    if INPUT_ACTIONS is None:
+        INPUT_ACTIONS = load_action_map()
+    return INPUT_ACTIONS
 
 
 def _is_audio_ready():
@@ -104,13 +115,9 @@ def _resolve_sfx_path(event_key, move=None):
 def _load_sfx(path):
     if path in _SFX_CACHE:
         return _SFX_CACHE[path]
-    try:
-        sound = pygame.mixer.Sound(path)
-        _SFX_CACHE[path] = sound
-        return sound
-    except pygame.error as e:
-        print(f"Failed to load SFX '{path}': {e}")
-        return None
+    sound = RESOURCE_MANAGER.get_sound(path)
+    _SFX_CACHE[path] = sound
+    return sound
 
 
 def play_battle_sfx(event_key, move=None):
@@ -185,17 +192,12 @@ def create_default_sprite():
 
 def create_sprite_from_file(filename):
     """Loads sprite at native resolution, scales down if necessary."""
-    try:
-        sprite = pygame.image.load(filename).convert_alpha()
-        # Check if loaded image matches native resolution
-        if sprite.get_size() != config.NATIVE_SPRITE_RESOLUTION:
-            print(f"Warning: Loaded sprite {filename} size {sprite.get_size()} does not match native {config.NATIVE_SPRITE_RESOLUTION}. Scaling down.")
-            sprite = pygame.transform.smoothscale(sprite, config.NATIVE_SPRITE_RESOLUTION)
-        return sprite
-    except pygame.error:
-        print(f"Sprite file not found: {filename}")
-        # Return a default native size sprite if file not found
-        return create_default_sprite() 
+    return RESOURCE_MANAGER.get_image(
+        filename,
+        size=config.NATIVE_SPRITE_RESOLUTION,
+        fallback_size=config.NATIVE_SPRITE_RESOLUTION,
+        fallback_color=(*config.GRAY_LIGHT, 255),
+    )
     
 def load_moves():
     moves_file = os.path.join(config.DATA_DIR, 'moves.json')
@@ -344,7 +346,7 @@ class Button:
         self.action = action
         self.color = config.BUTTON_COLOR
         self.hover_color = config.BUTTON_HOVER_COLOR
-        self.font = pygame.font.Font(config.DEFAULT_FONT, config.BUTTON_FONT_SIZE)
+        self.font = RESOURCE_MANAGER.get_font(config.DEFAULT_FONT, config.BUTTON_FONT_SIZE)
 
     def draw(self, surface):
         mouse_pos = pygame.mouse.get_pos()
@@ -407,7 +409,7 @@ def draw_battle(creature1, creature2, buttons, background):
 
     # Draw type labels under HP bars
     type_font_size = max(config.BATTLE_TYPE_FONT_MIN, config.BATTLE_FONT_SIZE - config.BATTLE_TYPE_FONT_OFFSET)
-    type_font = pygame.font.Font(config.DEFAULT_FONT, type_font_size)
+    type_font = RESOURCE_MANAGER.get_font(config.DEFAULT_FONT, type_font_size)
     type1 = type_font.render(f"Type: {creature1.type}", True, config.BLACK)
     type2 = type_font.render(f"Type: {creature2.type}", True, config.BLACK)
     type_y = config.BATTLE_TYPE_LABEL_Y
@@ -509,9 +511,12 @@ def load_random_background():
         backgrounds = [f for f in os.listdir(backgrounds_dir) if f.endswith('.png')]
         if backgrounds:
             background_path = os.path.join(backgrounds_dir, random.choice(backgrounds))
-            background = pygame.image.load(background_path).convert_alpha()
-            # Scale background to fit battle screen size
-            return pygame.transform.scale(background, (config.BATTLE_WIDTH, config.BATTLE_HEIGHT))
+            return RESOURCE_MANAGER.get_image(
+                background_path,
+                size=(config.BATTLE_WIDTH, config.BATTLE_HEIGHT),
+                fallback_size=(config.BATTLE_WIDTH, config.BATTLE_HEIGHT),
+                fallback_color=(*config.BATTLE_BG_COLOR, 255),
+            )
         else:
              print(f"No backgrounds found in {backgrounds_dir}. Using default.")
     except FileNotFoundError:
@@ -522,15 +527,22 @@ def load_random_background():
          print(f"Error loading background: {e}. Using default.")
          
     # Default fallback background
-    default_bg = pygame.Surface((config.BATTLE_WIDTH, config.BATTLE_HEIGHT), pygame.SRCALPHA)
-    default_bg.fill((*config.BATTLE_BG_COLOR, 255))  # Ensure full opacity
-    return default_bg
+    return RESOURCE_MANAGER.get_image(
+        "__missing_battle_background__",
+        size=(config.BATTLE_WIDTH, config.BATTLE_HEIGHT),
+        fallback_size=(config.BATTLE_WIDTH, config.BATTLE_HEIGHT),
+        fallback_color=(*config.BATTLE_BG_COLOR, 255),
+    )
 
 def prompt_for_level(prompt_text, default_level):
     screen = _get_screen()
     font = _get_font()
+    actions = _get_input_actions()
     input_text = ""
-    hint_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - config.BATTLE_AUX_FONT_OFFSET)
+    hint_font = RESOURCE_MANAGER.get_font(
+        config.DEFAULT_FONT,
+        config.BATTLE_FONT_SIZE - config.BATTLE_AUX_FONT_OFFSET,
+    )
     clock = pygame.time.Clock()
 
     while True:
@@ -555,12 +567,12 @@ def prompt_for_level(prompt_text, default_level):
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN:
+                if actions.matches(event, "confirm"):
                     level_value = int(input_text) if input_text else default_level
                     return clamp_level(level_value)
-                if event.key == pygame.K_ESCAPE:
+                if actions.matches(event, "cancel"):
                     return clamp_level(default_level)
-                if event.key == pygame.K_BACKSPACE:
+                if actions.matches(event, "backspace"):
                     input_text = input_text[:-1]
                 elif event.unicode.isdigit() and len(input_text) < 3:
                     input_text += event.unicode
@@ -570,8 +582,12 @@ def prompt_for_level(prompt_text, default_level):
 def prompt_for_team_size(prompt_text, default_size, max_size):
     screen = _get_screen()
     font = _get_font()
+    actions = _get_input_actions()
     input_text = ""
-    hint_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - config.BATTLE_AUX_FONT_OFFSET)
+    hint_font = RESOURCE_MANAGER.get_font(
+        config.DEFAULT_FONT,
+        config.BATTLE_FONT_SIZE - config.BATTLE_AUX_FONT_OFFSET,
+    )
     clock = pygame.time.Clock()
 
     while True:
@@ -596,16 +612,16 @@ def prompt_for_team_size(prompt_text, default_size, max_size):
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN:
+                if actions.matches(event, "confirm"):
                     try:
                         size_value = int(input_text) if input_text else default_size
                     except ValueError:
                         size_value = default_size
                     size_value = max(1, min(max_size, size_value))
                     return size_value
-                if event.key == pygame.K_ESCAPE:
+                if actions.matches(event, "cancel"):
                     return max(1, min(max_size, default_size))
-                if event.key == pygame.K_BACKSPACE:
+                if actions.matches(event, "backspace"):
                     input_text = input_text[:-1]
                 elif event.unicode.isdigit() and len(input_text) < 2:
                     input_text += event.unicode
@@ -617,6 +633,7 @@ def select_team(creatures, team_size):
         return []
     screen = _get_screen()
     font = _get_font()
+    actions = _get_input_actions()
     grid_cols = config.BATTLE_TEAM_GRID_COLS
     grid_rows = config.BATTLE_TEAM_GRID_ROWS
     per_page = grid_cols * grid_rows
@@ -630,7 +647,10 @@ def select_team(creatures, team_size):
     total_pages = (len(creatures) + per_page - 1) // per_page
     selected_index = 0
     selected_names = []
-    info_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - config.BATTLE_AUX_FONT_OFFSET)
+    info_font = RESOURCE_MANAGER.get_font(
+        config.DEFAULT_FONT,
+        config.BATTLE_FONT_SIZE - config.BATTLE_AUX_FONT_OFFSET,
+    )
 
     done_button = Button(
         (
@@ -720,41 +740,41 @@ def select_team(creatures, team_size):
             if event.type == pygame.KEYDOWN:
                 if num_buttons == 0:
                     continue
-                if event.key == pygame.K_DOWN:
+                if actions.matches(event, "down"):
                     if selected_index + grid_cols < num_buttons:
                         selected_index += grid_cols
-                elif event.key == pygame.K_UP:
+                elif actions.matches(event, "up"):
                     if selected_index - grid_cols >= 0:
                         selected_index -= grid_cols
-                elif event.key == pygame.K_RIGHT:
+                elif actions.matches(event, "right"):
                     if selected_index + 1 < num_buttons:
                         selected_index += 1
-                elif event.key == pygame.K_LEFT:
+                elif actions.matches(event, "left"):
                     if selected_index - 1 >= 0:
                         selected_index -= 1
-                elif event.key == pygame.K_RIGHTBRACKET:
+                elif actions.matches(event, "page_next"):
                     if current_page < total_pages - 1:
                         current_page += 1
                         selected_index = 0
-                elif event.key == pygame.K_LEFTBRACKET:
+                elif actions.matches(event, "page_prev"):
                     if current_page > 0:
                         current_page -= 1
                         selected_index = 0
-                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                elif actions.matches(event, "confirm"):
                     if 0 <= selected_index < num_buttons:
                         creature = buttons[selected_index].action
                         if creature.name in selected_names:
                             selected_names.remove(creature.name)
                         elif len(selected_names) < team_size:
                             selected_names.append(creature.name)
-                elif event.key == pygame.K_BACKSPACE and selected_names:
+                elif actions.matches(event, "backspace") and selected_names:
                     selected_names.pop()
-                elif event.key == pygame.K_c:
+                elif actions.matches(event, "clear"):
                     selected_names = []
-                elif event.key == pygame.K_d:
+                elif actions.matches(event, "done"):
                     if selected_names:
                         return selected_names
-                elif event.key == pygame.K_ESCAPE:
+                elif actions.matches(event, "cancel"):
                     return None
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if done_button.is_clicked(event):
