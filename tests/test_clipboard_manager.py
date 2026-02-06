@@ -44,6 +44,23 @@ class TestClipboardManager(unittest.TestCase):
         self.assertEqual(second.get_active_pixels(), favorite_pixels)
         self.assertTrue(second.get_active_entry().favorite)
 
+    def test_push_accepts_indexable_color_values(self):
+        class FauxColor:
+            def __init__(self, rgba):
+                self._rgba = list(rgba)
+
+            def __len__(self):
+                return len(self._rgba)
+
+            def __getitem__(self, index):
+                return self._rgba[index]
+
+        pixels = {(0, 0): FauxColor((9, 8, 7, 255))}
+        self.manager.push(pixels)
+
+        self.assertEqual(len(self.manager.history), 1)
+        self.assertEqual(self.manager.get_active_pixels(), {(0, 0): (9, 8, 7, 255)})
+
 
 if __name__ == "__main__":
     unittest.main()

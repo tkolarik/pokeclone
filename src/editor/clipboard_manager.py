@@ -150,10 +150,13 @@ class ClipboardManager:
         for key, value in pixels.items():
             if not isinstance(key, tuple) or len(key) != 2:
                 continue
-            if not isinstance(value, (tuple, list)) or len(value) < 4:
+            try:
+                if len(value) < 4:
+                    continue
+                x, y = int(key[0]), int(key[1])
+                r, g, b, a = (int(value[0]), int(value[1]), int(value[2]), int(value[3]))
+            except (TypeError, ValueError, IndexError):
                 continue
-            x, y = int(key[0]), int(key[1])
-            r, g, b, a = (int(value[0]), int(value[1]), int(value[2]), int(value[3]))
             normalized[(x, y)] = (r, g, b, a)
         return normalized
 
