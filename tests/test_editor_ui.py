@@ -83,12 +83,8 @@ class TestPalette(unittest.TestCase):
 
     def test_handle_click_scroll_up(self):
         """Test clicking the scroll up area."""
-        # First, scroll down if possible to make scrolling up meaningful
-        if self.palette.total_pages > 1:
-            self.palette.scroll_offset = 1
-        else:
-             self.skipTest("Cannot test scroll up without multiple pages")
-             
+        # Force a scrolled state so scroll-up behavior is testable regardless of palette size.
+        self.palette.scroll_offset = 1
         initial_offset = self.palette.scroll_offset
         # Calculate a position within the approximate scroll up area
         scroll_x = self.palette_pos[0] + config.PALETTE_COLS * (self.palette.block_size + self.palette.padding) + 15

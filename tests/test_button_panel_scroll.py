@@ -53,7 +53,7 @@ class TestButtonPanelScroll(unittest.TestCase):
         editor._set_button_scroll_offset(buttons, editor.button_scroll_max)
         self.assertTrue(panel_rect.contains(buttons[-1].rect))
 
-    def test_button_panel_all_modes_visible_with_scroll(self):
+    def _assert_modes_visible_for_current_config(self):
         with self.subTest(mode="monster"):
             editor = self._build_editor("monster")
             self._assert_button_panel_visibility(editor)
@@ -66,6 +66,25 @@ class TestButtonPanelScroll(unittest.TestCase):
         with self.subTest(mode="tile-npc"):
             editor = self._build_editor("tile", asset_edit_target="npc")
             self._assert_button_panel_visibility(editor)
+
+    def test_button_panel_all_modes_visible_with_scroll(self):
+        self._assert_modes_visible_for_current_config()
+
+    def test_button_panel_layout_across_screen_sizes(self):
+        cases = [
+            (1300, 800),
+            (1024, 700),
+        ]
+        for width, height in cases:
+            with self.subTest(width=width, height=height):
+                start_x = width - config.EDITOR_SIDE_BUTTON_WIDTH - config.EDITOR_SIDE_BUTTON_PADDING
+                with patch.multiple(
+                    config,
+                    EDITOR_WIDTH=width,
+                    EDITOR_HEIGHT=height,
+                    EDITOR_SIDE_BUTTON_START_X=start_x,
+                ):
+                    self._assert_modes_visible_for_current_config()
 
 
 if __name__ == '__main__':

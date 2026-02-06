@@ -483,7 +483,7 @@ def draw_battle(creature1, creature2, buttons, background):
     SCREEN.blit(type2, (hp_right_x, type_y))
 
     # Draw attack and defense stats
-    attack_y = type_y + type_font_size + 6
+    attack_y = type_y + type_font_size + config.BATTLE_TYPE_TO_STATS_GAP
     defense_y = attack_y + config.BATTLE_STATS_VERTICAL_GAP
     attack1 = FONT.render(f"ATK: {creature1.attack}", True, config.BLACK)
     defense1 = FONT.render(f"DEF: {creature1.defense}", True, config.BLACK)
@@ -645,7 +645,7 @@ def load_random_background():
 
 def prompt_for_level(prompt_text, default_level):
     input_text = ""
-    hint_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - 6)
+    hint_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - config.BATTLE_AUX_FONT_OFFSET)
     clock = pygame.time.Clock()
 
     while True:
@@ -684,7 +684,7 @@ def prompt_for_level(prompt_text, default_level):
 
 def prompt_for_team_size(prompt_text, default_size, max_size):
     input_text = ""
-    hint_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - 6)
+    hint_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - config.BATTLE_AUX_FONT_OFFSET)
     clock = pygame.time.Clock()
 
     while True:
@@ -741,11 +741,11 @@ def select_team(creatures, team_size):
     total_pages = (len(creatures) + per_page - 1) // per_page
     selected_index = 0
     selected_names = []
-    info_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - 6)
+    info_font = pygame.font.Font(config.DEFAULT_FONT, config.BATTLE_FONT_SIZE - config.BATTLE_AUX_FONT_OFFSET)
 
     done_button = Button(
         (
-            config.BATTLE_WIDTH - config.BATTLE_TEAM_DONE_WIDTH - 20,
+            config.BATTLE_WIDTH - config.BATTLE_TEAM_DONE_WIDTH - config.BATTLE_TEAM_SIDE_MARGIN,
             config.BATTLE_HEIGHT - config.BATTLE_TEAM_PANEL_BOTTOM_MARGIN,
             config.BATTLE_TEAM_DONE_WIDTH,
             config.BATTLE_TEAM_DONE_HEIGHT,
@@ -754,7 +754,7 @@ def select_team(creatures, team_size):
     )
     clear_button = Button(
         (
-            20,
+            config.BATTLE_TEAM_SIDE_MARGIN,
             config.BATTLE_HEIGHT - config.BATTLE_TEAM_PANEL_BOTTOM_MARGIN,
             config.BATTLE_TEAM_CLEAR_WIDTH,
             config.BATTLE_TEAM_CLEAR_HEIGHT,
@@ -797,9 +797,19 @@ def select_team(creatures, team_size):
             button.draw(SCREEN)
 
             if creature.name in selected_names:
-                pygame.draw.rect(SCREEN, config.GREEN, button.rect, 3)
+                pygame.draw.rect(
+                    SCREEN,
+                    config.GREEN,
+                    button.rect,
+                    config.BATTLE_TEAM_SELECTED_BORDER_WIDTH,
+                )
             elif i == selected_index:
-                pygame.draw.rect(SCREEN, config.RED, button.rect, 2)
+                pygame.draw.rect(
+                    SCREEN,
+                    config.RED,
+                    button.rect,
+                    config.BATTLE_TEAM_FOCUS_BORDER_WIDTH,
+                )
 
             creature_sprite = pygame.transform.scale(creature.sprite, config.BATTLE_TEAM_SPRITE_SIZE)
             SCREEN.blit(
