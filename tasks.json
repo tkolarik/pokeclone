@@ -873,7 +873,7 @@
   {
     "id": "OVERWORLD-11",
     "title": "Exclude Non-Map JSON Files from World View Map Discovery",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Highest",
     "type": "Task",
     "labels": [],
@@ -903,7 +903,7 @@
   {
     "id": "BATTLE-3",
     "title": "Guard Battle Flow Against Empty Move Sets",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],
@@ -933,7 +933,7 @@
   {
     "id": "OVERWORLD-12",
     "title": "Replace Silent Exception Handling in World View Persistence Paths",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Medium",
     "type": "Task",
     "labels": [],
@@ -1003,6 +1003,111 @@
       "Missing assets resolve to explicit placeholders/fallbacks rather than crashing runtime flows.",
       "Menu, overworld, and battle paths use the shared manager for core asset types.",
       "Automated: unit tests verify cache hit behavior, load-once semantics, and missing-asset fallback handling."
+    ]
+  },
+  {
+    "id": "FEAT-1",
+    "title": "Implement Battle Tweening and Impact Effects System (Game Feel)",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Feature",
+    "labels": [],
+    "description": "Add a reusable tween/effects framework for battle feedback, including smooth motion transitions, screen shake, hit stop, and damage flash effects to improve perceived combat impact.",
+    "acceptanceCriteria": [
+      "Battle UI/sprite transitions can be animated via tween primitives instead of only instant position/value changes.",
+      "Impact effects include configurable screen shake, short hit-stop, and sprite damage flash without breaking turn resolution correctness.",
+      "Effects are parameterized (duration/intensity/easing) and can be triggered from battle events.",
+      "Automated: unit tests cover tween progression math, effect lifecycle start/stop behavior, and deterministic frame-step outcomes for shake/hit-stop/flash controllers."
+    ]
+  },
+  {
+    "id": "FEAT-2",
+    "title": "Add Scriptable Trigger/Event System for Maps",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Feature",
+    "labels": [],
+    "description": "Introduce a lightweight data-driven event scripting system so map/NPC interactions are authored as content (dialogue/conditions/flags/jumps/actions) rather than hardcoded Python logic.",
+    "acceptanceCriteria": [
+      "Map and trigger data can reference script blocks or script IDs executed by a runtime event interpreter.",
+      "Core commands support dialogue, conditional checks, flag mutation, branching/jumps, and battle/warp integration.",
+      "Map editor workflow supports assigning or editing trigger scripts without direct code changes.",
+      "Automated: unit tests validate command execution order, branch/fail-jump behavior, state mutation (flags/items), and error handling for invalid script instructions."
+    ]
+  },
+  {
+    "id": "FEAT-3",
+    "title": "Implement Hot-Reload for Game Assets and Data",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Feature",
+    "labels": [],
+    "description": "Enable live asset/data updates during runtime so saved sprite, map, and relevant data changes are reloaded automatically without restarting the game loop.",
+    "acceptanceCriteria": [
+      "Resource manager tracks file mtimes (or equivalent watch signals) and reloads changed assets on demand safely.",
+      "Runtime scenes can refresh affected textures/data references without requiring full process restart.",
+      "Failure to reload a changed file falls back gracefully (previous asset or placeholder) with clear diagnostics.",
+      "Automated: unit tests simulate file-change detection and verify cache invalidation, reload-on-change behavior, and safe fallback on reload failure."
+    ]
+  },
+  {
+    "id": "TOOLS-1",
+    "title": "Add Enum-Driven Dropdown Inputs for Schema-Constrained Fields",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Feature",
+    "labels": [],
+    "description": "Replace free-text inputs for constrained fields (types, move references, categories) with dropdown/searchable selector controls sourced from canonical game data.",
+    "acceptanceCriteria": [
+      "Monster and move editor constrained fields use dropdown/combobox controls instead of raw text entry.",
+      "Type selectors are populated from `type_chart.json` keys and stay synchronized with canonical type definitions.",
+      "Move selectors are populated from `moves.json` and prevent selecting undefined move identifiers.",
+      "Automated: unit tests verify selector data-source loading, validation rejection of invalid values, and persistence of selected canonical values."
+    ]
+  },
+  {
+    "id": "TOOLS-2",
+    "title": "Build Master-Detail Learnset Grid Editor",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Feature",
+    "labels": [],
+    "description": "Implement a dedicated learnset data-grid UI with row-level controls and validation for level/move entries to replace manual JSON-style editing workflows.",
+    "acceptanceCriteria": [
+      "Learnset editing uses a tabular grid with `Level` numeric input and `Move` selector columns.",
+      "Users can add/remove rows and sort rows by level with deterministic output ordering.",
+      "Validation highlights duplicate move entries and malformed rows before save.",
+      "Automated: unit tests cover grid row add/remove/sort behavior, duplicate detection, and serialized learnset output correctness."
+    ]
+  },
+  {
+    "id": "TOOLS-3",
+    "title": "Implement Referential Integrity for Move Renames",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Feature",
+    "labels": [],
+    "description": "When a move identifier/name is renamed, detect and optionally update all dependent references across monster data to prevent broken learnsets/move pools.",
+    "acceptanceCriteria": [
+      "Move editor detects downstream references before applying rename operations.",
+      "Rename workflow presents impacted reference count and supports one-click bulk update.",
+      "Accepted rename updates all affected `learnset` and derived move reference fields consistently.",
+      "Automated: unit tests verify reference scanning accuracy, bulk rename propagation, and rollback-safe handling when update fails."
+    ]
+  },
+  {
+    "id": "TOOLS-4",
+    "title": "Add Move Logic Playground to Move Editor",
+    "status": "To Do",
+    "priority": "Medium",
+    "type": "Feature",
+    "labels": [],
+    "description": "Embed an interactive move balance panel in the move editor to preview expected damage ranges and KO estimates based on tunable attacker/defender parameters.",
+    "acceptanceCriteria": [
+      "Move editor includes a test panel with attacker/defender parameter controls and live computed output.",
+      "Displayed output includes at minimum estimated damage range and approximate hits-to-KO for current inputs.",
+      "Panel updates in real time as move power/effects or test parameters change.",
+      "Automated: unit tests validate damage-preview calculations against engine formulas and verify reactive update behavior for parameter changes."
     ]
   }
 ]

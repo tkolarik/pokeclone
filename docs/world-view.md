@@ -4,6 +4,13 @@ Entry point: `python -m src.overworld.world_view`
 
 World View visualizes all maps and their connections. It supports arranging maps, zooming, and auto-connecting edges.
 
+## Map discovery rules
+
+- World View only discovers `.json` files that contain map-definition payloads.
+- A discovered map file must include a non-empty `id` and a `layers` list with tile rows.
+- Metadata files (for example `data/maps/world_layout.json`) are explicitly excluded.
+- Invalid or non-map JSON files are skipped and are never loaded as playable maps.
+
 ## Keyboard shortcuts
 
 - Q or Esc: quit
