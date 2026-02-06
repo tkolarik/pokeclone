@@ -51,6 +51,14 @@ class TestBattleAI(unittest.TestCase):
         chosen = opponent_choose_move(attacker, defender)
         self.assertIs(chosen, damage_move)
 
+    def test_returns_fallback_move_when_no_moves_available(self):
+        attacker = self._make_creature("Attacker", "Normal", moves=[])
+        defender = self._make_creature("Defender", "Normal")
+
+        chosen = opponent_choose_move(attacker, defender)
+        self.assertIsNotNone(chosen)
+        self.assertEqual(chosen.name, "Struggle")
+
 
 if __name__ == "__main__":
     unittest.main()

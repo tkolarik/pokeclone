@@ -11,6 +11,7 @@ from src.battle.engine import (
     BattleEngine,
     Creature,
     Move,
+    NO_MOVE_FALLBACK_NAME as ENGINE_NO_MOVE_FALLBACK_NAME,
     apply_stat_change as engine_apply_stat_change,
     build_moves_for_level as engine_build_moves_for_level,
     calculate_damage as engine_calculate_damage,
@@ -417,6 +418,17 @@ def draw_battle(creature1, creature2, buttons, background):
             elif effectiveness < 1:
                 pygame.draw.rect(SCREEN, config.RED, button.rect, config.BATTLE_EFFECT_OUTLINE_WIDTH)
 
+    if not buttons:
+        fallback_text = FONT.render(
+            f"No moves available: {ENGINE_NO_MOVE_FALLBACK_NAME} is used automatically.",
+            True,
+            config.BLACK,
+        )
+        fallback_rect = fallback_text.get_rect(
+            center=(config.BATTLE_WIDTH // 2, config.BATTLE_HEIGHT - config.BATTLE_MOVE_BUTTON_BOTTOM_MARGIN - 20)
+        )
+        SCREEN.blit(fallback_text, fallback_rect)
+
     pygame.display.flip()
 
 def opponent_choose_move(attacker, defender):
@@ -774,6 +786,18 @@ def battle(creature1, creature2, show_end_menu=True):
                             play_battle_sfx("faint")
                         _announce_turn(creature1, creature2, move, result.damage)
                         break
+
+        if engine.turn == "player" and creature1.is_alive() and creature2.is_alive() and not buttons:
+            result = engine.resolve_player_turn(None)
+            move = result.move
+            if move is not None:
+                print(f"{creature1.name} has no usable moves! {move.name} is used automatically.")
+                play_battle_sfx("attack", move=move)
+                if result.damage > 0:
+                    play_battle_sfx("damage", move=move)
+                if result.defender_fainted:
+                    play_battle_sfx("faint")
+                _announce_turn(creature1, creature2, move, result.damage)
 
         if engine.turn == "opponent" and creature2.is_alive() and creature1.is_alive() and engine.winner is None:
             pygame.time.delay(config.BATTLE_OPPONENT_MOVE_DELAY_MS)

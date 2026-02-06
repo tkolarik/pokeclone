@@ -80,3 +80,31 @@ def test_engine_round_resolves_to_opponent_win():
     assert results[1].winner == "opponent"
     assert engine.winner == "opponent"
     assert player.current_hp == 0
+
+
+def test_engine_player_turn_uses_fallback_when_no_moves():
+    player = _make_creature("PlayerMon", "Normal", hp=100, attack=60, defense=40, moves=[])
+    opponent = _make_creature("OppMon", "Normal", hp=100, attack=50, defense=40, moves=[Move("Hit", "Normal", 20)])
+
+    engine = BattleEngine(player, opponent, type_chart={"Normal": {"Normal": 1.0}}, rng=StaticRNG(uniform_value=1.0))
+    result = engine.resolve_player_turn(None)
+
+    assert result.move is not None
+    assert result.move.name == "Struggle"
+    assert result.damage > 0
+    assert engine.turn == "opponent" or engine.winner == "player"
+
+
+def test_engine_opponent_turn_uses_fallback_when_no_moves():
+    player_move = Move("Tap", "Normal", 1)
+    player = _make_creature("PlayerMon", "Normal", hp=100, attack=40, defense=30, moves=[player_move])
+    opponent = _make_creature("OppMon", "Normal", hp=100, attack=60, defense=30, moves=[])
+
+    engine = BattleEngine(player, opponent, type_chart={"Normal": {"Normal": 1.0}}, rng=StaticRNG(uniform_value=1.0))
+    engine.resolve_player_turn(player_move)
+    result = engine.resolve_opponent_turn()
+
+    assert result.move is not None
+    assert result.move.name == "Struggle"
+    assert result.damage > 0
+    assert engine.turn == "player" or engine.winner == "opponent"

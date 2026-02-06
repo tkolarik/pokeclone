@@ -4,6 +4,10 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from src.core import config
 
+NO_MOVE_FALLBACK_NAME = "Struggle"
+NO_MOVE_FALLBACK_TYPE = "Normal"
+NO_MOVE_FALLBACK_POWER = 30
+
 
 class Move:
     def __init__(self, name: str, type_: str, power: int, effect: Optional[Dict[str, Any]] = None):
@@ -230,7 +234,7 @@ def opponent_choose_move(
     choice_fn: Optional[Callable[[Sequence[Move]], Move]] = None,
 ) -> Optional[Move]:
     if not attacker.moves:
-        return None
+        return Move(NO_MOVE_FALLBACK_NAME, NO_MOVE_FALLBACK_TYPE, NO_MOVE_FALLBACK_POWER)
     if choice_fn is None:
         choice_fn = random.choice
 
@@ -316,6 +320,9 @@ class BattleEngine:
 
         attacker = self.player if actor == "player" else self.opponent
         defender = self.opponent if actor == "player" else self.player
+
+        if move is None and not attacker.moves:
+            move = Move(NO_MOVE_FALLBACK_NAME, NO_MOVE_FALLBACK_TYPE, NO_MOVE_FALLBACK_POWER)
 
         if move is None:
             self.turn = "opponent" if actor == "player" else "player"
