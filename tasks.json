@@ -1109,5 +1109,20 @@
       "Panel updates in real time as move power/effects or test parameters change.",
       "Automated: unit tests validate damage-preview calculations against engine formulas and verify reactive update behavior for parameter changes."
     ]
+  },
+  {
+    "id": "TOOLS-5",
+    "title": "Implement Move Animation Editor (per Design Doc)",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Feature",
+    "labels": [],
+    "description": "Implement the move animation editor according to `docs/move-animation-editor-design.md`, including timeline/frame authoring workflows, onion-skin support, reference image aids, and draggable animation element positioning.",
+    "acceptanceCriteria": [
+      "The implemented move animation editor behavior matches `docs/move-animation-editor-design.md` for frame/timeline editing, playback controls, onion-skinning, and draggable object/layer positioning.",
+      "Animation data can be created, edited, saved, and loaded in the format defined by the design doc without manual JSON edits.",
+      "Project MkDocs documentation is updated (navigation and relevant pages) to document how to use the move animation editor and where its data/assets live.",
+      "Automated: unit tests cover core editor logic (frame ordering operations, onion-skin toggle behavior, and drag transform/persistence behavior)."
+    ]
   }
 ]
