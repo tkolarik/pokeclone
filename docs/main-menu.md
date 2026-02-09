@@ -9,6 +9,7 @@ These labels appear in the center list and can be clicked with the mouse:
 - Overworld
 - Battle Simulator
 - Pixel Art Editor
+- Move Animation Editor
 - Map Editor
 - Quit
 

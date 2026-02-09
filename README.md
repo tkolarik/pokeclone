@@ -21,6 +21,12 @@ A Pygame-based monster battling game featuring unique creatures with elemental t
 - **Undo/Redo Functionality**: Revert or reapply changes with ease.
 - **Integration with Game**: Seamlessly create and edit sprites that integrate directly into the game.
 
+### Move Animation Editor
+- **Timeline Authoring**: Add/duplicate/delete/reorder animation frames with per-frame duration.
+- **Layer/Object Tracks**: Manage multiple animation objects anchored to attacker/defender/screen.
+- **Onion Skin + Dragging**: Preview previous/next frames and drag object transforms directly on stage.
+- **Reference Aids**: Load/pan/scale reference art while drawing object frame pixels.
+
 ### Elemental Types
 - 🔥 Fire
 - 💧 Water
@@ -277,6 +283,7 @@ Please use the GitHub Issues tab to report bugs. Include:
 - [Battle AI Notes](docs/battle-ai.md)
 - [Map Editor Guide](docs/map-editor.md)
 - [Overworld Runtime](docs/overworld.md)
+- [Move Animation Editor Guide](docs/move-animation-editor.md)
 
 ---
 

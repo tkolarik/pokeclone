@@ -5,7 +5,7 @@ Welcome to the PokeClone docs. This site focuses on **exhaustive, code-accurate 
 ## Where to start
 
 - If you just want to run tools, start with **Getting Started**.
-- If you need control reference, go to **Main Menu**, **Pixel Art Editor**, **Map Editor**, **Battle Simulator**, and **Overworld**.
+- If you need control reference, go to **Main Menu**, **Pixel Art Editor**, **Move Animation Editor**, **Map Editor**, **Battle Simulator**, and **Overworld**.
 - If you want current combat tuning details, read **Balance Pass (2026-02)**.
 - Design documents live under **Design Docs**.
 

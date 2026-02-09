@@ -13,6 +13,7 @@ class TestMainMenu(unittest.TestCase):
         self.assertIn("Overworld", labels)
         self.assertIn("Battle Simulator", labels)
         self.assertIn("Pixel Art Editor", labels)
+        self.assertIn("Move Animation Editor", labels)
         self.assertIn("Quit", labels)
 
     def test_quit_option_has_no_module(self):

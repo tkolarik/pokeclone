@@ -63,6 +63,8 @@ BACKGROUND_DIR = os.path.join(PROJECT_ROOT, "backgrounds")
 SOUNDS_DIR = os.path.join(PROJECT_ROOT, "sounds") # For POKE-13
 SONGS_DIR = os.path.join(PROJECT_ROOT, "songs")
 REFERENCE_IMAGE_DIR = os.path.join(PROJECT_ROOT, "references")
+MOVE_ANIMATION_DATA_DIR = os.path.join(DATA_DIR, "move_animations")
+MOVE_ANIMATION_SPRITE_DIR = os.path.join(SPRITE_DIR, "move_animations")
 
 # Battle Mechanics
 STAT_CHANGE_MULTIPLIER = 0.55
@@ -212,7 +214,18 @@ if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
 # Ensure asset directories exist
-for dir_path in [SPRITE_DIR, BACKGROUND_DIR, SOUNDS_DIR, SONGS_DIR, REFERENCE_IMAGE_DIR, MAP_DIR, TILESET_DIR, TILE_IMAGE_DIR]:
+for dir_path in [
+    SPRITE_DIR,
+    BACKGROUND_DIR,
+    SOUNDS_DIR,
+    SONGS_DIR,
+    REFERENCE_IMAGE_DIR,
+    MAP_DIR,
+    TILESET_DIR,
+    TILE_IMAGE_DIR,
+    MOVE_ANIMATION_DATA_DIR,
+    MOVE_ANIMATION_SPRITE_DIR,
+]:
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
         print(f"Created missing directory: {dir_path}")

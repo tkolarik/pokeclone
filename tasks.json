@@ -1113,7 +1113,7 @@
   {
     "id": "TOOLS-5",
     "title": "Implement Move Animation Editor (per Design Doc)",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Feature",
     "labels": [],
@@ -1123,6 +1123,37 @@
       "Animation data can be created, edited, saved, and loaded in the format defined by the design doc without manual JSON edits.",
       "Project MkDocs documentation is updated (navigation and relevant pages) to document how to use the move animation editor and where its data/assets live.",
       "Automated: unit tests cover core editor logic (frame ordering operations, onion-skin toggle behavior, and drag transform/persistence behavior)."
+    ]
+  },
+  {
+    "id": "TOOLS-6",
+    "title": "Restore Reliable In-App File Dialog UX for MVE Open/Load Ref",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "Fix Move Animation Editor file dialogs so `Open` and `Load Ref` consistently render and remain interactive in runtime builds without Tk, matching the expected pixel editor-style in-app dialog workflow.",
+    "acceptanceCriteria": [
+      "Clicking `Open` in Move Animation Editor always presents a visible in-app file dialog with selectable move animation JSON files.",
+      "Clicking `Load Ref` always presents a visible in-app file dialog listing supported image files from configured quick directories.",
+      "Dialog interactions work with mouse and keyboard (selection, scroll, confirm, cancel) and never require Tk dialogs.",
+      "Automated: unit tests cover dialog state transitions and selection-confirm flows for both `open_animation` and `load_ref` modes, including empty-list handling."
+    ]
+  },
+  {
+    "id": "BATTLE-4",
+    "title": "Decide Automated Balance-Testing Strategy",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "Run a focused design spike to choose a practical automated balance-testing approach for battles. Evaluate an MLP self-play + move/category usage logging pipeline (to detect centralizing strategies) against lower-noise alternatives such as scripted baseline agents, random policy rollouts, and targeted scenario-based simulations. The output should be a recommended method, confidence/risk assessment, and a concrete implementation plan.",
+    "acceptanceCriteria": [
+      "A short design note compares at least three candidate methods (including MLP self-play with usage logging), with pros/cons, expected signal quality, and runtime cost.",
+      "Centralization metrics are explicitly defined (for example: move usage concentration, win-rate skew by archetype/category, and matchup diversity).",
+      "The recommendation includes a staged rollout plan that mitigates slow/noisy AI discovery (for example, bootstrap with scripted or random baselines before longer self-play runs).",
+      "A minimal proof-of-concept command or module is identified for generating and analyzing battle logs under the chosen approach.",
+      "Automated: unit tests are specified and implemented for core log-analysis/statistics functions (at minimum concentration/entropy metric calculation and regression checks on sample log fixtures)."
     ]
   }
 ]
