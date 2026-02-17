@@ -6,7 +6,12 @@ from typing import List, Optional, Tuple
 import pygame
 
 from src.core import config
-from src.core.monster_schema import normalize_monsters
+from src.core.runtime_data_validation import (
+    RuntimeDataValidationError,
+    load_validated_monsters,
+    load_validated_moves,
+    load_validated_type_chart,
+)
 
 
 def load_monsters():
@@ -15,11 +20,18 @@ def load_monsters():
     Returns a list of monster dicts or exits on fatal error to preserve existing behavior.
     """
     monsters_file = os.path.join(config.DATA_DIR, "monsters.json")
+    moves_file = os.path.join(config.DATA_DIR, "moves.json")
+    type_chart_file = os.path.join(config.DATA_DIR, "type_chart.json")
 
     try:
-        with open(monsters_file, "r") as f:
-            monsters = json.load(f)
-        normalized_monsters, warnings = normalize_monsters(monsters, strict_conflicts=False)
+        moves = load_validated_moves(moves_file)
+        type_chart = load_validated_type_chart(type_chart_file)
+        normalized_monsters, warnings = load_validated_monsters(
+            monsters_file,
+            strict_conflicts=False,
+            known_moves={move["name"] for move in moves},
+            known_types=set(type_chart.keys()),
+        )
         for warning in warnings:
             print(f"Monster schema warning: {warning}")
         return normalized_monsters
@@ -28,7 +40,7 @@ def load_monsters():
         print("Make sure you've created the data directory and added the monsters.json file.")
         pygame.quit()
         sys.exit(1)
-    except (json.JSONDecodeError, ValueError) as e:
+    except (json.JSONDecodeError, ValueError, RuntimeDataValidationError) as e:
         print(f"Error: {e}")
         pygame.quit()
         sys.exit(1)

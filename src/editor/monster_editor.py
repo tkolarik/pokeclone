@@ -7,7 +7,13 @@ from src.core import config
 from src.core.monster_schema import (
     derive_move_pool_from_learnset,
     normalize_monster,
-    normalize_monsters,
+)
+from src.core.runtime_data_validation import (
+    RuntimeDataValidationError,
+    load_validated_monsters,
+    load_validated_moves,
+    load_validated_type_chart,
+    validate_monsters_payload,
 )
 from src.editor.constrained_fields import (
     load_move_options,
@@ -26,21 +32,43 @@ STATUS_DURATION_MS = 2500
 
 def load_monsters():
     monsters_file = os.path.join(config.DATA_DIR, "monsters.json")
+    moves_file = os.path.join(config.DATA_DIR, "moves.json")
+    type_chart_file = os.path.join(config.DATA_DIR, "type_chart.json")
     try:
-        with open(monsters_file, "r") as f:
-            monsters = json.load(f)
-        normalized_monsters, warnings = normalize_monsters(monsters, strict_conflicts=False)
+        moves = load_validated_moves(moves_file)
+        type_chart = load_validated_type_chart(type_chart_file)
+        normalized_monsters, warnings = load_validated_monsters(
+            monsters_file,
+            strict_conflicts=False,
+            known_moves={move["name"] for move in moves},
+            known_types=set(type_chart.keys()),
+        )
         for warning in warnings:
             print(f"Monster schema warning: {warning}")
         return normalized_monsters
-    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+    except (
+        FileNotFoundError,
+        json.JSONDecodeError,
+        ValueError,
+        RuntimeDataValidationError,
+    ) as exc:
         print(f"Error loading monsters: {exc}")
         return []
 
 
 def save_monsters(monsters):
     monsters_file = os.path.join(config.DATA_DIR, "monsters.json")
-    normalized_monsters, warnings = normalize_monsters(monsters, strict_conflicts=False)
+    moves_file = os.path.join(config.DATA_DIR, "moves.json")
+    type_chart_file = os.path.join(config.DATA_DIR, "type_chart.json")
+    moves = load_validated_moves(moves_file)
+    type_chart = load_validated_type_chart(type_chart_file)
+    normalized_monsters, warnings = validate_monsters_payload(
+        monsters,
+        source=monsters_file,
+        strict_conflicts=False,
+        known_moves={move["name"] for move in moves},
+        known_types=set(type_chart.keys()),
+    )
     for warning in warnings:
         print(f"Monster schema warning: {warning}")
     with open(monsters_file, "w") as f:

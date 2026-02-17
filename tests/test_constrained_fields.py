@@ -26,10 +26,9 @@ def test_load_move_options_reads_unique_sorted_move_ids(tmp_path):
     (data_dir / "moves.json").write_text(
         json.dumps(
             [
-                {"name": "Flame Burst"},
-                {"name": "Bubble Wave"},
-                {"name": "Flame Burst"},
-                {"name": "  "},
+                {"name": "Flame Burst", "type": "Fire", "power": 80},
+                {"name": "Bubble Wave", "type": "Water", "power": 70},
+                {"name": "Flame Burst", "type": "Fire", "power": 80},
             ]
         ),
         encoding="utf-8",

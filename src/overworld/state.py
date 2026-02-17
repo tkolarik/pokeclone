@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from src.core import config
+from src.core.runtime_data_validation import load_validated_map
 from src.core.tileset import TileSet
 
 DIRECTIONS: Dict[str, Tuple[int, int]] = {
@@ -278,8 +279,7 @@ class MapData:
             path = path_or_id
         else:
             path = os.path.join(config.MAP_DIR, f"{path_or_id}.json")
-        with open(path, "r") as f:
-            raw = json.load(f)
+        raw = load_validated_map(path)
         return cls.from_dict(raw)
 
     def to_dict(self) -> Dict[str, Any]:

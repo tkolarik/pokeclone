@@ -25,6 +25,12 @@ from src.battle.engine import (
 from src.core.input_actions import load_action_map
 from src.core.monster_schema import derive_move_pool_from_learnset, normalize_monster
 from src.core.resource_manager import get_resource_manager
+from src.core.runtime_data_validation import (
+    RuntimeDataValidationError,
+    load_validated_monsters,
+    load_validated_moves,
+    load_validated_type_chart,
+)
 from src.core.scene_manager import Scene, SceneManager
 
 AUDIO_ENABLED = False
@@ -40,9 +46,8 @@ RESOURCE_MANAGER = get_resource_manager()
 type_chart = {}
 type_chart_path = os.path.join(config.DATA_DIR, 'type_chart.json')
 try:
-    with open(type_chart_path, 'r') as f:
-        type_chart = json.load(f)
-except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
+    type_chart = load_validated_type_chart(type_chart_path)
+except (FileNotFoundError, json.JSONDecodeError, OSError, RuntimeDataValidationError) as e:
     print(f"Warning: failed to load type chart '{type_chart_path}': {e}")
 
 
@@ -206,9 +211,8 @@ def create_sprite_from_file(filename):
 def load_moves():
     moves_file = os.path.join(config.DATA_DIR, 'moves.json')
     try:
-        with open(moves_file, 'r') as f:
-            moves_data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
+        moves_data = load_validated_moves(moves_file)
+    except (FileNotFoundError, json.JSONDecodeError, RuntimeDataValidationError) as e:
         print(f"Error loading {moves_file}: {e}")
         return {}
     return {
@@ -220,24 +224,29 @@ def load_creatures(moves_dict=None):
     creatures = []
     # Use paths from config
     monsters_file = os.path.join(config.DATA_DIR, 'monsters.json')
-    
-    try:
-        with open(monsters_file, 'r') as f:
-            monsters_data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"Error loading {monsters_file}: {e}")
-        return [] # Return empty list if core data fails
 
     if moves_dict is None:
         moves_dict = load_moves()
     if not moves_dict:
         return []
-    
-    for monster in monsters_data:
-        # Use path from config
-        normalized_monster, schema_warnings = normalize_monster(monster, strict_conflicts=False)
-        for warning in schema_warnings:
-            print(f"Monster schema warning: {warning}")
+
+    known_types = set(type_chart.keys()) if type_chart else None
+    known_moves = set(moves_dict.keys())
+    try:
+        monsters_data, schema_warnings = load_validated_monsters(
+            monsters_file,
+            strict_conflicts=False,
+            known_types=known_types,
+            known_moves=known_moves,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, RuntimeDataValidationError) as e:
+        print(f"Error loading {monsters_file}: {e}")
+        return [] # Return empty list if core data fails
+
+    for warning in schema_warnings:
+        print(f"Monster schema warning: {warning}")
+
+    for normalized_monster in monsters_data:
 
         sprite_path = os.path.join(config.SPRITE_DIR, f"{normalized_monster['name']}_front.png")
         sprite = create_sprite_from_file(sprite_path)

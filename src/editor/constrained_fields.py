@@ -5,6 +5,11 @@ import os
 from typing import Dict, Iterable, List, Sequence, Tuple
 
 from src.core import config
+from src.core.runtime_data_validation import (
+    RuntimeDataValidationError,
+    load_validated_moves,
+    load_validated_type_chart,
+)
 
 
 def _load_json(path: str):
@@ -15,27 +20,21 @@ def _load_json(path: str):
 def load_type_options(data_dir: str = config.DATA_DIR) -> List[str]:
     path = os.path.join(data_dir, "type_chart.json")
     try:
-        payload = _load_json(path)
-    except (OSError, json.JSONDecodeError):
+        payload = load_validated_type_chart(path)
+    except (OSError, json.JSONDecodeError, RuntimeDataValidationError):
         return []
-    if not isinstance(payload, dict):
-        return []
-    return sorted([str(key) for key in payload.keys() if str(key).strip()])
+    return sorted([key for key in payload.keys() if key.strip()])
 
 
 def load_move_options(data_dir: str = config.DATA_DIR) -> List[str]:
     path = os.path.join(data_dir, "moves.json")
     try:
-        payload = _load_json(path)
-    except (OSError, json.JSONDecodeError):
-        return []
-    if not isinstance(payload, list):
+        payload = load_validated_moves(path)
+    except (OSError, json.JSONDecodeError, RuntimeDataValidationError):
         return []
     move_names = []
     seen = set()
     for entry in payload:
-        if not isinstance(entry, dict):
-            continue
         name = entry.get("name")
         if not isinstance(name, str):
             continue
