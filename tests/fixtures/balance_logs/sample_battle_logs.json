@@ -1,0 +1,2274 @@
+[
+  {
+    "battle_id": "b1",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "offense",
+    "opponent_archetype": "stall",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 15,
+      "opponent": 0
+    },
+    "seed": 300,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b2",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "offense",
+    "opponent_archetype": "control",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 16
+    },
+    "seed": 301,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b3",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "offense",
+    "opponent_archetype": "tempo",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 17,
+      "opponent": 0
+    },
+    "seed": 302,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b4",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "stall",
+    "opponent_archetype": "offense",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 18
+    },
+    "seed": 303,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b5",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "stall",
+    "opponent_archetype": "control",
+    "turn_count": 4,
+    "final_hp": {
+      "player": 0,
+      "opponent": 19
+    },
+    "seed": 304,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 4,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b6",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "stall",
+    "opponent_archetype": "tempo",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 20
+    },
+    "seed": 305,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b7",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "control",
+    "opponent_archetype": "offense",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 21,
+      "opponent": 0
+    },
+    "seed": 306,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b8",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "control",
+    "opponent_archetype": "stall",
+    "turn_count": 4,
+    "final_hp": {
+      "player": 22,
+      "opponent": 0
+    },
+    "seed": 307,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 4,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b9",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "control",
+    "opponent_archetype": "tempo",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 23,
+      "opponent": 0
+    },
+    "seed": 308,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b10",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "tempo",
+    "opponent_archetype": "offense",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 24
+    },
+    "seed": 309,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b11",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "tempo",
+    "opponent_archetype": "stall",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 25,
+      "opponent": 0
+    },
+    "seed": 310,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b12",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "tempo",
+    "opponent_archetype": "control",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 26
+    },
+    "seed": 311,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b13",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "offense",
+    "opponent_archetype": "stall",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 27,
+      "opponent": 0
+    },
+    "seed": 312,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b14",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "offense",
+    "opponent_archetype": "control",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 28
+    },
+    "seed": 313,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b15",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "offense",
+    "opponent_archetype": "tempo",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 29,
+      "opponent": 0
+    },
+    "seed": 314,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b16",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "stall",
+    "opponent_archetype": "offense",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 30
+    },
+    "seed": 315,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b17",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "stall",
+    "opponent_archetype": "control",
+    "turn_count": 4,
+    "final_hp": {
+      "player": 0,
+      "opponent": 31
+    },
+    "seed": 316,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 4,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b18",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "stall",
+    "opponent_archetype": "tempo",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 32
+    },
+    "seed": 317,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b19",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "control",
+    "opponent_archetype": "offense",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 33,
+      "opponent": 0
+    },
+    "seed": 318,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b20",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "control",
+    "opponent_archetype": "stall",
+    "turn_count": 4,
+    "final_hp": {
+      "player": 14,
+      "opponent": 0
+    },
+    "seed": 319,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 4,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b21",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "control",
+    "opponent_archetype": "tempo",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 15,
+      "opponent": 0
+    },
+    "seed": 320,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b22",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "tempo",
+    "opponent_archetype": "offense",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 16
+    },
+    "seed": 321,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b23",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "tempo",
+    "opponent_archetype": "stall",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 17,
+      "opponent": 0
+    },
+    "seed": 322,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b24",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "tempo",
+    "opponent_archetype": "control",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 18
+    },
+    "seed": 323,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b25",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "offense",
+    "opponent_archetype": "stall",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 19,
+      "opponent": 0
+    },
+    "seed": 324,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b26",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "offense",
+    "opponent_archetype": "control",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 20
+    },
+    "seed": 325,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b27",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "offense",
+    "opponent_archetype": "tempo",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 21,
+      "opponent": 0
+    },
+    "seed": 326,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b28",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "stall",
+    "opponent_archetype": "offense",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 22
+    },
+    "seed": 327,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b29",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "stall",
+    "opponent_archetype": "control",
+    "turn_count": 4,
+    "final_hp": {
+      "player": 0,
+      "opponent": 23
+    },
+    "seed": 328,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 4,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b30",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "stall",
+    "opponent_archetype": "tempo",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 24
+    },
+    "seed": 329,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b31",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "control",
+    "opponent_archetype": "offense",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 25,
+      "opponent": 0
+    },
+    "seed": 330,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b32",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "control",
+    "opponent_archetype": "stall",
+    "turn_count": 4,
+    "final_hp": {
+      "player": 26,
+      "opponent": 0
+    },
+    "seed": 331,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 4,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b33",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "control",
+    "opponent_archetype": "tempo",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 27,
+      "opponent": 0
+    },
+    "seed": 332,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b34",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "tempo",
+    "opponent_archetype": "offense",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 28
+    },
+    "seed": 333,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b35",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "tempo",
+    "opponent_archetype": "stall",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 29,
+      "opponent": 0
+    },
+    "seed": 334,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b36",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "tempo",
+    "opponent_archetype": "control",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 30
+    },
+    "seed": 335,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b37",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "offense",
+    "opponent_archetype": "stall",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 31,
+      "opponent": 0
+    },
+    "seed": 336,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b38",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "offense",
+    "opponent_archetype": "control",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 32
+    },
+    "seed": 337,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b39",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "offense",
+    "opponent_archetype": "tempo",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 33,
+      "opponent": 0
+    },
+    "seed": 338,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b40",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "stall",
+    "opponent_archetype": "offense",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 14
+    },
+    "seed": 339,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b41",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "stall",
+    "opponent_archetype": "control",
+    "turn_count": 4,
+    "final_hp": {
+      "player": 0,
+      "opponent": 15
+    },
+    "seed": 340,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 4,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b42",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "stall",
+    "opponent_archetype": "tempo",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 16
+    },
+    "seed": 341,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b43",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "control",
+    "opponent_archetype": "offense",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 17,
+      "opponent": 0
+    },
+    "seed": 342,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b44",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "control",
+    "opponent_archetype": "stall",
+    "turn_count": 4,
+    "final_hp": {
+      "player": 18,
+      "opponent": 0
+    },
+    "seed": 343,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 4,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b45",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "control",
+    "opponent_archetype": "tempo",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 19,
+      "opponent": 0
+    },
+    "seed": 344,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b46",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "tempo",
+    "opponent_archetype": "offense",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 20
+    },
+    "seed": 345,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b47",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "tempo",
+    "opponent_archetype": "stall",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 21,
+      "opponent": 0
+    },
+    "seed": 346,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Guard Up",
+          "Bubble Wave"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b48",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "tempo",
+    "opponent_archetype": "control",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 22
+    },
+    "seed": 347,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Leaf Cut",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Leaf Cut",
+          "Flame Burst"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b49",
+    "winner": "opponent",
+    "result": "win",
+    "player_archetype": "offense",
+    "opponent_archetype": "control",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 0,
+      "opponent": 23
+    },
+    "seed": 348,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      }
+    ]
+  },
+  {
+    "battle_id": "b50",
+    "winner": "player",
+    "result": "win",
+    "player_archetype": "control",
+    "opponent_archetype": "offense",
+    "turn_count": 3,
+    "final_hp": {
+      "player": 24,
+      "opponent": 0
+    },
+    "seed": 349,
+    "sampler": "scripted",
+    "ruleset": "v1",
+    "events": [
+      {
+        "turn": 1,
+        "actor": "player",
+        "move": "Bubble Wave",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      },
+      {
+        "turn": 2,
+        "actor": "opponent",
+        "move": "Flame Burst",
+        "legal_moves": [
+          "Flame Burst",
+          "Leaf Cut"
+        ]
+      },
+      {
+        "turn": 3,
+        "actor": "player",
+        "move": "Guard Up",
+        "legal_moves": [
+          "Bubble Wave",
+          "Guard Up"
+        ]
+      }
+    ]
+  }
+]
