@@ -527,7 +527,6 @@ class MoveAnimationEditor:
         self._open_animation_dialog()
         if not self.dialog_file_list:
             self._set_status("No move animation files found.")
-            self._reset_dialog()
 
     def _new_animation(self) -> None:
         new_id = self._next_new_animation_id("new_animation")
@@ -542,7 +541,6 @@ class MoveAnimationEditor:
         self._open_reference_dialog()
         if not self.dialog_file_list:
             self._set_status("No reference image found.")
-            self._reset_dialog()
 
     def _clear_reference_image(self) -> None:
         self.reference_image = None
