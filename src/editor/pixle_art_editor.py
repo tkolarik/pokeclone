@@ -2342,6 +2342,30 @@ class Editor:
         """Opens a dialog to select a reference image, loads and scales it."""
         self.trigger_load_reference_dialog()
 
+    def set_reference_scale(self, scale_value):
+        """Set reference scale with clamping and trigger rescaling when changed."""
+        min_scale = float(getattr(config, "EDITOR_REF_MIN_SCALE", 0.1))
+        max_scale = float(getattr(config, "EDITOR_REF_MAX_SCALE", 10.0))
+        clamped = max(min_scale, min(float(scale_value), max_scale))
+        current = float(getattr(self, "ref_img_scale", 1.0))
+        if abs(clamped - current) < 1e-9:
+            return False
+        self.ref_img_scale = clamped
+        self._scale_reference_image()
+        return True
+
+    def adjust_reference_scale(self, wheel_delta, fine=False):
+        """Adjust reference scale from wheel delta; supports fractional deltas."""
+        delta = float(wheel_delta)
+        if delta == 0.0 or not self.reference_image:
+            return False
+        zoom_base = (
+            float(getattr(config, "EDITOR_REF_WHEEL_FINE_ZOOM_BASE", 1.02))
+            if fine
+            else float(getattr(config, "EDITOR_REF_WHEEL_ZOOM_BASE", 1.1))
+        )
+        return self.set_reference_scale(self.ref_img_scale * (zoom_base ** delta))
+
     def import_reference_to_canvas(self):
         """Import the reference image behind the canvas using nearest-neighbor sampling."""
         sprite_editor = self.get_active_canvas()

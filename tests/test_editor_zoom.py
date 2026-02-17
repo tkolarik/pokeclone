@@ -2,7 +2,7 @@ import importlib
 import os
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pygame
 
@@ -43,6 +43,41 @@ class TestEditorZoom(unittest.TestCase):
 
         self.assertAlmostEqual(world_x_before, world_x_after, places=4)
         self.assertAlmostEqual(world_y_before, world_y_after, places=4)
+
+    def test_set_reference_scale_clamps_and_rescales(self):
+        editor = self.Editor.__new__(self.Editor)
+        editor.ref_img_scale = 1.0
+        editor._scale_reference_image = MagicMock()
+
+        changed = editor.set_reference_scale(999.0)
+        self.assertTrue(changed)
+        self.assertEqual(editor.ref_img_scale, self.editor_module.config.EDITOR_REF_MAX_SCALE)
+        editor._scale_reference_image.assert_called_once()
+
+        editor._scale_reference_image.reset_mock()
+        changed = editor.set_reference_scale(self.editor_module.config.EDITOR_REF_MAX_SCALE)
+        self.assertFalse(changed)
+        editor._scale_reference_image.assert_not_called()
+
+    def test_adjust_reference_scale_supports_fractional_wheel_delta(self):
+        editor = self.Editor.__new__(self.Editor)
+        editor.reference_image = pygame.Surface((16, 16), pygame.SRCALPHA)
+        editor.ref_img_scale = 1.0
+        editor._scale_reference_image = MagicMock()
+
+        changed = editor.adjust_reference_scale(0.5)
+        self.assertTrue(changed)
+        expected = self.editor_module.config.EDITOR_REF_WHEEL_ZOOM_BASE ** 0.5
+        self.assertAlmostEqual(editor.ref_img_scale, expected, places=6)
+        editor._scale_reference_image.assert_called_once()
+
+        editor._scale_reference_image.reset_mock()
+        previous_scale = editor.ref_img_scale
+        changed = editor.adjust_reference_scale(-0.5, fine=True)
+        self.assertTrue(changed)
+        expected = previous_scale * (self.editor_module.config.EDITOR_REF_WHEEL_FINE_ZOOM_BASE ** -0.5)
+        self.assertAlmostEqual(editor.ref_img_scale, expected, places=6)
+        editor._scale_reference_image.assert_called_once()
 
 
 if __name__ == "__main__":

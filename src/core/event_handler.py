@@ -63,7 +63,8 @@ class EventHandler:
         # --- Handle Mouse Wheel for Zoom/Scroll ---
         elif event.type == pygame.MOUSEWHEEL:
              mouse_pos = pygame.mouse.get_pos()
-             if self._handle_mouse_wheel(event.y, mouse_pos):
+             wheel_delta = getattr(event, "precise_y", event.y)
+             if self._handle_mouse_wheel(wheel_delta, mouse_pos):
                  return True
              pass # Pass if not handled
 
@@ -499,9 +500,10 @@ class EventHandler:
 
         return False # Event not handled
 
-    def _handle_mouse_wheel(self, direction, mouse_pos):
-        """Handles mouse wheel input with standard event.y semantics."""
-        if direction == 0:
+    def _handle_mouse_wheel(self, wheel_delta, mouse_pos):
+        """Handle mouse wheel input for zooming and scrolling."""
+        delta = float(wheel_delta)
+        if delta == 0:
             return False
 
         editor = self.editor
@@ -510,7 +512,7 @@ class EventHandler:
         # Background zoom (Ctrl/Cmd + wheel) centered on cursor
         if editor.edit_mode == 'background' and editor.canvas_rect and editor.canvas_rect.collidepoint(mouse_pos):
             if mods & (KMOD_CTRL | KMOD_META):
-                zoom_factor = 1.1 if direction > 0 else (1 / 1.1)
+                zoom_factor = 1.1 ** delta
                 if hasattr(editor, "adjust_zoom"):
                     editor.adjust_zoom(zoom_factor, focus_pos=mouse_pos)
                     return True
@@ -524,16 +526,23 @@ class EventHandler:
                     (active_sprite_editor.display_width, active_sprite_editor.display_height),
                 )
                 if editor_rect.collidepoint(mouse_pos):
-                    scale_factor = 1.1 if direction > 0 else (1 / 1.1)
-                    editor.ref_img_scale *= scale_factor
-                    editor.ref_img_scale = max(0.1, min(editor.ref_img_scale, 10.0))
-                    print(f"Reference image scale: {editor.ref_img_scale:.2f}")
-                    editor._scale_reference_image()
-                    return True
+                    if not hasattr(editor, "adjust_reference_scale"):
+                        return False
+                    fine_zoom = bool(mods & KMOD_SHIFT)
+                    changed = editor.adjust_reference_scale(delta, fine=fine_zoom)
+                    if changed:
+                        message = f"Reference scale: {editor.ref_img_scale:.3f}x"
+                        if fine_zoom:
+                            message += " (fine)"
+                        if hasattr(editor, "_set_status"):
+                            editor._set_status(message, ttl_ms=900)
+                        else:
+                            print(message)
+                    return changed
 
         # Tile/NPC panels
         if hasattr(editor, "scroll_tile_panel"):
-            if editor.scroll_tile_panel(direction, mouse_pos):
+            if editor.scroll_tile_panel(delta, mouse_pos):
                 return True
 
         # Palette scroll
@@ -544,7 +553,7 @@ class EventHandler:
             config.PALETTE_ROWS * (editor.palette.block_size + editor.palette.padding),
         )
         if palette_rect.collidepoint(mouse_pos):
-            if direction > 0:
+            if delta > 0:
                 editor.palette.scroll_offset = max(0, editor.palette.scroll_offset - 1)
             else:
                 editor.palette.scroll_offset = min(editor.palette.total_pages - 1, editor.palette.scroll_offset + 1)
@@ -552,7 +561,7 @@ class EventHandler:
 
         # Button panel scroll
         if hasattr(editor, "scroll_button_panel"):
-            if editor.scroll_button_panel(mouse_pos, direction):
+            if editor.scroll_button_panel(mouse_pos, delta):
                 return True
 
         return False

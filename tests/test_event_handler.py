@@ -113,6 +113,53 @@ class TestEventHandlerPaletteInteraction(unittest.TestCase):
 
         self.assertEqual(self.mock_editor.palette.scroll_offset, 0)
 
+    def test_mouse_wheel_uses_precise_delta_for_reference_zoom(self):
+        """Verify high-resolution wheel delta is routed to reference zoom."""
+        active_canvas = MagicMock()
+        active_canvas.position = (0, 0)
+        active_canvas.display_width = 200
+        active_canvas.display_height = 200
+        self.mock_editor.get_active_canvas = MagicMock(return_value=active_canvas)
+        self.mock_editor.adjust_reference_scale = MagicMock(return_value=True)
+        self.mock_editor.ref_img_scale = 1.234
+        self.mock_editor._set_status = MagicMock()
+
+        with patch("pygame.mouse.get_pos", return_value=(10, 10)), patch(
+            "pygame.key.get_mods", return_value=pygame.KMOD_ALT
+        ):
+            wheel_event = pygame.event.Event(
+                pygame.MOUSEWHEEL,
+                {"y": 1, "x": 0, "precise_y": 0.25},
+            )
+            self.event_handler.process_event(wheel_event)
+
+        self.mock_editor.adjust_reference_scale.assert_called_once_with(0.25, fine=False)
+        self.mock_editor._set_status.assert_called_once()
+
+    def test_mouse_wheel_shift_alt_enables_fine_reference_zoom(self):
+        """Verify Shift+Alt wheel requests fine reference zoom mode."""
+        active_canvas = MagicMock()
+        active_canvas.position = (0, 0)
+        active_canvas.display_width = 200
+        active_canvas.display_height = 200
+        self.mock_editor.get_active_canvas = MagicMock(return_value=active_canvas)
+        self.mock_editor.adjust_reference_scale = MagicMock(return_value=True)
+        self.mock_editor.ref_img_scale = 0.987
+        self.mock_editor._set_status = MagicMock()
+
+        with patch("pygame.mouse.get_pos", return_value=(15, 15)), patch(
+            "pygame.key.get_mods", return_value=pygame.KMOD_ALT | pygame.KMOD_SHIFT
+        ):
+            wheel_event = pygame.event.Event(
+                pygame.MOUSEWHEEL,
+                {"y": 1, "x": 0, "precise_y": 0.5},
+            )
+            self.event_handler.process_event(wheel_event)
+
+        self.mock_editor.adjust_reference_scale.assert_called_once_with(0.5, fine=True)
+        status_message = self.mock_editor._set_status.call_args.args[0]
+        self.assertIn("(fine)", status_message)
+
     def test_mouse_up_resets_left_button_during_dialog(self):
         """Ensure mouse-up clears left_mouse_button_down even with dialog active."""
         self.event_handler.left_mouse_button_down = True

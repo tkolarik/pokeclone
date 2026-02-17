@@ -106,7 +106,8 @@ These buttons appear in a vertical stack on the right.
 
 ### Reference image controls
 
-- Alt + mouse wheel over the active sprite canvas: scale reference image
+- Alt + mouse wheel over the active sprite canvas: continuously scale the reference image
+- Alt + Shift + mouse wheel over the active sprite canvas: fine-grained reference zoom
 - Alt + left drag over the active sprite canvas: pan reference image
 - Ref Alpha slider: adjust reference image opacity
 - Subj Alpha slider: adjust the edited sprite opacity (monster mode only)
