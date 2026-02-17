@@ -116,3 +116,41 @@ The project tasks are managed via a JSON-based Kanban board. :contentReference[o
   "priority": "Medium",
   "type": "Feature"
 }
+```
+
+### Method 2: REST API (if server is running)
+
+If `python server.py` is running on `localhost:8001`:
+
+- **List tasks:** `GET http://localhost:8001/api/tasks`
+- **Add task:** `POST http://localhost:8001/api/tasks`
+- **Update task:** `PUT http://localhost:8001/api/tasks/<TASK_ID>`
+- **Verify API availability:** `curl -sf http://localhost:8001/api/tasks`
+
+## Running tests
+
+Use the canonical test command:
+
+- `./scripts/run_tests.sh`
+
+If `.venv` is not prepared, bootstrap it first:
+
+- `./scripts/bootstrap_test_env.sh`
+
+If you need to use a specific interpreter:
+
+- `POKECLONE_TEST_PYTHON=/path/to/python ./scripts/run_tests.sh`
+
+## Ticket quality rule
+
+Every new ticket created must include automated unit testing in the acceptance criteria to the extent reasonable for the change.
+
+## Running balance analysis
+
+Battle-log metrics:
+
+- `.venv/bin/python -m src.battle.balance_metrics tests/fixtures/balance_logs/sample_battle_logs.json`
+
+Monster dominance and setup degeneracy analysis (level 100):
+
+- `.venv/bin/python -m src.battle.monster_balance_analysis --level 100 --max-moves-per-set 4 --top-movesets-per-monster 3 --max-setup-turns 10`

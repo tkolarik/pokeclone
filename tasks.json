@@ -963,7 +963,7 @@
   {
     "id": "DATA-3",
     "title": "Adopt Strict Runtime Data Validation with Pydantic Models",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Feature",
     "labels": [],
@@ -1128,7 +1128,7 @@
   {
     "id": "TOOLS-6",
     "title": "Restore Reliable In-App File Dialog UX for MVE Open/Load Ref",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],
@@ -1143,7 +1143,7 @@
   {
     "id": "BATTLE-4",
     "title": "Decide Automated Balance-Testing Strategy",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Task",
     "labels": [],
@@ -1154,6 +1154,40 @@
       "The recommendation includes a staged rollout plan that mitigates slow/noisy AI discovery (for example, bootstrap with scripted or random baselines before longer self-play runs).",
       "A minimal proof-of-concept command or module is identified for generating and analyzing battle logs under the chosen approach.",
       "Automated: unit tests are specified and implemented for core log-analysis/statistics functions (at minimum concentration/entropy metric calculation and regression checks on sample log fixtures)."
+    ]
+  },
+  {
+    "id": "POKE-29",
+    "title": "Enable Continuous Reference Zoom for Monster Import Alignment",
+    "status": "Done",
+    "priority": "High",
+    "type": "Improvement",
+    "labels": [
+      "editor",
+      "reference-image",
+      "import"
+    ],
+    "description": "Improve reference-image zoom controls in the pixel art monster editor so artists can dial in precise scale values needed for clean import alignment, including integer-upscaled source art.",
+    "acceptanceCriteria": [
+      "Alt + mouse wheel scaling for reference images supports continuous wheel deltas so high-resolution/trackpad scroll can adjust zoom smoothly instead of fixed 10% jumps only.",
+      "A fine-control mode exists for reference zoom adjustments to make precise import alignment feasible when source art is an integer upscale of native sprite size.",
+      "Reference zoom remains clamped to safe bounds and updates the rendered reference image immediately after adjustment.",
+      "Automated: unit tests cover reference-scale clamping/continuous delta math and event-handler routing for normal vs fine zoom modifier input."
+    ]
+  },
+  {
+    "id": "BATTLE-5",
+    "title": "Balance Pass: Diminishing-Return Setup Stages + Use Caps",
+    "status": "Done",
+    "priority": "High",
+    "type": "Task",
+    "labels": [],
+    "description": "Run a dedicated battle-balance pass to reduce degenerate setup strategies by replacing flat repeated stat scaling with a stage-based diminishing-return model and by capping repeated setup move usage per move per battle.",
+    "acceptanceCriteria": [
+      "Stat-changing moves apply via clamped stat stages using a custom diminishing-return multiplier curve, not unbounded geometric compounding.",
+      "Setup moves have a per-move, per-creature usage cap (default 5) in battle resolution.",
+      "Battle analyzer surfaces setup-degeneracy indicators (for example average setup turns and setup-gain signals) so dominant setup abuse is visible in reports.",
+      "Automated: unit tests cover stage clamping/multiplier behavior, setup-move usage cap enforcement, and analyzer setup-degeneracy metrics output."
     ]
   }
 ]

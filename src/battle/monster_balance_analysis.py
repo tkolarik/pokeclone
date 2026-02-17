@@ -203,17 +203,14 @@ def _moveset_modifiers(
     return offensive_mult, defensive_mult
 
 
-def _per_use_stat_multiplier(change: int) -> float:
-    if change <= 0:
-        return 1.0
-    return 1.0 + (config.STAT_CHANGE_MULTIPLIER / (2 ** (change - 1)))
-
-
 def _multiplier_for_repeated_uses(change: int, uses: int) -> float:
     if change <= 0 or uses <= 0:
         return 1.0
-    per_use = _per_use_stat_multiplier(change)
-    return per_use**uses
+    effective_uses = min(int(uses), config.SETUP_MOVE_MAX_USES)
+    stage = 0
+    for _ in range(effective_uses):
+        stage = engine.clamp_stat_stage(stage + change)
+    return engine.stat_stage_multiplier(stage)
 
 
 def _setup_change_profile(

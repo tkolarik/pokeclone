@@ -59,6 +59,8 @@ class Creature:
         self.current_hp = max_hp
         self.attack = attack
         self.defense = defense
+        self.stat_stages = {"attack": 0, "defense": 0}
+        self.setup_move_uses: Dict[str, int] = {}
         self.moves = moves
         self.learnset = learnset or []
         if move_pool is not None:
@@ -71,6 +73,15 @@ class Creature:
 
     def is_alive(self) -> bool:
         return self.current_hp > 0
+
+    def consume_setup_move_use(self, move_name: str, *, max_uses: int = config.SETUP_MOVE_MAX_USES) -> bool:
+        if not move_name:
+            return False
+        current = self.setup_move_uses.get(move_name, 0)
+        if current >= max_uses:
+            return False
+        self.setup_move_uses[move_name] = current + 1
+        return True
 
 
 def clamp_level(level: Any) -> int:
@@ -129,24 +140,35 @@ def build_moves_for_level(learnset: Sequence[Dict[str, Any]], level: int, moves_
     return [moves_dict.get(move_name, Move(move_name, "Normal", 50)) for move_name in ordered]
 
 
+def clamp_stat_stage(stage: int) -> int:
+    return max(config.STAT_STAGE_MIN, min(config.STAT_STAGE_MAX, int(stage)))
+
+
+def stat_stage_multiplier(stage: int) -> float:
+    normalized = clamp_stat_stage(stage)
+    table = config.STAT_STAGE_MULTIPLIERS
+    if normalized in table:
+        return float(table[normalized])
+    return 1.0
+
+
 def apply_stat_change(creature: Creature, stat: str, change: int) -> Optional[Dict[str, Any]]:
     if not hasattr(creature, stat):
         return None
 
+    if stat not in creature.stat_stages:
+        return None
+
     current_stat_value = getattr(creature, stat)
-    if change > 0:
-        multiplier = 1 + config.STAT_CHANGE_MULTIPLIER / (2 ** (change - 1))
-        new_stat_value = int(current_stat_value * multiplier)
-    elif change < 0:
-        divider = 1 + config.STAT_CHANGE_MULTIPLIER / (2 ** (abs(change) - 1))
-        if divider == 0:
-            new_stat_value = current_stat_value
-        else:
-            new_stat_value = int(current_stat_value / divider)
-    else:
-        new_stat_value = current_stat_value
+    current_stage = int(creature.stat_stages.get(stat, 0))
+    next_stage = clamp_stat_stage(current_stage + int(change))
+
+    base_value = int(creature.base_stats.get(stat, current_stat_value))
+    multiplier = stat_stage_multiplier(next_stage)
+    new_stat_value = max(1, int(round(base_value * multiplier)))
 
     setattr(creature, stat, new_stat_value)
+    creature.stat_stages[stat] = next_stage
     return {
         "kind": "stat_change",
         "creature": creature.name,
@@ -154,6 +176,8 @@ def apply_stat_change(creature: Creature, stat: str, change: int) -> Optional[Di
         "change": change,
         "before": current_stat_value,
         "after": new_stat_value,
+        "stage_before": current_stage,
+        "stage_after": next_stage,
     }
 
 
@@ -177,6 +201,8 @@ def calculate_damage(
         stat = effect.get("stat")
         change = effect.get("change", 0)
         if target and stat and change != 0:
+            if not attacker.consume_setup_move_use(move.name):
+                return 0, 1
             if target == "self":
                 stat_change_fn(attacker, stat, change)
             else:

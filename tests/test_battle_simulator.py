@@ -143,10 +143,10 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         """Test increasing attack stat."""
         creature = self.default_creature
         initial_attack = creature.attack
-        expected_first = int(initial_attack * (1 + config.STAT_CHANGE_MULTIPLIER))
+        expected_first = int(round(initial_attack * config.STAT_STAGE_MULTIPLIERS[1]))
         apply_stat_change(creature, "attack", 1)
         self.assertEqual(creature.attack, expected_first)
-        expected_second = int(expected_first * (1 + config.STAT_CHANGE_MULTIPLIER / 2))
+        expected_second = int(round(initial_attack * config.STAT_STAGE_MULTIPLIERS[3]))
         apply_stat_change(creature, "attack", 2)
         self.assertEqual(creature.attack, expected_second)
 
@@ -154,10 +154,10 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         """Test decreasing attack stat."""
         creature = self.default_creature
         initial_attack = creature.attack
-        expected_first = int(initial_attack / (1 + config.STAT_CHANGE_MULTIPLIER))
+        expected_first = int(round(initial_attack * config.STAT_STAGE_MULTIPLIERS[-1]))
         apply_stat_change(creature, "attack", -1)
         self.assertEqual(creature.attack, expected_first)
-        expected_second = int(expected_first / (1 + config.STAT_CHANGE_MULTIPLIER / 2))
+        expected_second = int(round(initial_attack * config.STAT_STAGE_MULTIPLIERS[-3]))
         apply_stat_change(creature, "attack", -2)
         self.assertEqual(creature.attack, expected_second)
 
@@ -165,10 +165,10 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         """Test increasing defense stat."""
         creature = self.default_creature
         initial_defense = creature.defense
-        expected_first = int(initial_defense * (1 + config.STAT_CHANGE_MULTIPLIER))
+        expected_first = int(round(initial_defense * config.STAT_STAGE_MULTIPLIERS[1]))
         apply_stat_change(creature, "defense", 1)
         self.assertEqual(creature.defense, expected_first)
-        expected_second = int(expected_first * (1 + config.STAT_CHANGE_MULTIPLIER / 2))
+        expected_second = int(round(initial_defense * config.STAT_STAGE_MULTIPLIERS[3]))
         apply_stat_change(creature, "defense", 2)
         self.assertEqual(creature.defense, expected_second)
 
@@ -176,10 +176,10 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         """Test decreasing defense stat."""
         creature = self.default_creature
         initial_defense = creature.defense
-        expected_first = int(initial_defense / (1 + config.STAT_CHANGE_MULTIPLIER))
+        expected_first = int(round(initial_defense * config.STAT_STAGE_MULTIPLIERS[-1]))
         apply_stat_change(creature, "defense", -1)
         self.assertEqual(creature.defense, expected_first)
-        expected_second = int(expected_first / (1 + config.STAT_CHANGE_MULTIPLIER / 2))
+        expected_second = int(round(initial_defense * config.STAT_STAGE_MULTIPLIERS[-3]))
         apply_stat_change(creature, "defense", -2)
         self.assertEqual(creature.defense, expected_second)
 
@@ -198,6 +198,21 @@ class TestBattleSimulator(unittest.TestCase): # Renamed class for broader scope
         initial_attack = creature.attack
         apply_stat_change(creature, "attack", 0)
         self.assertEqual(creature.attack, initial_attack)
+
+    def test_apply_stat_change_clamps_to_stage_bounds(self):
+        creature = self.default_creature
+        base_attack = creature.base_stats["attack"]
+        for _ in range(8):
+            apply_stat_change(creature, "attack", 2)
+        self.assertEqual(creature.stat_stages["attack"], config.STAT_STAGE_MAX)
+        expected_max = int(round(base_attack * config.STAT_STAGE_MULTIPLIERS[config.STAT_STAGE_MAX]))
+        self.assertEqual(creature.attack, expected_max)
+
+        for _ in range(8):
+            apply_stat_change(creature, "attack", -2)
+        self.assertEqual(creature.stat_stages["attack"], config.STAT_STAGE_MIN)
+        expected_min = int(round(base_attack * config.STAT_STAGE_MULTIPLIERS[config.STAT_STAGE_MIN]))
+        self.assertEqual(creature.attack, expected_min)
 
     # --- Tests for POKE-4 --- 
 

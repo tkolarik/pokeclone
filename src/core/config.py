@@ -67,7 +67,29 @@ MOVE_ANIMATION_DATA_DIR = os.path.join(DATA_DIR, "move_animations")
 MOVE_ANIMATION_SPRITE_DIR = os.path.join(SPRITE_DIR, "move_animations")
 
 # Battle Mechanics
+# Legacy scalar kept for compatibility with older tools/tests.
 STAT_CHANGE_MULTIPLIER = 0.55
+STAT_STAGE_MIN = -6
+STAT_STAGE_MAX = 6
+# Custom diminishing-return stat stage curve (inspired by classic monster battlers,
+# intentionally not a direct copy).
+STAT_STAGE_MULTIPLIERS = {
+    -6: 0.40,
+    -5: 0.48,
+    -4: 0.57,
+    -3: 0.67,
+    -2: 0.78,
+    -1: 0.89,
+    0: 1.00,
+    1: 1.22,
+    2: 1.43,
+    3: 1.63,
+    4: 1.82,
+    5: 2.00,
+    6: 2.15,
+}
+# Max times a single setup move can be used per creature per battle.
+SETUP_MOVE_MAX_USES = 5
 MIN_MONSTER_LEVEL = 1
 MAX_MONSTER_LEVEL = 100
 DEFAULT_MONSTER_LEVEL = 25
@@ -207,6 +229,10 @@ EDITOR_REF_SLIDER_X = 300
 EDITOR_REF_SLIDER_WIDTH = 150
 EDITOR_SLIDER_KNOB_WIDTH = 10
 EDITOR_PANEL_PADDING = 10
+EDITOR_REF_MIN_SCALE = 0.1
+EDITOR_REF_MAX_SCALE = 10.0
+EDITOR_REF_WHEEL_ZOOM_BASE = 1.1
+EDITOR_REF_WHEEL_FINE_ZOOM_BASE = 1.02
 
 # Ensure data directory exists (optional nice-to-have)
 if not os.path.exists(DATA_DIR):

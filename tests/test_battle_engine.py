@@ -1,4 +1,5 @@
-from src.battle.engine import BattleEngine, Creature, Move
+from src.battle.engine import BattleEngine, Creature, Move, apply_stat_change, calculate_damage
+from src.core import config
 
 
 class StaticRNG:
@@ -108,3 +109,39 @@ def test_engine_opponent_turn_uses_fallback_when_no_moves():
     assert result.move.name == "Struggle"
     assert result.damage > 0
     assert engine.turn == "player" or engine.winner == "opponent"
+
+
+def test_setup_move_usage_cap_prevents_infinite_stacking():
+    setup = Move("Power Up", "Normal", 0, effect={"target": "self", "stat": "attack", "change": 1})
+    player = _make_creature("PlayerMon", "Normal", hp=100, attack=50, defense=40, moves=[setup])
+    defender = _make_creature("OppMon", "Normal", hp=100, attack=40, defense=40, moves=[Move("Hit", "Normal", 10)])
+
+    for _ in range(config.SETUP_MOVE_MAX_USES):
+        damage, _ = calculate_damage(
+            player,
+            defender,
+            setup,
+            type_chart={"Normal": {"Normal": 1.0}},
+            rng_uniform=lambda _low, _high: 1.0,
+            stat_change_fn=apply_stat_change,
+        )
+        assert damage == 0
+
+    stage_after_cap = player.stat_stages["attack"]
+    attack_after_cap = player.attack
+
+    # Additional uses of the same setup move should have no further effect.
+    for _ in range(3):
+        damage, _ = calculate_damage(
+            player,
+            defender,
+            setup,
+            type_chart={"Normal": {"Normal": 1.0}},
+            rng_uniform=lambda _low, _high: 1.0,
+            stat_change_fn=apply_stat_change,
+        )
+        assert damage == 0
+
+    assert stage_after_cap == config.SETUP_MOVE_MAX_USES
+    assert player.stat_stages["attack"] == stage_after_cap
+    assert player.attack == attack_after_cap
