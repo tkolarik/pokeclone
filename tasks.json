@@ -1193,7 +1193,7 @@
   {
     "id": "API-3",
     "title": "Expose Pixel Art Editor Tools and Features via Agent Control API",
-    "status": "To Do",
+    "status": "Done",
     "priority": "Highest",
     "type": "Feature",
     "labels": [
@@ -1213,7 +1213,7 @@
   {
     "id": "MCP-1",
     "title": "Build Monster-First MCP for Agent Drawing",
-    "status": "To Do",
+    "status": "Done",
     "priority": "High",
     "type": "Feature",
     "labels": [

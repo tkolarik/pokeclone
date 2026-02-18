@@ -5,6 +5,7 @@ Summary: PokeClone game, editors, and tooling
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: pygame>=2.0.0
+Requires-Dist: pydantic>=2.12.0
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: mkdocs; extra == "dev"
@@ -32,6 +33,12 @@ A Pygame-based monster battling game featuring unique creatures with elemental t
 - **Sprite Management**: Easily switch between front and back sprites for each monster.
 - **Undo/Redo Functionality**: Revert or reapply changes with ease.
 - **Integration with Game**: Seamlessly create and edit sprites that integrate directly into the game.
+
+### Move Animation Editor
+- **Timeline Authoring**: Add/duplicate/delete/reorder animation frames with per-frame duration.
+- **Layer/Object Tracks**: Manage multiple animation objects anchored to attacker/defender/screen.
+- **Onion Skin + Dragging**: Preview previous/next frames and drag object transforms directly on stage.
+- **Reference Aids**: Load/pan/scale reference art while drawing object frame pixels.
 
 ### Elemental Types
 - 🔥 Fire
@@ -234,6 +241,16 @@ Runtime API defaults:
 - `GET http://localhost:8001/api/tasks`
 - `POST http://localhost:8001/api/tasks`
 - `PUT http://localhost:8001/api/tasks/<TASK_ID>`
+- `POST http://localhost:8001/api/editor/session`
+- `GET http://localhost:8001/api/editor/state`
+- `GET http://localhost:8001/api/editor/features`
+- `POST http://localhost:8001/api/editor/action`
+
+Monster drawing MCP server (stdio):
+
+```bash
+pokeclone-monster-mcp
+```
 
 Quick verification command:
 
@@ -289,6 +306,7 @@ Please use the GitHub Issues tab to report bugs. Include:
 - [Battle AI Notes](docs/battle-ai.md)
 - [Map Editor Guide](docs/map-editor.md)
 - [Overworld Runtime](docs/overworld.md)
+- [Move Animation Editor Guide](docs/move-animation-editor.md)
 
 ---
 
