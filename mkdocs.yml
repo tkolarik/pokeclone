@@ -11,6 +11,8 @@ nav:
   - Balance Pass (2026-02): battle-balance-pass-2026-02.md
   - Balance Testing Strategy (2026-02): battle-balance-testing-strategy-2026-02.md
   - Pixel Art Editor: pixel-art-editor.md
+  - Editor Agent API: editor-agent-api.md
+  - Monster Drawing MCP: monster-drawing-mcp.md
   - Move Animation Editor: move-animation-editor.md
   - Map Editor: map-editor.md
   - World View: world-view.md

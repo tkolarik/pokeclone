@@ -228,6 +228,16 @@ Runtime API defaults:
 - `GET http://localhost:8001/api/tasks`
 - `POST http://localhost:8001/api/tasks`
 - `PUT http://localhost:8001/api/tasks/<TASK_ID>`
+- `POST http://localhost:8001/api/editor/session`
+- `GET http://localhost:8001/api/editor/state`
+- `GET http://localhost:8001/api/editor/features`
+- `POST http://localhost:8001/api/editor/action`
+
+Monster drawing MCP server (stdio):
+
+```bash
+pokeclone-monster-mcp
+```
 
 Quick verification command:
 
