@@ -1189,5 +1189,48 @@
       "Battle analyzer surfaces setup-degeneracy indicators (for example average setup turns and setup-gain signals) so dominant setup abuse is visible in reports.",
       "Automated: unit tests cover stage clamping/multiplier behavior, setup-move usage cap enforcement, and analyzer setup-degeneracy metrics output."
     ]
+  },
+  {
+    "id": "API-3",
+    "title": "Expose Pixel Art Editor Tools and Features via Agent Control API",
+    "status": "To Do",
+    "priority": "Highest",
+    "type": "Feature",
+    "labels": [
+      "editor",
+      "api",
+      "agent-control"
+    ],
+    "description": "Design and implement an API surface that exposes all actionable pixel art editor tools and workflows (tool selection, canvas edits, palette operations, selection/transform actions, mode changes, save/load, and state inspection) so external agents can control the editor deterministically without UI event simulation.",
+    "acceptanceCriteria": [
+      "All currently supported pixel art editor actions are available through documented API endpoints/commands with explicit request/response schemas.",
+      "The API provides read endpoints for agent-required state (active tool, edit mode, selection bounds, palette state, and current target asset metadata).",
+      "Write actions are validation-backed and deterministic: invalid payloads return clear errors and do not mutate editor state.",
+      "A feature-coverage matrix maps each editor UI tool/feature to API operations and calls out any intentionally unsupported behavior.",
+      "Automated: unit and integration tests cover core action categories, state-read consistency after writes, and invalid-input error handling."
+    ]
+  },
+  {
+    "id": "MCP-1",
+    "title": "Build Monster-First MCP for Agent Drawing",
+    "status": "To Do",
+    "priority": "High",
+    "type": "Feature",
+    "labels": [
+      "editor",
+      "mcp",
+      "agent-control"
+    ],
+    "dependsOn": [
+      "API-3"
+    ],
+    "description": "Implement an MCP server that wraps the pixel art editor API and exposes high-level drawing tools for autonomous agents, starting with monster sprite workflows (create/open sprite, draw/stamp/fill/select, undo/redo, and save/export).",
+    "acceptanceCriteria": [
+      "MCP tool definitions provide a stable monster-authoring workflow and map cleanly to underlying editor API capabilities without direct UI automation.",
+      "Each MCP tool has strict schema validation, actionable error responses, and structured outputs suitable for autonomous agent loops.",
+      "At least one end-to-end monster drawing flow succeeds using MCP only (initialize canvas, perform draw operations, and save/export output).",
+      "Developer documentation covers MCP startup, tool catalog, and a monster-focused usage walkthrough.",
+      "Automated: unit tests validate MCP tool schema/validation behavior and integration tests verify MCP-to-editor API command translation for core monster drawing actions."
+    ]
   }
 ]
