@@ -59,6 +59,9 @@ class Creature:
         self.current_hp = max_hp
         self.attack = attack
         self.defense = defense
+        # Stage multipliers should apply to the in-battle baseline (already level-scaled),
+        # not raw species base stats.
+        self.stat_stage_baselines = {"attack": attack, "defense": defense}
         self.stat_stages = {"attack": 0, "defense": 0}
         self.setup_move_uses: Dict[str, int] = {}
         self.moves = moves
@@ -163,7 +166,12 @@ def apply_stat_change(creature: Creature, stat: str, change: int) -> Optional[Di
     current_stage = int(creature.stat_stages.get(stat, 0))
     next_stage = clamp_stat_stage(current_stage + int(change))
 
-    base_value = int(creature.base_stats.get(stat, current_stat_value))
+    baselines = getattr(creature, "stat_stage_baselines", None)
+    if not isinstance(baselines, dict):
+        baselines = {}
+        setattr(creature, "stat_stage_baselines", baselines)
+    base_value = int(baselines.get(stat, current_stat_value))
+    baselines[stat] = base_value
     multiplier = stat_stage_multiplier(next_stage)
     new_stat_value = max(1, int(round(base_value * multiplier)))
 

@@ -145,3 +145,34 @@ def test_setup_move_usage_cap_prevents_infinite_stacking():
     assert stage_after_cap == config.SETUP_MOVE_MAX_USES
     assert player.stat_stages["attack"] == stage_after_cap
     assert player.attack == attack_after_cap
+
+
+def test_defend_up_does_not_reduce_scaled_defense_on_first_use():
+    defend_up = Move("Defend Up", "Normal", 0, effect={"target": "self", "stat": "defense", "change": 1})
+    aquafin_like = Creature(
+        name="Aquafin",
+        type_="Water",
+        max_hp=328,
+        attack=194,
+        defense=194,
+        moves=[defend_up],
+        sprite=None,
+        level=100,
+        base_stats={"max_hp": 110, "attack": 65, "defense": 65},
+    )
+    opponent = _make_creature("OppMon", "Normal", hp=100, attack=40, defense=40, moves=[Move("Hit", "Normal", 10)])
+
+    defense_before = aquafin_like.defense
+    damage, _ = calculate_damage(
+        aquafin_like,
+        opponent,
+        defend_up,
+        type_chart={"Normal": {"Normal": 1.0}},
+        rng_uniform=lambda _low, _high: 1.0,
+        stat_change_fn=apply_stat_change,
+    )
+
+    expected_after = int(round(defense_before * config.STAT_STAGE_MULTIPLIERS[1]))
+    assert damage == 0
+    assert aquafin_like.defense == expected_after
+    assert aquafin_like.defense > defense_before
