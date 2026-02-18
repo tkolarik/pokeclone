@@ -21,6 +21,7 @@ OPTIONAL_FIELDS = {
     "comments",
 }
 ALLOWED_FIELDS = REQUIRED_CREATE_FIELDS | OPTIONAL_FIELDS
+_EDITOR_API_CONTROLLER = None
 
 
 class ApiError(Exception):
@@ -106,20 +107,50 @@ def validate_task_payload(payload, *, for_update=False):
     return payload
 
 
+def get_editor_api_controller():
+    global _EDITOR_API_CONTROLLER
+    if _EDITOR_API_CONTROLLER is None:
+        from src.editor.api_control import EditorApiController
+
+        _EDITOR_API_CONTROLLER = EditorApiController()
+    return _EDITOR_API_CONTROLLER
+
+
 class KanbanHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        if self.path == "/api/tasks":
+        request_path = self._request_path()
+
+        if request_path == "/api/tasks":
             try:
                 self._send_json(200, self._load_tasks())
             except (OSError, json.JSONDecodeError, ApiError) as exc:
                 self._send_json(500, {"error": f"Failed to load tasks: {exc}"})
             return
-        if self.path == "/":
+
+        if request_path == "/api/editor/state":
+            self._handle_editor_get_state()
+            return
+
+        if request_path == "/api/editor/features":
+            self._handle_editor_get_features()
+            return
+
+        if request_path == "/":
             self.path = "/index.html"
         super().do_GET()
 
     def do_POST(self):
-        if self.path != "/api/tasks":
+        request_path = self._request_path()
+
+        if request_path == "/api/editor/session":
+            self._handle_editor_start_session()
+            return
+
+        if request_path == "/api/editor/action":
+            self._handle_editor_action()
+            return
+
+        if request_path != "/api/tasks":
             self._send_json(404, {"error": "Endpoint not found."})
             return
 
@@ -148,11 +179,13 @@ class KanbanHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(500, {"error": f"Failed to persist task: {exc}"})
 
     def do_PUT(self):
-        if not self.path.startswith("/api/tasks/"):
+        request_path = self._request_path()
+
+        if not request_path.startswith("/api/tasks/"):
             self._send_json(404, {"error": "Endpoint not found."})
             return
 
-        task_id = self.path.split("/")[-1]
+        task_id = request_path.split("/")[-1]
         if not task_id:
             self._send_json(404, {"error": "Task ID is required in the URL."})
             return
@@ -174,6 +207,46 @@ class KanbanHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(exc.status_code, {"error": exc.message})
         except (OSError, json.JSONDecodeError) as exc:
             self._send_json(500, {"error": f"Failed to persist task update: {exc}"})
+
+    def _request_path(self):
+        return self.path.split("?", 1)[0]
+
+    def _send_handler_error(self, exc, context):
+        status_code = getattr(exc, "status_code", 500)
+        message = getattr(exc, "message", "")
+        if not isinstance(message, str) or not message:
+            message = f"{context}: {exc}"
+        self._send_json(status_code, {"error": message})
+
+    def _handle_editor_get_state(self):
+        try:
+            controller = get_editor_api_controller()
+            self._send_json(200, controller.get_state())
+        except Exception as exc:
+            self._send_handler_error(exc, "Failed to get editor state")
+
+    def _handle_editor_get_features(self):
+        try:
+            controller = get_editor_api_controller()
+            self._send_json(200, controller.get_feature_matrix())
+        except Exception as exc:
+            self._send_handler_error(exc, "Failed to get editor feature matrix")
+
+    def _handle_editor_start_session(self):
+        try:
+            controller = get_editor_api_controller()
+            payload = self._read_json_body()
+            self._send_json(200, controller.start_session(payload))
+        except Exception as exc:
+            self._send_handler_error(exc, "Failed to start editor session")
+
+    def _handle_editor_action(self):
+        try:
+            controller = get_editor_api_controller()
+            payload = self._read_json_body()
+            self._send_json(200, controller.execute_action(payload))
+        except Exception as exc:
+            self._send_handler_error(exc, "Failed to execute editor action")
 
     def _read_json_body(self):
         content_length_value = self.headers.get("Content-Length")
